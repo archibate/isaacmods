@@ -30,7 +30,7 @@ As well as many feature improvements:
 - Optioanlly teleport even faster by removing the annoying black screen animation (MCM: FastTransition, not enabled by default).
 - Optionally compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3071704639]Dangerous room! Caution[/url] to indicate dangerous room in color.
 - Memorize keyboard minimap widget location once dragged with mouse, or tweak TopLeftX and TopLeftY manually in MCM.
-- Integrated with Fair Trip: increases game time according to player move speed and teleported distance, disallowing teleporting path with non-cleared rooms in the way as well (FairTripTime, requires [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1978904635]Minimap API[/url] to work). Thanks @iamthestoat for merging this cool feature!
+- Integrated with Fair Trip: increases game time according to player move speed and teleported distance, disallowing teleporting path with non-cleared rooms in the way as well (FairTripTime, requires [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1978904635]Minimap API[/url] to work). Thanks @iamthestoat for merging this cool feature! Now hidden behind a master switch MinimapAPICompat in MCM, off by default — turn it on if you want the Fair Trip experience.
     
 ----------------------------
 ----original description----
@@ -108,7 +108,7 @@ C:\Users\YourName\My Games\Binding of Isaac Afterbirth+ \
 把 MouseControl=0 改成 MouseControl=1 并保存（fixed版中已经默认自动帮你开启）
 常见问题：不小心把传送小地图拖到垃圾桶里删除了？在控制台输入一行代码 lua gt:get_config().KeyboardMapEnable=true 就能恢复
 </description>
-    <version>2.2.28</version>
+    <version>2.2.29</version>
     <visibility>Public</visibility>
     <tag id="Rooms"/>
     <tag id="Floors"/>

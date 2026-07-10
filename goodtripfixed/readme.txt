@@ -131,3 +131,7 @@ C:\Users\YourName\My Games\Binding of Isaac Afterbirth+ \
 ·修复了锁定小地图后在镜像层点选会传送到镜像房间的问题。
 ·修复了中途修改HUD偏移后大地图点选错位的问题。
 ·新增：镜内世界（镜像层）的宝箱房与商店现在也视为免费、可直接传送到达。
+
+2026年7月9日
+·修复了开启公平计时（FairTripTime）后传送瞬间可能让游戏卡死的问题（寻路算法从枚举全部路径改为广度优先最短路）。
+·新增MinimapAPI联动总开关（MCM: MinimapAPICompat），默认关闭；公平计时需要开启该选项才生效。

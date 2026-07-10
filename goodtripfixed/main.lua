@@ -125,6 +125,7 @@ local gtconfig = {
     -- AllowRightClick = false,  --mouse right click on bigmap to teleport
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
+    MinimapAPICompat = false,  --master switch for MinimapAPI integration (FairTripTime needs this); off by default for low-end machines
     FairTripTime = true,  --weather to incur fair time according to distance
     ShowSpecialIcons = true,  --show icons on room that have mirror, white fireplace, minecart, mine button, or tinted skull
     -- ShowDoorsAllowed = false,  --show doors allowed for secret rooms
@@ -138,7 +139,6 @@ local minimapoffx = 0
 local minimapoffy = 0
 local debug = false
 local tele_cd = 0
-local ftTable = {}
 local bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99} -- press TAB+1~9 to mark or switch to, TAB+0 to clear all marks
 -------------------------------
 ---configs---
@@ -161,7 +161,8 @@ if ModConfigMenu then
 
         { "ShowSpecialIcons", "Show an icon on room that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
-        { "FairTripTime", "Fairly increase game time according to player move speed and distance (requires MinimapAPI)" },
+        { "MinimapAPICompat", "Master switch for MinimapAPI integration, needed by FairTripTime (off by default)" },
+        { "FairTripTime", "Fairly increase game time according to player move speed and distance (requires MinimapAPI and MinimapAPICompat on)" },
         { "FastTransition", "Even faster transition without animation" },
     }) do
         ModConfigMenu.AddSetting(
@@ -500,13 +501,14 @@ function _gt:teleport_to_grid_index(gid) ----core
     end
 
     local dist = 0
-    if gtconfig.FairTripTime and MinimapAPI then
-        local startRoomIdx = MinimapAPI:GetCurrentRoom().Descriptor.SafeGridIndex
-        dist = _gt:fair_trip(startRoomIdx, gid, 0)
-        if dist == 999 then
-          ftTable = {}
-          _gt:tele_failed()
-          return
+    if gtconfig.FairTripTime and gtconfig.MinimapAPICompat and MinimapAPI then
+        local curRoom = MinimapAPI:GetCurrentRoom()
+        if curRoom then
+          dist = _gt:fair_trip(curRoom.Descriptor.SafeGridIndex, gid)
+          if dist == 999 then
+            _gt:tele_failed()
+            return
+          end
         end
     end
 
@@ -554,7 +556,6 @@ function _gt:teleport_to_grid_index(gid) ----core
         if dist ~= 0 then
           local speed = player.MoveSpeed
           local addTime = math.floor((60.0*dist/speed)+0.5)
-          ftTable = {}
           --for some stupid fucking reason, the boss rush time check goes off of TimeCounter, but the Hush time check doesn't... 
           -- Game().BlueWombParTime = math.max(Game().BlueWombParTime - addTime, 0)
           ----------------------------------------------------------------------
@@ -1490,45 +1491,41 @@ function _gt:get_config()
 end
 --
 --
-function _gt:fair_trip(roomIndex, target, dist)
-	local min = 999
-	-- debug console spam
-	-- print("Current Index: "..roomIndex)
-	-- print("Target Index: "..target)
-	-- print("Dist: "..dist)
-	-- for k,v in pairs(ftTable) do
-		-- print(k..": "..tostring(v))
-	-- end
-	local vector = MinimapAPI:GridIndexToVector(roomIndex)
-	local roomMini = MinimapAPI:GetRoomAtPosition(vector)
-	local safeIndex = roomMini.Descriptor.SafeGridIndex
-	local targetVector = MinimapAPI:GridIndexToVector(target)
-	local targetRoom = MinimapAPI:GetRoomAtPosition(targetVector)
+function _gt:fair_trip(roomIndex, target)
+	--BFS shortest distance; only cleared rooms can be passed through,
+	--but any room connected to the target counts as the last hop (+1)
+	local startRoom = MinimapAPI:GetRoomAtPosition(MinimapAPI:GridIndexToVector(roomIndex))
+	local targetRoom = MinimapAPI:GetRoomAtPosition(MinimapAPI:GridIndexToVector(target))
+	if not startRoom or not targetRoom then
+		return 0
+	end
 	local safeTarget = targetRoom.Descriptor.SafeGridIndex
-
-    if _gt:check_neigh_connected(targetRoom.Descriptor, function(rd)
-        return rd.SafeGridIndex == safeIndex
-    end) then
-        return dist + 1
-    end
-	
-	if ftTable[safeIndex] == true or not roomMini.Clear then
-		return min
+	local visited = {[startRoom.Descriptor.SafeGridIndex] = true}
+	local queue = {{room = startRoom, dist = 0}}
+	local head = 1
+	while queue[head] do
+		local cur = queue[head]
+		head = head + 1
+		local safeIndex = cur.room.Descriptor.SafeGridIndex
+		if safeIndex == safeTarget and cur.room.Clear then
+			return cur.dist
+		end
+		if _gt:check_neigh_connected(targetRoom.Descriptor, function(rd)
+			return rd.SafeGridIndex == safeIndex
+		end) then
+			return cur.dist + 1
+		end
+		if cur.room.Clear then
+			for _, adj in ipairs(cur.room:GetAdjacentRooms()) do
+				local sid = adj.Descriptor.SafeGridIndex
+				if not visited[sid] then
+					visited[sid] = true
+					queue[#queue+1] = {room = adj, dist = cur.dist + 1}
+				end
+			end
+		end
 	end
-	
-	if safeIndex == safeTarget then
-		return dist
-	end
-	
-	ftTable[safeIndex] = true
-	local adjRooms = roomMini:GetAdjacentRooms()
-	
-	for i,v in ipairs(adjRooms) do
-		min = math.min(min, _gt:fair_trip(v.Descriptor.SafeGridIndex, target, dist+1))
-	end
-	
-	ftTable[safeIndex] = false
-	return min
+	return 999
 end
 --
 -------------------------------
