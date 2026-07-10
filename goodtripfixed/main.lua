@@ -673,8 +673,14 @@ end
 function _gt:get_pos_grid_index_mmp(pos)
     -----minimap-----
     if _gt:check_pos_en_box(pos,mmp_ltpos + Vector(1, 1) * mmsc, mmp_rbpos + Vector(11, 10) * mmsc) then
-      local mgid = math.floor((pos.X - mmp_pos0.X - 2 * mmsc)/ (8 * mmsc)) + math.floor((pos.Y - mmp_pos0.Y - 2 * mmsc)/ (7 * mmsc)) * 13
-      return mgid
+      local cx = math.floor((pos.X - mmp_pos0.X - 2 * mmsc)/ (8 * mmsc))
+      local cy = math.floor((pos.Y - mmp_pos0.Y - 2 * mmsc)/ (7 * mmsc))
+      if cx < 0 or cx > 12 or cy < 0 or cy > 12 then
+        --outside the 13x13 grid: without this, edge pixels (and the 3x3
+        --padding cells) would wrap around to a room on another row
+        return -99
+      end
+      return cx + cy * 13
     else
       return -99
     end
@@ -820,6 +826,18 @@ function _gt:prep_minimap()
     ----
     ltroom = _gt:get_corner_room(1)
     rbroom = _gt:get_corner_room(4)
+    --minimum 3x3 window (the top bar must fit the pin + zoom buttons);
+    --split the padding to both sides so the rooms sit centered
+    local padx = 2 - (rbroom.X - ltroom.X)
+    if padx > 0 then
+      ltroom.X = ltroom.X - math.floor(padx / 2)
+      rbroom.X = rbroom.X + math.ceil(padx / 2)
+    end
+    local pady = 2 - (rbroom.Y - ltroom.Y)
+    if pady > 0 then
+      ltroom.Y = ltroom.Y - math.floor(pady / 2)
+      rbroom.Y = rbroom.Y + math.ceil(pady / 2)
+    end
     mmp_ltpos_ = Vector(ltroom.X * 8, ltroom.Y * 7) * mmsc -- + Vector(-4, -4)
     mmp_rbpos_ = Vector(rbroom.X * 8, rbroom.Y * 7) * mmsc -- + Vector(4, 4)
     mmp_pos0 = mmp_ltpos - mmp_ltpos_
