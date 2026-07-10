@@ -1,4 +1,1 @@
-- New: keyboard minimap scale, x0.5 to x2.5 (MCM: MinimapScale), plus an on-map zoom button cycling x1.0 -> x1.5 -> x2.0 (works while pinned, no MCM needed)
-- The minimap window now keeps a minimum 3x3 size with rooms centered, so the buttons always fit even when only one room is discovered
-- Fixed a latent wrap-around where clicking the map's edge pixels could select a room on the neighboring row
-- Mod Config Menu links now point to the original author's official continuation 'Mod Config Menu - Impure' (the old Pure item was banned off the workshop in March)
+- Fixed a room-adjacency wrap-around inherited from the original GoodTrip: a room on the map's left edge could treat a room on the right edge of the neighboring row as its "cleared neighbor", allowing a teleport that should have been rejected (also affected fair trip's last-hop check)

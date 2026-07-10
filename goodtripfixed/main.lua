@@ -385,14 +385,22 @@ function _gt:check_neigh_connected(trd, cond)
                 and ((not Game():IsGreedMode() and trd.Data.Type == 4) or trd.Data.Type == 2)) then --free: stage-1 normal floor, or Downpour/Dross mirror world
         return false
       end
-      local function check_grid(id)
-        if id <= 0 or id >= 169 then
+      local function check_grid(off)
+        local id = tid + off
+        if id < 0 or id > 168 then
+          return false
+        end
+        --column guard: a +-1-ish offset from the row edge would wrap to a room
+        --on the neighboring row (e.g. column 0 "left" hits column 12 above),
+        --falsely treating two unconnected rooms across the map as adjacent
+        local dcol = ((off % 13) + 6) % 13 - 6
+        if (tid % 13) + dcol ~= id % 13 then
           return false
         end
         local rd = grid_room[id]
         return rd ~= nil and cond(rd)
       end
-      local near_room = {check_grid(tid-13), check_grid(tid+13), check_grid(tid-1), check_grid(tid+1)}
+      local near_room = {check_grid(-13), check_grid(13), check_grid(-1), check_grid(1)}
       if stage == 12 and trd.Data.Type == 5 and trd.Data.Shape > 3 then
         --void bossrooms--type4=1x2/type6=2x1/type8=2x2=Delirium
         if (near_room[1] and near_room[4])
@@ -415,7 +423,7 @@ function _gt:check_neigh_connected(trd, cond)
         end
         --specialshape
         for _, off in ipairs(neighlut[trd.Data.Shape]) do
-            if check_grid(tid + off) then
+            if check_grid(off) then
                 -- print(tid, off)
                 return true
             end
