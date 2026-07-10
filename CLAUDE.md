@@ -31,6 +31,13 @@ mod's source. Open this directory as the editor root so the shared `.luarc.json`
   in mirror world — measure in-game, don't guess.
 - Verify game mechanics against WebSearch before matching them in code.
 
+## Testing Contract
+
+When providen with steam community comments on mods. Extract bug fix and feature requests.
+Extract into bulletpoints for user to review.
+
+Do bug fixes one by one.
+
 ## API references
 
 - **Local stubs** (EmmyLua, greppable, power the Lua language server): `isaac-lua-api/`,
@@ -47,3 +54,5 @@ mod's source. Open this directory as the editor root so the shared `.luarc.json`
 ## Also here
 
 - `isaac-spinfix/` — patch for Rep+'s render thread pinning a CPU core under Wine.
+- `steamcomments` — fetch a mod's workshop comments from CLI (folder name or workshop id), no login needed.
+- `moduploader` — launch Isaac's native Linux ModUploader to publish a mod release to the workshop.

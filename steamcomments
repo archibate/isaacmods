@@ -28,6 +28,8 @@ def resolve_id(arg: str) -> str:
     if arg.isdigit():
         return arg
     meta = WORKSPACE / arg / "metadata.xml"
+    if not meta.is_file():
+        sys.exit(f"no such mod folder (or metadata.xml missing): {meta}")
     m = re.search(r"<id>(\d+)</id>", meta.read_text(encoding="utf-8"))
     if not m:
         sys.exit(f"no <id> found in {meta}")
