@@ -21,14 +21,14 @@ As well as many feature improvements:
 
 - 现在也支持加速三选一游戏和贪婪存款机了。
 
-- All settings now live in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url] (just like [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url]): max speed, speed-up rate, and per-machine toggles.
+- All settings now live in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url] (just like [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url]): max speed, speed-up rate, and per-machine toggles.
 - Kill the flies spawned by Shell Game / Hell Game / beggars, so speeding them up won't get you hurt — on by default (MCM: KillSpawnedFlies, toggle off if you prefer).
 - Delay troll bombs dropped by machines / beggars until you are done — on by default (MCM: DefuseSpawnedBombs, toggle off if you prefer).
 - No more sudden deaths: acceleration automatically stops when the next donation could kill you (a full heart from Womb onwards is accounted for) — The Lost donating with The Chariot, Keeper, and just-revived Lazarus are safe now (MCM: PreventSuddenDeath, on by default; turn it off to quick-sell blood while invincible).
 
 If you have found any other bugs, please let me know to fix them.
 
-- 所有设置现已进入 Mod Config Menu [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url]（和 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] 一样）：最大速度、加速快慢、每种机器的开关。
+- 所有设置现已进入 Mod Config Menu [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url]（和 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] 一样）：最大速度、加速快慢、每种机器的开关。
 - 清除三选一游戏和乞丐生成的苍蝇，加速喂机器时不再受伤——默认开启（MCM: KillSpawnedFlies，可在设置里关闭）。
 - 延缓机器/乞丐生成的即爆炸弹，等机器停了再爆——默认开启（MCM: DefuseSpawnedBombs，可在设置里关闭）。
 - 不再有猝死：当下一口献血可能致死时会自动停止加速（子宫层起卖血机一次抽一整颗心，已考虑在内）——Lost 用战车卡卖血、店长、刚复活的拉撒路现在都不会暴毙了。无敌时间仍随加速一起流动，不会因加速多赚。（MCM: PreventSuddenDeath，默认开启；想无敌快速卖血可关闭）
