@@ -1,3 +1,4 @@
 - Fixed heavy lag with Tech X (especially with Almond Milk / Soy Milk): the uncharged aim line was accidentally ~40000 px long, emitting thousands of sprite draws per frame; also capped line sections as a safety net and stopped full-opacity lines from being drawn 100 times over
 - Fixed Tractor Beam mode never activating: the saved setting was applied after the mode was already chosen at load time; now it works (still requires a game restart after changing it, as documented)
 - Birthright now doubles the shown reach of Tainted Azazel's hemoptysis, matching its doubled cloud size
+- InfAimLength changes in Mod Config Menu now apply immediately (only TractorBeamMode still needs a game restart)
