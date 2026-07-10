@@ -133,5 +133,5 @@ C:\Users\YourName\My Games\Binding of Isaac Afterbirth+ \
 ·新增：镜内世界（镜像层）的宝箱房与商店现在也视为免费、可直接传送到达。
 
 2026年7月9日
-·修复了开启公平计时（FairTripTime）后传送瞬间可能让游戏卡死的问题（寻路算法从枚举全部路径改为广度优先最短路）。
+·公平计时（FairTripTime）的寻路算法重写为广度优先最短路（原实现枚举全部路径，最坏情况指数级，属防患加固），并修复了 MinimapAPI 查不到房间时可能的崩溃。
 ·新增MinimapAPI联动总开关（MCM: MinimapAPICompat），默认关闭；公平计时需要开启该选项才生效。

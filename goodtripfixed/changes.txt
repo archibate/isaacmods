@@ -1,2 +1,2 @@
-- Fixed game freeze on teleport when FairTripTime is on (path finding rewritten as breadth-first search)
+- Fair trip path finding rewritten as breadth-first shortest path (the old all-paths search was worst-case exponential on loopy floors), and it no longer crashes when MinimapAPI can't resolve a room
 - Added MinimapAPICompat master switch in MCM for all MinimapAPI integration, off by default; FairTripTime now requires it on
