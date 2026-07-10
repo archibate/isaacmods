@@ -22,16 +22,16 @@ As well as many feature improvements:
 - 现在也支持加速三选一游戏和贪婪存款机了。
 
 - All settings now live in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url] (just like [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url]): max speed, speed-up rate, and per-machine toggles.
-- Optionally kill the flies spawned by Shell Game / Hell Game / beggars, so speeding them up won't get you hurt (MCM: KillSpawnedFlies).
-- Optionally delay troll bombs dropped by machines / beggars until you are done (MCM: DefuseSpawnedBombs).
-- No more sudden deaths: acceleration automatically stops when the next donation could kill you (a full heart from Womb onwards is accounted for) — The Lost donating with The Chariot, Keeper, and just-revived Lazarus are safe now.
+- Kill the flies spawned by Shell Game / Hell Game / beggars, so speeding them up won't get you hurt — on by default (MCM: KillSpawnedFlies, toggle off if you prefer).
+- Delay troll bombs dropped by machines / beggars until you are done — on by default (MCM: DefuseSpawnedBombs, toggle off if you prefer).
+- No more sudden deaths: acceleration automatically stops when the next donation could kill you (a full heart from Womb onwards is accounted for) — The Lost donating with The Chariot, Keeper, and just-revived Lazarus are safe now (MCM: PreventSuddenDeath, on by default; turn it off to quick-sell blood while invincible).
 
 If you have found any other bugs, please let me know to fix them.
 
 - 所有设置现已进入 Mod Config Menu [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url]（和 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] 一样）：最大速度、加速快慢、每种机器的开关。
-- 可选清除三选一游戏和乞丐生成的苍蝇，加速喂机器时不再容易受伤（MCM: KillSpawnedFlies）。
-- 可选延缓机器/乞丐生成的即爆炸弹（MCM: DefuseSpawnedBombs）。
-- 不再有猝死：当下一口献血可能致死时会自动停止加速（子宫层起卖血机一次抽一整颗心，已考虑在内）——Lost 用战车卡卖血、店长、刚复活的拉撒路现在都不会暴毙了。无敌时间仍随加速一起流动，不会因加速多赚。
+- 清除三选一游戏和乞丐生成的苍蝇，加速喂机器时不再受伤——默认开启（MCM: KillSpawnedFlies，可在设置里关闭）。
+- 延缓机器/乞丐生成的即爆炸弹，等机器停了再爆——默认开启（MCM: DefuseSpawnedBombs，可在设置里关闭）。
+- 不再有猝死：当下一口献血可能致死时会自动停止加速（子宫层起卖血机一次抽一整颗心，已考虑在内）——Lost 用战车卡卖血、店长、刚复活的拉撒路现在都不会暴毙了。无敌时间仍随加速一起流动，不会因加速多赚。（MCM: PreventSuddenDeath，默认开启；想无敌快速卖血可关闭）
 
 如果还有发现其他 BUG，欢迎告诉我来修复！
 
@@ -80,7 +80,7 @@ They will run faster and faster(with a limit) to save your (real)time!!
 -Jan.17, 2022
 
 ┌─────────────────────────────────────────────┐
-│★Check out my other mod: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831] GoodTrip[Repentance/AB+] [/url] ← 向你推荐★│ 
+│★Check out my other mod: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] ← 向你推荐★│
 └─────────────────────────────────────────────┘
 【使用说明】
 功能：现在你可以像玩捐款机一样越来越快地玩别的机器了！
@@ -88,7 +88,7 @@ They will run faster and faster(with a limit) to save your (real)time!!
 (1.4：小孩现在也是机器，如果你想快速和小孩玩，你得注意对准他的正下方或者正上方。)
 ·速度一开始没那么快，不用担心蹭一下就被献血机抽成干，谢谢！
 ·原型是去年1969定制的十连抽功能mod，几经修改后大家都很想要就努力做完了正式版(
-·你可以在&quot;Steam\steamapps\common\The Binding of Isaac Rebirth\mods\timemachine_2617557401\tmmc_config.lua&quot;文件里设置你喜欢的速率(包括初始速率，递增的速率和到达最大值后的速率)
+·&lt;del&gt;你可以在&quot;Steam\steamapps\common\The Binding of Isaac Rebirth\mods\timemachine_2617557401\tmmc_config.lua&quot;文件里设置你喜欢的速率(包括初始速率，递增的速率和到达最大值后的速率)&lt;/del&gt;now configurable in MCM after fixed!
 管他那么多！订阅就完事了！
 【更新记录】
 1.2：现在不止机器会被加速，以撒也会被加速，以免利用无敌献血获取更多回报
@@ -98,7 +98,7 @@ They will run faster and faster(with a limit) to save your (real)time!!
 1.5：现在可以在配置文件里自定义想要生效的机器了。解决了速度过快时穿过机器或者与机器距离不正常的问题。
 1.6：修复了一个高速度时撞向乞丐会瞬移的bug。
 1.7：修复了显示30分钟后凹凸门依然开启的bug。</description>
-    <version>1.20</version>
+    <version>1.25</version>
     <visibility>Public</visibility>
     <tag id="Tweaks"/>
 </metadata>

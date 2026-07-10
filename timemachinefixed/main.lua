@@ -25,8 +25,9 @@ end
 tmmc.speedmin = 0
 tmmc.speeda = 0.05
 tmmc.speedmax = 5
-tmmc.supressFly = false
-tmmc.supressBomb = false
+tmmc.supressFly = true
+tmmc.supressBomb = true
+tmmc.preventDeath = true
 tmmc.enable = {
     true,   --1.Slot Machine
     true,   --2.Blood Donation Machine
@@ -64,6 +65,43 @@ local health_machine = {
 ---configs---
 if ModConfigMenu then
     local oldcfgdatas = nil
+    --persist on change so a setting survives a luamod hot-reload (and a crash):
+    --the only built-in save trigger is leaving a run, so a mid-run toggle change
+    --used to be discarded the moment Lua was re-executed
+    local function save_config()
+        local json = require('json')
+        local dat = json.encode({
+            speedmax = tmmc.speedmax,
+            speeda = tmmc.speeda,
+            supressFly = tmmc.supressFly,
+            supressBomb = tmmc.supressBomb,
+            preventDeath = tmmc.preventDeath,
+            enable = tmmc.enable,
+        })
+        if not oldcfgdatas or dat ~= oldcfgdatas then
+            oldcfgdatas = dat
+            _tmmc:SaveData(dat)
+        end
+    end
+    local function load_config()
+        if not _tmmc:HasData() then return end
+        local dat = _tmmc:LoadData()
+        oldcfgdatas = dat
+        local json = require('json')
+        local ok, cfg = pcall(json.decode, dat)
+        if ok and type(cfg) == 'table' then
+            tmmc.speedmax = cfg.speedmax or tmmc.speedmax
+            tmmc.speeda = cfg.speeda or tmmc.speeda
+            if cfg.supressFly ~= nil then tmmc.supressFly = cfg.supressFly end
+            if cfg.supressBomb ~= nil then tmmc.supressBomb = cfg.supressBomb end
+            if cfg.preventDeath ~= nil then tmmc.preventDeath = cfg.preventDeath end
+            if type(cfg.enable) == 'table' then
+                for i = 1, #tmmc.enable do
+                    if cfg.enable[i] ~= nil then tmmc.enable[i] = cfg.enable[i] end
+                end
+            end
+        end
+    end
     if ModConfigMenu.GetCategoryIDByName("TimeMachine [Fixed]") ~= nil then
         print('TimeMachine [Fixed] is reloading ModConfigMenu options')
         ModConfigMenu.RemoveCategory("TimeMachine [Fixed]")
@@ -83,6 +121,7 @@ if ModConfigMenu then
         end,
         OnChange = function(b)
           tmmc.speedmax = b
+          save_config()
         end,
         Info = { "Maximum extra speed a machine can reach (in game ticks per real tick)" },
       }
@@ -102,6 +141,7 @@ if ModConfigMenu then
         end,
         OnChange = function(b)
           tmmc.speeda = b / 100
+          save_config()
         end,
         Info = { "How fast the speed builds up while touching a machine (percent per tick)" },
       }
@@ -109,6 +149,7 @@ if ModConfigMenu then
     for _, info in ipairs({
         { "supressFly", "KillSpawnedFlies", "Kill flies spawned by Shell Game / Hell Game / beggars so speeding up won't get you hurt" },
         { "supressBomb", "DefuseSpawnedBombs", "Delay troll bombs dropped by machines / beggars so they explode after you finished" },
+        { "preventDeath", "PreventSuddenDeath", "Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to quick-sell blood while invincible)" },
     }) do
         ModConfigMenu.AddSetting(
           "TimeMachine [Fixed]", nil,
@@ -122,6 +163,7 @@ if ModConfigMenu then
             end,
             OnChange = function(b)
               tmmc[info[1]] = b
+              save_config()
             end,
             Info = { info[3] },
           }
@@ -140,48 +182,25 @@ if ModConfigMenu then
             end,
             OnChange = function(b)
               tmmc.enable[i] = b
+              save_config()
             end,
             Info = { "Accelerate " .. name .. " while touching it" },
           }
         )
     end
+    load_config()
     _tmmc:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
-        if _tmmc:HasData() then
-            local dat = _tmmc:LoadData()
-            oldcfgdatas = dat
-            local json = require('json')
-            local ok, cfg = pcall(json.decode, dat)
-            if ok and type(cfg) == 'table' then
-                tmmc.speedmax = cfg.speedmax or tmmc.speedmax
-                tmmc.speeda = cfg.speeda or tmmc.speeda
-                if cfg.supressFly ~= nil then tmmc.supressFly = cfg.supressFly end
-                if cfg.supressBomb ~= nil then tmmc.supressBomb = cfg.supressBomb end
-                if type(cfg.enable) == 'table' then
-                    for i = 1, #tmmc.enable do
-                        if cfg.enable[i] ~= nil then tmmc.enable[i] = cfg.enable[i] end
-                    end
-                end
-            end
-        end
+        load_config()
     end)
     _tmmc:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, function(_, shouldSave)
-        local json = require('json')
-        local dat = json.encode({
-            speedmax = tmmc.speedmax,
-            speeda = tmmc.speeda,
-            supressFly = tmmc.supressFly,
-            supressBomb = tmmc.supressBomb,
-            enable = tmmc.enable,
-        })
-        if not oldcfgdatas or dat ~= oldcfgdatas then
-            oldcfgdatas = dat
-            _tmmc:SaveData(dat)
-        end
+        save_config()
     end)
 end
 ---machine speedup---
 local speedNow = tmmc.speedmin
 local speedAccum = 0.0
+--upvalue shared with the damage guard: true while a machine is being accelerated
+local accelerating = false
 function tmmc:new_room()
     speedNow = tmmc.speedmin
 end
@@ -211,6 +230,7 @@ function tmmc:machine_cost(variant)
     return 1
 end
 function tmmc:step()
+    accelerating = false
     if Game():GetRoom():IsClear() then
         local machines = tmmc:find_slot()
         if #machines > 0 then
@@ -230,7 +250,7 @@ function tmmc:step()
                     if player.Position:Distance(slot.Position) < (player.Size + slot.Size) then
                         --keep health-taking machines at vanilla speed when the next hit could
                         --kill, so the player has real time to walk away
-                        local danger = health_machine[slot.Variant]
+                        local danger = tmmc.preventDeath and health_machine[slot.Variant]
                             and tmmc:hp_halves(player) <= tmmc:machine_cost(slot.Variant)
                         if not danger then
                             isTouched = true
@@ -246,6 +266,17 @@ function tmmc:step()
                             end
                             for _ = 1, count do
                                 slot:Update()
+                                --kill spawned flies before the player update below runs, so a fly
+                                --spawned this tick never gets a collision/damage pass against the
+                                --player (otherwise it could land one hit before the end-of-step kill)
+                                if tmmc.supressFly then
+                                    for _, e in ipairs(Isaac.FindByType(18, 0, 0)) do
+                                        e:Kill()
+                                    end
+                                    for _, e in ipairs(Isaac.FindByType(85, 0, 0)) do
+                                        e:Kill()
+                                    end
+                                end
                                 local oldPosition = player.Position
                                 player:Update()
                                 player.Position = oldPosition
@@ -253,19 +284,12 @@ function tmmc:step()
                                 --rate, so invincible donation yields no more than vanilla; the
                                 --lethal-HP guard above is what prevents the sudden deaths
                                 if health_machine[slot.Variant] and player:HasInvincibility()
-                                    and tmmc:hp_halves(player) > tmmc:machine_cost(slot.Variant) then
+                                    and (not tmmc.preventDeath
+                                         or tmmc:hp_halves(player) > tmmc:machine_cost(slot.Variant)) then
                                     oldPosition = player.Position
                                     player:Update()
                                     player.Position = oldPosition
                                 end
-                            end
-                        end
-                        if tmmc.supressFly then
-                            for _, e in ipairs(Isaac.FindByType(85, 0, 0)) do
-                                e:Kill()
-                            end
-                            for _, e in ipairs(Isaac.FindByType(18, 0, 0)) do
-                                e:Kill()
                             end
                         end
                         if tmmc.supressBomb then
@@ -285,6 +309,7 @@ function tmmc:step()
                 speedNow = tmmc.speedmin
             end
             if accelerated then
+                accelerating = true
                 Game().TimeCounter = Game().TimeCounter + timeplus
             end
         end
@@ -293,3 +318,16 @@ end
 
 tmmc:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, tmmc.new_room)
 tmmc:AddCallback(ModCallbacks.MC_POST_UPDATE, tmmc.step)
+
+--a fly spawned by a machine is born in the main update pass and lands one
+--contact hit there before our MC_POST_UPDATE cull can remove it, so blocking
+--the hit is the only way to close that 1-frame gap. Only while accelerating at
+--a machine, with KillSpawnedFlies on, in a cleared room — so real combat and
+--blood-machine donations (source = the slot, not a fly) stay untouched.
+_tmmc:AddCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, function(_, _ent, _amount, _flags, source)
+    if not accelerating or not tmmc.supressFly or not Game():GetRoom():IsClear() then return end
+    local s = source and source.Entity
+    if s and (s.Type == 18 or s.Type == 85) then
+        return false
+    end
+end, EntityType.ENTITY_PLAYER)

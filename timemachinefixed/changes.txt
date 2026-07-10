@@ -1,3 +1,4 @@
-- Added Mod Config Menu support: max speed, speed-up rate, per-machine toggles, fly / troll bomb suppression
-- Fixed sudden deaths at blood-taking machines: acceleration now pauses when the next donation could kill you (Blood Donation costs a FULL heart from Womb onwards and is accounted for) — The Lost with The Chariot, Keeper, and just-revived Lazarus no longer die mid-donation; invincibility still flows with the accelerated time as always, so no extra rewards
-- Fixed a conflict where detecting the old TimeMachine would clobber GoodTrip's global state
+- Fixed MCM settings (KillSpawnedFlies / DefuseSpawnedBombs / PreventSuddenDeath / machine toggles) not persisting until you left a run: they are now saved the moment you change them, so they survive a luamod hot-reload and an unexpected crash / alt-F4
+- KillSpawnedFlies now blocks the one contact hit a machine-spawned fly/spider could land before being culled — only while accelerating at a machine, with the option on, in a cleared room (real combat and blood-machine donations are unaffected)
+- KillSpawnedFlies and DefuseSpawnedBombs now default ON for new installs (most requested change); existing saved preferences are kept, turn them off in MCM if you prefer the raw behavior
+
