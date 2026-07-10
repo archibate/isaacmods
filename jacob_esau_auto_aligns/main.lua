@@ -142,11 +142,6 @@ function mod:performAlignment(player)
         then
             cfg.JacobAsFront = not cfg.JacobAsFront
         end
-        if cfg.MoveEsauKey ~= -1 and Input.IsButtonPressed(cfg.MoveEsauKey, player.ControllerIndex)
-        or cfg.MoveEsauBtn ~= -1 and Input.IsButtonPressed(cfg.MoveEsauBtn, player.ControllerIndex)
-        then
-            player.ControlsCooldown = player.ControlsCooldown + 1
-        end
     end
     local shot = player:GetShootingInput()
 	if cfg.OnlyAlignOnShoot and shot:Length() < 0.1 then
@@ -197,5 +192,30 @@ mod:AddCallback(ModCallbacks.MC_POST_PLAYER_UPDATE, function(_, player)
     local playerType = player:GetPlayerType()
 	if (playerType == PlayerType.PLAYER_JACOB or playerType == PlayerType.PLAYER_ESAU) and player:GetOtherTwin() then
 		mod:performAlignment(player)
+	end
+end)
+
+--holding MoveEsauKey freezes Jacob: block only his movement input so he keeps
+--shooting, mirroring how vanilla Ctrl keeps Esau shooting while standing still
+local moveActions = {
+	[ButtonAction.ACTION_LEFT] = true,
+	[ButtonAction.ACTION_RIGHT] = true,
+	[ButtonAction.ACTION_UP] = true,
+	[ButtonAction.ACTION_DOWN] = true,
+}
+
+mod:AddCallback(ModCallbacks.MC_INPUT_ACTION, function(_, entity, hook, action)
+	if not moveActions[action] or not entity then return end
+	local player = entity:ToPlayer()
+	if not player or player:GetPlayerType() ~= PlayerType.PLAYER_JACOB or not player:GetOtherTwin() then return end
+	local cfg = mod:getConfig()
+	if cfg.MoveEsauKey ~= -1 and Input.IsButtonPressed(cfg.MoveEsauKey, player.ControllerIndex)
+	or cfg.MoveEsauBtn ~= -1 and Input.IsButtonPressed(cfg.MoveEsauBtn, player.ControllerIndex)
+	then
+		if hook == InputHook.GET_ACTION_VALUE then
+			return 0
+		else
+			return false
+		end
 	end
 end)

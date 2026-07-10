@@ -1,0 +1,1 @@
+- Fixed Jacob no longer shooting while holding Alt (Move Esau Key): now only his movement is held, he keeps shooting — same as how vanilla Ctrl keeps Esau shooting (thanks @Yucchi for the suggestion)

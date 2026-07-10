@@ -1,0 +1,3 @@
+- Added Mod Config Menu support: max speed, speed-up rate, per-machine toggles, fly / troll bomb suppression
+- Fixed sudden deaths at blood-taking machines: acceleration now pauses when the next donation could kill (Blood Donation costs a FULL heart from Womb onwards and is accounted for), revive i-frames are respected, and effect invincibility (VII The Chariot / Power Pill) is preserved — those machines simply run at vanilla speed during the buff, so no faster-than-vanilla free donations either
+- Fixed a conflict where detecting the old TimeMachine would clobber GoodTrip's global state

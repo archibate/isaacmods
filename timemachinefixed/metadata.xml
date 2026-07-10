@@ -21,19 +21,17 @@ As well as many feature improvements:
 
 - 现在也支持加速三选一游戏和贪婪存款机了。
 
-Below are some features to be added to this mod that I think would be useful, but I'm not sure... Let me know if you like these or not in the comments below!
-
-- Supress spiders and flys when interacting with Shell Game or Hell Game (otherwise it would be too easy to get hurt, preventing you from speeding up).
-- Delay the explosion of troll bombs when interacting with slot machines / beggars (until you leave the slot machine).
-- Support changing speed and other configurations in Mod Config Menu [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url] (just like what I did in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url]).
+- All settings now live in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url] (just like [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url]): max speed, speed-up rate, and per-machine toggles.
+- Optionally kill the flies spawned by Shell Game / Hell Game / beggars, so speeding them up won't get you hurt (MCM: KillSpawnedFlies).
+- Optionally delay troll bombs dropped by machines / beggars until you are done (MCM: DefuseSpawnedBombs).
+- No more sudden deaths: acceleration stops when the next donation could kill you (a full heart from Womb onwards is accounted for), revive i-frames are respected, and invincibility from The Chariot / Power Pill is no longer silently burned away — blood machines just run at vanilla speed during the buff (so no faster-than-vanilla free donations either).
 
 If you have found any other bugs, please let me know to fix them.
 
-下面是我即将为这个 mod 添加的一些新功能，但我不确定要不要加。如果你认为有需要的话，可以在下面的评论中告诉我！
-
-- 玩三选一游戏时阻止蜘蛛和苍蝇的生成（否则很容易受伤，几乎就是不能加速喂了）。
-- 与游戏机/乞丐互动时延缓其生成的即爆炸弹的爆炸（直到你离开了游戏机）。
-- 支持 Mod Config Menu [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url] 设置速度、各种配置（就像我在 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] 中做的一样）。
+- 所有设置现已进入 Mod Config Menu [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url]（和 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] 一样）：最大速度、加速快慢、每种机器的开关。
+- 可选清除三选一游戏和乞丐生成的苍蝇，加速喂机器时不再容易受伤（MCM: KillSpawnedFlies）。
+- 可选延缓机器/乞丐生成的即爆炸弹（MCM: DefuseSpawnedBombs）。
+- 不再有猝死：当下一口献血可能致死时会自动停止加速（子宫层起卖血机一次抽一整颗心，已考虑在内），复活无敌帧会被尊重，战车卡/力量药丸的无敌时间也不会再被偷偷烧掉——无敌期间扣血机器回到原版速度（所以也无法比原版更快地白嫖）。
 
 如果还有发现其他 BUG，欢迎告诉我来修复！
 
@@ -100,7 +98,7 @@ They will run faster and faster(with a limit) to save your (real)time!!
 1.5：现在可以在配置文件里自定义想要生效的机器了。解决了速度过快时穿过机器或者与机器距离不正常的问题。
 1.6：修复了一个高速度时撞向乞丐会瞬移的bug。
 1.7：修复了显示30分钟后凹凸门依然开启的bug。</description>
-    <version>1.19</version>
+    <version>1.20</version>
     <visibility>Public</visibility>
     <tag id="Tweaks"/>
 </metadata>
