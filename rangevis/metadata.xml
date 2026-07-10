@@ -32,7 +32,7 @@ UPDATE: Now use the experimental 'TractorBeamMode' option to use a Tractor Beam 
 UPDATE: Now the 'TractorBeamMode' uses our cool textures instead, to use vanilla tractor beam textures (for people prefer not feeling like cheating) you may turn on the 'UseVanillaBeam' option.
 
 </description>
-    <version>1.18</version>
+    <version>1.19</version>
     <visibility>Public</visibility>
     <tag id="Items"/>
     <tag id="Player Characters"/>

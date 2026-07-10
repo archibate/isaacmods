@@ -119,6 +119,18 @@ if ModConfigMenu then
 end
 -- end config
 
+--apply saved settings NOW: kOldMode below freezes the mode choice at load time,
+--and the MC_POST_GAME_STARTED merge alone came too late for a saved
+--TractorBeamMode=true to ever take effect (it never worked before this)
+if ModConfigMenu and mod:getConfig() and mod:HasData() then
+    local ok, cfg = pcall(function() return require('json').decode(mod:LoadData()) end)
+    if ok and type(cfg) == 'table' then
+        for k, v in pairs(cfg) do
+            mod:getConfig()[k] = v
+        end
+    end
+end
+
 local kOldMode = not mod:getConfig().TractorBeamMode
 local kInfinityLength = kOldMode and mod:getConfig().InfAimLength or 800
 local kBeamTipLength = 4
@@ -224,6 +236,7 @@ local function renderTargetSprite(name, pos, opacity)
     local frame = 1
     if opacity >= 100 then
         frame = 0
+        opacity = 1 --frame 0 is already fully opaque; stacking 100 draws only burns FPS
     end
     targetSprite:SetFrame(name, frame)
     local spos = fixMirrorPos(Isaac.WorldToScreen(pos))
@@ -254,6 +267,7 @@ if kOldMode then
         local angle = diffVector:GetAngleDegrees()
         local sectionLength = 12
         local sectionCount = math.floor(diffVector:Length() / sectionLength - 0.4)
+        sectionCount = math.min(sectionCount, 67) --safety cap: max InfAimLength (800) worth of sections, so no line can ever emit unbounded sprite draws
         percent = math.max(0, math.min(percent, 1))
         local percentCount = math.min(sectionCount, math.max(1,
             math.floor(diffVector:Length() * percent / sectionLength - 0.4)))
@@ -453,8 +467,15 @@ function mod:renderAimline(player, shotVel, aimMode, shootMode)
 
     if aimMode == AimMode.AIM_HEMOPTYSIS then
         local ext = (player.ShotSpeed - 1) * 40
+        local reach = 64 - 15
+        --Birthright doubles the size of the Hemoptysis cloud (wiki: Tainted
+        --Azazel), roughly doubling its forward reach; factor not measured
+        --in-game yet, calibrate if players still report a mismatch
+        if player:HasCollectible(CollectibleType.COLLECTIBLE_BIRTHRIGHT) then
+            reach = reach * 2
+        end
         if mod:getConfig().TaintedAzazel then
-            mod:drawLine(player, origPos + shotVel * (-4 + ext), origPos + shotVel * (64 - 15 + ext),
+            mod:drawLine(player, origPos + shotVel * (-4 + ext), origPos + shotVel * (reach + ext),
                 LineMode.LINE_HEMOPT, lineColorBrim, percent, true)
         end
     elseif aimMode == AimMode.AIM_THROW then
@@ -573,7 +594,10 @@ function mod:renderAimline(player, shotVel, aimMode, shootMode)
                 shotVel = shotVel + extraVel
                 shotVel = shotVel:Normalized() * kInfinityLength
                 shotVel = shotVel + extraVel * 0.8
-                shotVel = shotVel * player.TearRange * 0.75
+                --the vector is already at aim-line length here; the old extra
+                --`* player.TearRange * 0.75` blew it up to ~40000 px, emitting
+                --thousands of sprite draws per frame (the Tech X lag reports)
+                shotVel = shotVel:Normalized() * (player.TearRange * 0.75)
             else
                 shotVel = shotVel + extraVel
                 shotVel = shotVel * player.TearRange
