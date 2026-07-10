@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+    <name>Azazel's RangeVis</name>
+    <directory>rangevis</directory>
+    <id>2915325671</id>
+    <description>Range visualizer for Azazel... and more!
+
+This mod visualizes:
+[*] Azazel's short-ranged brimstone range
+[*] Tainted Azazel's Hemoptysis range
+[*] The dynamic range of Mom's Knife during charge
+[*] The Forgotten's bone attack, melee or ranged
+[*] How far Tainted Forgotten could throw his body
+[*] Range for normal tear (turned off by default)
+[*] Tear fire delay visualized (if turned on)
+[*] Tear velocity inherited from player movement
+[*] Trajectory of tear effects like homing, spectral, bounce, wiggle worms, etc.
+[*] Chocolate Milk and Tech X charge visualized
+[*] Haemolacria and Ipecac landing point visualized
+[*] Tainted Lilith's Gello shoot range visualized
+[*] Aiming line for regular Brimstone (can be turned off)
+[*] For Lilith, range starts from her 1st Incubus
+[*] Pickup collecting range for Bag of Crafting (Tainted Cain)
+[*] Bomb landing site for Bob's Rotten Head
+[*] Tainted Samson's donkey cheek bone
+[*] This mod was inspired by [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2496789708]Dark Esau Helper[/url], so if you need visual range for Dark Esau, install that too!
+[*] Toggle one by one using [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url] if you don't like some of them
+
+This is a very first version of this mod, please let me know if you encounter bugs, or have any other cool ideas!
+
+UPDATE: Now use the experimental 'TractorBeamMode' option to use a Tractor Beam (just visual effect) as aiming line instead of adhoc MC_POST_RENDER overlays, to be less buggy and support tear flags like homing and wiggle worms, can also be blocked by obstacles if not having spectral tear. How do you like it? Let me know if you prefer the old version or the new one.
+UPDATE: Now the 'TractorBeamMode' uses our cool textures instead, to use vanilla tractor beam textures (for people prefer not feeling like cheating) you may turn on the 'UseVanillaBeam' option.
+
+</description>
+    <version>1.18</version>
+    <visibility>Public</visibility>
+    <tag id="Items"/>
+    <tag id="Player Characters"/>
+    <tag id="Graphics"/>
+</metadata>
