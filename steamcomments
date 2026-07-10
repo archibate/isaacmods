@@ -16,6 +16,7 @@ from pathlib import Path
 
 WORKSPACE = Path(__file__).resolve().parent
 UA = {"User-Agent": "Mozilla/5.0"}
+STEAMID64_BASE = 76561197960265728  # + account_id (data-miniprofile) -> SteamID64
 
 
 def post(url: str, data: dict) -> dict:
@@ -64,7 +65,11 @@ def main() -> None:
         when = datetime.fromtimestamp(int(ts.group(1))).strftime("%Y-%m-%d %H:%M")
         body = re.sub(r"<br\s*/?>", "\n    ", text.group(1))
         body = html.unescape(re.sub(r"<[^>]+>", "", body)).strip()
-        print(f"[{when}] {html.unescape(author.group(1)).strip()}:\n    {body}\n")
+        name = html.unescape(author.group(1)).strip()
+        mini = re.search(r'data-miniprofile="(\d+)"', b)
+        if mini and int(mini.group(1)) + STEAMID64_BASE == int(owner):
+            name += " [作者]"
+        print(f"[{when}] {name}:\n    {body}\n")
 
 
 if __name__ == "__main__":
