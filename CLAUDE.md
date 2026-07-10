@@ -50,6 +50,28 @@ Do bug fixes one by one, never several fixes in parallel. The workflow for each 
 Fix not converging? Probe loop: form hypotheses, add instrument logs, debug together
 with the user.
 
+## Console Repro Contract
+
+Reproduction guides hand the user an exact console sequence in a fenced code block,
+one command per line, copy-paste ready:
+
+```
+luamod goodtripfixed
+restart 28
+stage 7
+giveitem c561
+lua print(Isaac.GetPlayer(0).TearRange)
+```
+
+- Start with `luamod <modname>` (bare folder name, no `_workshopid` suffix) whenever the
+  mod's Lua was just edited — it hot-reloads without a game restart.
+- `restart <PlayerType>` picks the character; `giveitem cNNN` gives items (`tNNN` for
+  trinkets); `stage N[a-d]` jumps floors; `lua print(Isaac.GetXX())` reads game state back.
+- **Never quote an ID from memory** — models hallucinate them. Grep the ground truth
+  first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
+  EntityType, TrinketType...). Mind naming quirks: Tech X is `COLLECTIBLE_TECH_X`, not
+  `TECHNOLOGY_X`.
+
 ## API references
 
 - **Local stubs** (EmmyLua, greppable, power the Lua language server): `isaac-lua-api/`,
