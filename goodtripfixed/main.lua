@@ -110,7 +110,24 @@ local tele_maze = false
 local secret_pre_room_id = {}
 local prep_alarm = false
 local n_room_num = 0
-
+--
+	Controller = Controller or {}
+	Controller.DPAD_LEFT = 0
+	Controller.DPAD_RIGHT = 1
+	Controller.DPAD_UP = 2
+	Controller.DPAD_DOWN = 3
+	Controller.BUTTON_A = 4
+	Controller.BUTTON_B = 5
+	Controller.BUTTON_X = 6
+	Controller.BUTTON_Y = 7
+	Controller.BUMPER_LEFT = 8
+	Controller.TRIGGER_LEFT = 9
+	Controller.STICK_LEFT = 10
+	Controller.BUMPER_RIGHT = 11
+	Controller.TRIGGER_RIGHT = 12
+	Controller.STICK_RIGHT = 13
+	Controller.BUTTON_BACK = 14
+	Controller.BUTTON_START = 15
 ----
 local gtconfig = {
     KeyboardMapEnable = true, --An extra minimap for controller or keyboard. true = enable. false = disable.
@@ -134,6 +151,11 @@ local gtconfig = {
     ControllerAlternateZ = nil,  --replacement for Z in the TAB+Z last room shortcut
     ControllerAlternateR = nil,  --replacement for R in the TAB+R restart shortcut
     MinimapScale = 10,  --keyboard minimap size, 5 = 0.5x .. 10 = 1.0x .. 25 = 2.5x
+    --for users with MCM that want their overlay key to always be the map key
+    VanillaOverlayKey = true,
+    OverlayKey = Keyboard.KEY_TAB,  --The key to open the overlay on keyboard
+    OverlayKeyController = Controller.BUTTON_BACK --The button to open the overlay on controller
+
 }
 ----
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
@@ -168,6 +190,7 @@ local bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99} -- press TAB+1~9
 -------------------------------
 ---configs---
 if ModConfigMenu then
+    gtconfig.VanillaOverlayKey = false --assume MCM users want to use different keys for ingame map and overlay map
     local oldcfgdatas = nil
     if ModConfigMenu.GetCategoryIDByName("GoodTrip [Fixed]") ~= nil then
         print('GoodTrip [Fixed] is reloading ModConfigMenu options')
@@ -189,6 +212,7 @@ if ModConfigMenu then
         -- { "MinimapAPICompat", "Master switch for MinimapAPI integration, needed by FairTripTime (off by default)" },
         { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "FastTransition", "Even faster transition without animation" },
+        { "VanillaOverlayKey", "Use the same key for overlay map as the in-game map" },
     }) do
         ModConfigMenu.AddSetting(
           "GoodTrip [Fixed]", nil,
@@ -316,6 +340,34 @@ if ModConfigMenu then
         Info = { "(For controller users only) we have TAB + R to fast restart, which button on the controller would act as R?" },
       }
     )
+      -- Keyboard keybind
+    ModConfigMenu.SimpleAddSetting(
+        ModConfigMenu.OptionType.KEYBIND_KEYBOARD,
+        "GoodTrip [Fixed]",
+        nil,
+        "OverlayKey",                 -- attribute name in MCM config
+        nil, nil, nil,
+        Keyboard.KEY_TAB,             -- default value
+        "Overlay Key (Keyboard)",     -- display name
+        nil,
+        true,                         -- display device
+        "Key to open the overlay (Only if VanillaOverlayKey is disabled)"
+    )
+
+  -- Controller keybind
+  -- here we bind Controller input instead of Action input to allow 
+    ModConfigMenu.SimpleAddSetting(
+        ModConfigMenu.OptionType.KEYBIND_CONTROLLER,
+        "GoodTrip [Fixed]",
+        nil,
+        "OverlayKeyController",
+        nil, nil, nil,
+        Controller.BUTTON_BACK,
+        "Overlay Key (Controller)",
+        nil,
+        true,
+        "Button to open the overlay (Only if VanillaOverlayKey is disabled)"
+    )
     _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
         if _gt:HasData() then
             local dat = _gt:LoadData()
@@ -341,6 +393,8 @@ if ModConfigMenu then
             _gt:SaveData(dat)
         end
     end)
+else
+  gtconfig.VanillaOverlayKey = true --only vanilla ovelay key if the user doesn't have MCM to avoid confusion
 end
 ---functions---
 --debug function for recursive print
@@ -1406,11 +1460,17 @@ function _gt:step()
     mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
     mouse_moved = (mpos - last_mpos):LengthSquared() > 4 --camera-independent (round-trip cancels camera); every frame so the baseline is fresh at TAB-open
     last_mpos = mpos
-    if Input.IsActionTriggered(ButtonAction.ACTION_MAP,player.ControllerIndex) then
+
+    if not gtconfig.VanillaOverlayKey and (Input.IsButtonTriggered(gtconfig.OverlayKey,player.ControllerIndex) 
+     or Input.IsButtonTriggered(gtconfig.OverlayKeyController,player.ControllerIndex)) 
+    or (gtconfig.VanillaOverlayKey and Input.IsActionTriggered(ButtonAction.ACTION_MAP,player.ControllerIndex)) then
       _gt:get_grid_room()
       _gt:prep()
     end
-    if Input.IsActionPressed(ButtonAction.ACTION_MAP,player.ControllerIndex) then
+
+    if not gtconfig.VanillaOverlayKey and (Input.IsButtonPressed(gtconfig.OverlayKey,player.ControllerIndex) 
+     or Input.IsButtonPressed(gtconfig.OverlayKeyController,player.ControllerIndex)) 
+    or (gtconfig.VanillaOverlayKey and Input.IsActionPressed(ButtonAction.ACTION_MAP,player.ControllerIndex)) then
       if gtconfig.LastRoomShortcut then
         if Input.IsButtonTriggered(Keyboard.KEY_Z, player.ControllerIndex)
         or (gtconfig.ControllerAlternateZ and Input.IsButtonTriggered(
