@@ -70,14 +70,9 @@ lua print(Isaac.GetPlayer(0).TearRange)
 - `restart <PlayerType>` picks the character; `giveitem cNNN` gives items (`tNNN` for
   trinkets, `kNN` for cards); `stage N[a-d]` jumps floors; `lua print(Isaac.GetXX())`
   reads game state back.
-- `debug <N>`: testing cheats — `3` invincibility, `4` +40 damage, `5` room info text,
-  `6`/`13` damage/grid hitbox circles, `7` damage numbers, `8` active always charged,
-  `9` very high luck, `10` enemies take rapid damage (rooms clear in ~1s),
-  `12` show held/temporary collectibles. Run again to toggle off.
-- `spawn <Type>.<Variant>.<Subtype>.<Champion>`: e.g. `spawn 10.2.0.4` = flaming Gaper,
-  blue champion (trailing parts optional: `spawn 20`, `spawn 10.1`); names work too
-  (`spawn mega maw`). `goto s.boss.1010` / `goto d.10` jumps to a room without clearing;
-  `repeat N` re-runs the previous command N times (huge N can hang the game).
+- `debug <N>`: testing cheats — `3` invincibility, `8` active always charged, `10`
+  quick kill enemies (rooms clear in ~1s). Run again to toggle off. Flag clear on restart.
+- `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
 - **Never quote an ID from memory** — models hallucinate them. Grep the ground truth
   first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
   EntityType, CardType, TrinketType...).
