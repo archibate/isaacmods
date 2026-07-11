@@ -738,7 +738,10 @@ function _gt:teleport_to_grid_index(gid) ----core
           ----------------------------------------------------------------------
           Game().TimeCounter = Game().TimeCounter + addTime
         end
-      Game():StartRoomTransition(gid, Direction.NO_DIRECTION, gtconfig.TeleportAnimation,player,-1)
+      --(a legacy duplicate StartRoomTransition sat here passing the boolean
+      --TeleportAnimation as the anim id — strict game builds threw "number
+      --expected, got boolean" and the teleport died; the properly-typed call
+      --below covers every path, only its tele_cd side effect is kept)
       tele_cd = 45
     end
     -- print('goto', gid)
