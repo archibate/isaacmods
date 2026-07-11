@@ -143,7 +143,6 @@ local gtconfig = {
     -- AllowRightClick = false,  --mouse right click on bigmap to teleport
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
-    -- MinimapAPICompat = false,  --master switch for MinimapAPI integration (FairTripTime needs this); off by default for low-end machines
     FairTripTime = false,  --weather to incur fair time according to distance; off by default so the apiless rework doesn't spring time penalties on existing players
     ShowSpecialIcons = true,  --show icons on room that have mirror, white fireplace, minecart, mine button, or tinted skull
     -- ShowDoorsAllowed = false,  --show doors allowed for secret rooms
@@ -207,7 +206,6 @@ if ModConfigMenu then
 
         { "ShowSpecialIcons", "Show an icon on room that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
-        -- { "MinimapAPICompat", "Master switch for MinimapAPI integration, needed by FairTripTime (off by default)" },
         { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "FastTransition", "Even faster transition without animation" },
     }) do
@@ -1715,15 +1713,14 @@ end
 --
 function _gt:new_level()
     hudoffset = Options.HUDOffset * 10 --refresh in case the HUD-offset slider changed mid-run
-    -- if you want to let the user disable api completly despite having it use this
-    -- if gtconfig.MinimapAPICompat and MinimapAPI then
-    -- if MinimapAPI then
-    --     -- print('GoodTrip [Fixed] detected MinimapAPI')
-    --     pcall(function ()
-    --         minimapoffx = MinimapAPI.Config.PositionX - 6 --* 2.4
-    --         minimapoffy = MinimapAPI.Config.PositionY - 6 --* 1.3
-    --     end)
-    -- end
+    --NOT gated by any option: when MinimapAPI renders the corner map at a
+    --custom position, our click hit-test must follow or every click is offset
+    if MinimapAPI then
+        pcall(function ()
+            minimapoffx = MinimapAPI.Config.PositionX - 6 --* 2.4
+            minimapoffy = MinimapAPI.Config.PositionY - 6 --* 1.3
+        end)
+    end
     bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
     level = Game():GetLevel()
     _gt:get_grid_room()
