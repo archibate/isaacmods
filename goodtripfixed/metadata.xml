@@ -84,7 +84,7 @@ C:\Users\YourName\My Games\Binding of Isaac Afterbirth+ \
 把 MouseControl=0 改成 MouseControl=1 并保存（fixed版中已经默认自动帮你开启）
 常见问题：不小心把传送小地图拖到垃圾桶里删除了？在控制台输入一行代码 lua gt:get_config().KeyboardMapEnable=true 就能恢复
 </description>
-    <version>2.2.31</version>
+    <version>2.2.32</version>
     <visibility>Public</visibility>
     <tag id="Rooms"/>
     <tag id="Floors"/>
