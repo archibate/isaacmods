@@ -32,8 +32,12 @@ As well as many feature improvements:
 - Optionally compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3071704639]Dangerous room! Caution[/url] to indicate dangerous room in color.
 - Memorize keyboard minimap widget location once dragged with mouse, or tweak TopLeftX and TopLeftY manually in MCM.
 - Integrated with Fair Trip: increases game time according to player move speed and teleported distance, disallowing teleporting path with non-cleared rooms in the way as well. Thanks @iamthestoat for merging this cool feature, and @Porp for making it standalone — it no longer needs Minimap API! Off by default: turn on FairTripTime in MCM if you want the Fair Trip experience.
-- Custom overlay key: bind a different key/button to open the teleport map (MCM: OverlayKey / OverlayKeyController), e.g. to avoid clashing with EID's TAB item reminder; leave unbound to keep using the vanilla map key. Thanks @Porp!
+- Custom overlay key: bind a different key/button to open the teleport map (MCM: OverlayKey / OverlayKeyController), e.g. you can bind to SHIFT, to avoid clashing with EID's TAB item reminder; leave OverlayKey unbound to keep using the vanilla map key. Thanks @Porp for adding this!
 - Supports zooming keyboard minimap, from 0.5x to 2.5x by MinimapScale in MCM or mouse click zoom botton.
+
+Original [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831]GoodTrip[/url] by: @tarako
+Co-authored with: @Porp
+GitHub repo: https://github.com/archibate/isaacmods
     
 ----------------------------
 ----original description----
