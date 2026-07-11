@@ -212,10 +212,10 @@ if ModConfigMenu then
         -- { "MinimapAPICompat", "Master switch for MinimapAPI integration, needed by FairTripTime (off by default)" },
         { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "FastTransition", "Even faster transition without animation" },
-        { "VanillaOverlayKey", "Use the same key for overlay map as the in-game map" },
+        { "VanillaOverlayKey", "Use the same key for overlay map as the in-game map (custom keybinds won't work)" },
     }) do
         ModConfigMenu.AddSetting(
-          "GoodTrip [Fixed]", nil,
+          "GoodTrip [Fixed]", "General",
           {
             Type = ModConfigMenu.OptionType.BOOLEAN,
             CurrentSetting = function()
@@ -232,7 +232,7 @@ if ModConfigMenu then
         )
     end
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]", "General",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 5,
@@ -251,7 +251,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]", "General",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 14,
@@ -270,7 +270,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]", "General",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 5,
@@ -291,7 +291,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]",  "Keybinds",
       {
         Type = ModConfigMenu.OptionType.KEYBIND_CONTROLLER,
         CurrentSetting = function()
@@ -316,7 +316,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]",  "Keybinds",
       {
         Type = ModConfigMenu.OptionType.KEYBIND_CONTROLLER,
         CurrentSetting = function()
@@ -340,33 +340,60 @@ if ModConfigMenu then
         Info = { "(For controller users only) we have TAB + R to fast restart, which button on the controller would act as R?" },
       }
     )
-      -- Keyboard keybind
-    ModConfigMenu.SimpleAddSetting(
-        ModConfigMenu.OptionType.KEYBIND_KEYBOARD,
-        "GoodTrip [Fixed]",
-        nil,
-        "OverlayKey",                 -- attribute name in MCM config
-        nil, nil, nil,
-        Keyboard.KEY_TAB,             -- default value
-        "Overlay Key (Keyboard)",     -- display name
-        nil,
-        true,                         -- display device
-        "Key to open the overlay (Only if VanillaOverlayKey is disabled)"
+    ModConfigMenu.AddSetting(
+      "GoodTrip [Fixed]", "Keybinds",
+      {
+        Type = ModConfigMenu.OptionType.KEYBIND_KEYBOARD,
+        CurrentSetting = function()
+          return gtconfig.OverlayKey
+        end,
+        Default = Keyboard.KEY_TAB,
+        Display = function()
+          return "OverlayKey: " .. (
+                    gtconfig.OverlayKey and
+                    InputHelper.KeyboardToString[gtconfig.OverlayKey]
+                    or 'None'
+                )
+        end,
+        OnChange = function(b)
+          gtconfig.OverlayKey = b
+        end,
+            PopupGfx = ModConfigMenu.PopupGfx.WIDE_SMALL,
+            PopupWidth = 280,
+            Popup = function()
+                return "Press a button on your controller to change this setting."
+            end,
+        Info = { "Key to open the overlay (Only if VanillaOverlayKey is disabled)" },
+      }
     )
 
   -- Controller keybind
   -- here we bind Controller input instead of Action input to allow 
-    ModConfigMenu.SimpleAddSetting(
-        ModConfigMenu.OptionType.KEYBIND_CONTROLLER,
-        "GoodTrip [Fixed]",
-        nil,
-        "OverlayKeyController",
-        nil, nil, nil,
-        Controller.BUTTON_BACK,
-        "Overlay Key (Controller)",
-        nil,
-        true,
-        "Button to open the overlay (Only if VanillaOverlayKey is disabled)"
+    ModConfigMenu.AddSetting(
+      "GoodTrip [Fixed]", "Keybinds",
+      {
+        Type = ModConfigMenu.OptionType.KEYBIND_CONTROLLER,
+        CurrentSetting = function()
+          return gtconfig.OverlayKeyController
+        end,
+        Default = Controller.BUTTON_BACK,
+        Display = function()
+          return "OverlayKeyController: " .. (
+                    gtconfig.OverlayKeyController and
+                    InputHelper.ControllerToString[gtconfig.OverlayKeyController]
+                    or 'None'
+                )
+        end,
+        OnChange = function(b)
+          gtconfig.OverlayKeyController = b
+        end,
+            PopupGfx = ModConfigMenu.PopupGfx.WIDE_SMALL,
+            PopupWidth = 280,
+            Popup = function()
+                return "Press a button on your controller to change this setting."
+            end,
+        Info = { "Button to open the overlay (Only if VanillaOverlayKey is disabled)" },
+      }
     )
     _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
         if _gt:HasData() then
@@ -1461,14 +1488,14 @@ function _gt:step()
     mouse_moved = (mpos - last_mpos):LengthSquared() > 4 --camera-independent (round-trip cancels camera); every frame so the baseline is fresh at TAB-open
     last_mpos = mpos
 
-    if not gtconfig.VanillaOverlayKey and (Input.IsButtonTriggered(gtconfig.OverlayKey,player.ControllerIndex) 
+    if not gtconfig.VanillaOverlayKey and (Input.IsButtonTriggered(gtconfig.OverlayKey,0) 
      or Input.IsButtonTriggered(gtconfig.OverlayKeyController,player.ControllerIndex)) 
     or (gtconfig.VanillaOverlayKey and Input.IsActionTriggered(ButtonAction.ACTION_MAP,player.ControllerIndex)) then
       _gt:get_grid_room()
       _gt:prep()
     end
 
-    if not gtconfig.VanillaOverlayKey and (Input.IsButtonPressed(gtconfig.OverlayKey,player.ControllerIndex) 
+    if not gtconfig.VanillaOverlayKey and (Input.IsButtonPressed(gtconfig.OverlayKey,0) 
      or Input.IsButtonPressed(gtconfig.OverlayKeyController,player.ControllerIndex)) 
     or (gtconfig.VanillaOverlayKey and Input.IsActionPressed(ButtonAction.ACTION_MAP,player.ControllerIndex)) then
       if gtconfig.LastRoomShortcut then
