@@ -1,3 +1,4 @@
 - Corner-map click teleport rewritten for MinimapAPI users: we now ask MinimapAPI where each room is actually drawn, so clicks land correctly in every display mode (small, bordered, TAB-expanded), at any custom map position, and in mirror world — fixes the offset / dead clicks reported with MinimapAPI installed
 - Vanilla corner-map clicks calibrated pixel-perfect in both the normal and the mirror world (measured in-game; the mirror world no longer needs per-version constants)
 - HUD offset changes now take effect on click detection immediately instead of after the next floor
+- New: self-service click calibration in MCM (CalibClickMain / CalibClickMirror, +-17px) — if corner-map clicks ever land beside your aim on your setup, drag the slider until perfect, no need to wait for a mod update (clicks land LEFT of aim -> increase, RIGHT -> decrease)

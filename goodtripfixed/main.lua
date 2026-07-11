@@ -829,15 +829,16 @@ function _gt:get_pos_grid_index(pos)
     end
     local rtr = _gt:get_corner_room(2)
     -----RTmap-----
-    local ltx = scpos.X - (rtr.X + 1) * 17 - 4 - hudoffset * 2.4 --withrighttopmap (interpolated from edge tests: -5 read 2px right, -3 read 1px left)
+    local ltx = scpos.X - (rtr.X + 1) * 17 - 3 - hudoffset * 2.4 --withrighttopmap; the -3 anchors the map's col-0 cell edge, calibrated in-game with the CalibClickMain slider
     local lty = - (rtr.Y) * 15 + 5 + hudoffset * 1.3 --whthrighttopmap
     if pos.X > ltx and pos.Y > lty and pos.X < ltx + 222 and pos.Y < lty + 196 then
         local px = pos.X
         --repentance stage 2c:mirror--
         if room:IsMirrorWorld() then
           local ltr = _gt:get_corner_room(3)
-          local rtx = scpos.X - (ltr.X + 1) * 17 - 4 - hudoffset * 2.4 --withleftbottommap (kept in step with ltx)
+          local rtx = scpos.X - (ltr.X + 1) * 17 - 3 - hudoffset * 2.4 --withleftbottommap (kept in step with ltx)
           -- print(rtr.X, ltr.X) -- 3 -> 9; 4 -> 9; 5 -> 9; 6 -> 7; 7 -> 5
+          --the tail constant is the mirror flip's phase, calibrated in-game with the CalibClickMirror slider
           px = ltx + (rtx - px) + (9 - math.max(0, rtr.X - ltr.X - 5) * 2)*17 - 34
         end
       local mgid = math.floor((px - ltx)/ 17) + math.floor((pos.Y - lty)/ 15) * 13
