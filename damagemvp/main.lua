@@ -101,9 +101,22 @@ end
 -- HP lost has to be read back one update later.
 local pending = {}
 
+-- One line per DISTINCT source signature, otherwise a Brimstone run floods the log.
+-- Bosses stay verbose: that is where boss-armor scaling shows up, and it needs
+-- every single hit to be visible.
+local seenSignatures = {}
+
 function mod:onEntityTakeDamage(entity, amount, flags, source, countdownFrames)
     if entity:ToPlayer() ~= nil then return end
     if not entity:IsActiveEnemy(false) then return end
+
+    local isBoss = entity:IsBoss()
+    if not isBoss then
+        local signature = string.format("%d.%d|%d.%d|%d",
+            source.Type, source.Variant, source.SpawnerType, source.SpawnerVariant, flags)
+        if seenSignatures[signature] then return end
+        seenSignatures[signature] = true
+    end
 
     local parts = {}
     parts[#parts + 1] = "[dmvp] hit " .. describeType(entity.Type, entity.Variant)
@@ -159,5 +172,11 @@ end
 
 mod:AddPriorityCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, CallbackPriority.LATE, mod.onEntityTakeDamage)
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onPostUpdate)
+
+-- console: lua dmvpreset()  -- forget seen signatures, log every source kind again
+function _G.dmvpreset()
+    seenSignatures = {}
+    print("[dmvp] signatures reset")
+end
 
 print("[dmvp] damage probe loaded")
