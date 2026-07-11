@@ -97,6 +97,12 @@ local function describeOwner(entity)
     return "owner stops at " .. describeType(current.Type, current.Variant)
 end
 
+-- print() only reaches the in-game console; Isaac.DebugString is what reaches log.txt
+local function log(line)
+    print(line)
+    Isaac.DebugString(line)
+end
+
 -- HitPoints is only decremented the frame AFTER the callback fires, so the real
 -- HP lost has to be read back one update later.
 local pending = {}
@@ -159,10 +165,10 @@ function mod:onPostUpdate()
             local entity = hit.ptr.Ref
             if entity == nil or entity:IsDead() then
                 -- overkill: HP lost is unknowable, the hit only had this much left to take
-                print(hit.line .. string.format(" | KILLED (had %.2f hp)", hit.hitPointsBefore))
+                log(hit.line .. string.format(" | KILLED (had %.2f hp)", hit.hitPointsBefore))
             else
                 local realLoss = hit.hitPointsBefore - entity.HitPoints
-                print(hit.line .. string.format(" | real %.2f (hp %.2f left)", realLoss, entity.HitPoints))
+                log(hit.line .. string.format(" | real %.2f (hp %.2f left)", realLoss, entity.HitPoints))
             end
         end
     end
@@ -176,7 +182,7 @@ mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onPostUpdate)
 -- console: lua dmvpreset()  -- forget seen signatures, log every source kind again
 function _G.dmvpreset()
     seenSignatures = {}
-    print("[dmvp] signatures reset")
+    log("[dmvp] signatures reset")
 end
 
-print("[dmvp] damage probe loaded")
+log("[dmvp] damage probe loaded")
