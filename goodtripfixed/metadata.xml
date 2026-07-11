@@ -3,88 +3,59 @@
     <name>GoodTrip [Fixed]</name>
     <directory>goodtripfixed</directory>
     <id>2916069863</id>
-    <description>[url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831]GoodTrip[/url] with BUGs &amp; compatibility fixed:
+    <description>Teleport to cleared rooms directly from the minimap — now fixed, polished, and highly configurable.
 
-- Fixed Tainted Forgotten accidentally throw his bone when using TAB + ↑↓←→.
-- Fixed mirror world in Downpour II when clicking mouse on the map.
-- Mirror world keyboard minimap now flips as well to be intuitive.
-- No longer need manually specify HUD offset in gtconfig, it automatically reads options.ini.
-- Able to show mirror room and white fireplace as icon in minimap.
-- Fixed compatibility with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1978904635]Minimap API[/url].
-- Prevents accidental tear shoot when clicking mouse on big map.
-- Keyboard minimap position is saved between runs once well placed.
-- Fixed compatibility against latest Repantance+.
-- Let me know if you found other bugs or compatibility issues, I'll try to fix it!
+This is a maintained version of [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831]GoodTrip[/url]. You only need to enable GoodTrip [Fixed]; the original mod is not required.
 
-As well as many feature improvements:
-
-- All options below may be toggled in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url]!
-- May teleport directly into an uncleared room as long as it have a cleared neighbor (MCM: AllowNeighborRoom).
-- Bookmark interested rooms by pressing TAB + 1, TAB + 2, ... in that room. Press TAB + 1 again will quick teleport to that room without pain to move cursors (MCM: AllowBookmarking).
-- Tab + Z to teleport back to last room visited, TAB + Z again to back to current room again (MCM: LastRoomShortcut).
-- TAB + R for faster restart (MCM: FastRestartEnable).
-- Controller users may set their prefered button instead for Z and R by binding ControllerAlternateZ and ControllerAlternateR in MCM (these two bindings are disabled by default until you set them).
-- Show mirror room and white fireplace in Downpour II, minecart and its buttons in Mines II, tinted skull in Depths II as room icon (MCM: ShowSpecialIcons).
-- May make this mod optionally ignore curse of lost (MCM: FollowCurseOfLost, not ignore by default).
-- Quick teleport into neighbor room by TAB + ASWD, without pain to long holding TAB + ↑↓←→ (MCM: QuicklyOneRoomMove, not enabled by default).
-- Move cursor faster by triggering TAB + ↑↓←→ once, without pain to long holding TAB + ↑↓←→ (MCM: FasterCursorMove, not enabled by default).
-- Optioanlly teleport even faster by removing the annoying black screen animation (MCM: FastTransition, not enabled by default).
-- Optionally compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3071704639]Dangerous room! Caution[/url] to indicate dangerous room in color.
-- Memorize keyboard minimap widget location once dragged with mouse, or tweak TopLeftX and TopLeftY manually in MCM.
-- Integrated with Fair Trip: increases game time according to player move speed and teleported distance, disallowing teleporting path with non-cleared rooms in the way as well. Thanks @iamthestoat for merging this cool feature, and @Porp for making it standalone — it no longer needs Minimap API! Off by default: turn on FairTripTime in MCM if you want the Fair Trip experience.
-- Custom overlay key: bind a different key/button to open the teleport map (MCM: OverlayKey / OverlayKeyController), e.g. you can bind to SHIFT, to avoid clashing with EID's TAB item reminder; leave OverlayKey unbound to keep using the vanilla map key. Thanks @Porp for adding this!
-- Supports zooming keyboard minimap, from 0.5x to 2.5x by MinimapScale in MCM or mouse click zoom botton.
-
-Original [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831]GoodTrip[/url] by: @tarako
-Co-authored with: @Porp
-GitHub repo: https://github.com/archibate/isaacmods
-    
-----------------------------
-----original description----
-----------------------------
 HOW TO USE
-A)Press Tab + mouseclick on the minimap(the room you want to go) directly.
-·Make sure the current room and your target room are clean.
-B)For controller or keyboard users, Press MapButton + ↑↓←→ to move the cursor for Selecting target room, in an extra minimap.
-·This map can be dragged or pinned with the mouse. When it's pinned, you can click to travel without press TAB.
-·If you like, you can change &quot;KeyboardMapEnable = true&quot; to &quot;false&quot; in gtconfig.lua to disable this minimap.(1.2.1 now drag it into the recycle bin just disable it fast)
-·If your hudoffset in game is not 0, please change &quot;HudOffset = 0&quot; in gtconfig.lua to match your real hudoffset.
-·Set &quot;TeleportAnimation = false&quot; in gtconfig.lua can remove the animation(White flash).(1.2.1:It is now disable by default)
 
-【操作方式】
-1.按住地图键(通常是TAB)的同时，鼠标点击右上角小地图的目标房间来进行传送。
-·传送需要所在房间和目标房间满足传送条件，基本上要求点亮的房间、地图以及玩家不能处在战斗中。
-2.站在原地，按住地图键，用发射眼泪的方向键在「辅助地图」中移动光标选择要去的房间进行传送
-·传送条件同上，这个功能是专为手柄和键盘设计的。
-·「辅助地图」只有在可以传送的条件下能够呼出，亦可将之用鼠标拖动到任意位置，或点击左上角图钉将之锁定在屏幕上。
-·这个地图一样可以用鼠标点击房间来进行传送，而且锁定的情况下不需要按tab直接点击即可。
-·如有需要，这个地图可以在配置文件gtconfig.ini中将KeyboardMapEnable = true修改为=false来禁用。
+- Mouse: hold the map button (TAB by default), then click a room on the minimap.
+- Keyboard/controller: hold the map button and use the shooting directions to select a room on the teleport map.
+- Drag the teleport map anywhere you like, or pin it to click rooms without holding TAB.
+- Both your current room and destination normally need to be cleared, and you cannot teleport during combat.
 
-【注意】
-·游戏内如果有调整ui偏移量，须用记事本打开同目录下gtconfig.lua设置文件，找到HudOffset = 0 ←修改这个数为游戏菜单设置hud offset数值相同，范围为0~10，来进行校正；或者直接把游戏内ui偏移调整为0，否则会影响选择右上角房间的准确性。（fixed版中已经修复，现在自动同步HudOffset了）
-·附加功能 TAB+R 光速重开。 可以在gtconfig文件修改FastRestartEnable开启，为了避免误按默认关闭了。（fixed版中已经默认开启，可以通过MCM配置）
-【附录】
-·答gtconfig.lua所在位置（fixed版中已经废弃，现在直接修改main.lua中的gtconfig即可）
-！！忏悔mod在新地址！！
-// Windows
-...\steam\steamapps\common\Binding of Isaac Rebirth\mods\goodtrip_1630477831\
-忏悔改变了mod文件夹，现在在steam里右键游戏访问游戏所在文件夹可以找到同目录下的“mods”文件夹，新的配置文件可能要在这里面更改。
-胎衣+
-// Windows
-C:\Users\YourName\My Games\Binding of Isaac Afterbirth+ Mods\goodtrip_1630477831\
-// OSX
-~/Library/Application Support/Binding of Isaac Afterbirth+ Mods/goodtrip_1630477831/
-·如何开启游戏内置光标（推荐）
-// Windows
-C:\Users\YourName\My Games\Binding of Isaac Afterbirth+ \
-(忏悔的目录是C:\Users\YourName\My Games\Binding of Isaac Repentance\)
-// OSX
-~/Library/Application Support/Binding of Isaac Afterbirth+ /
-编辑 options.ini 文件
-把 MouseControl=0 改成 MouseControl=1 并保存（fixed版中已经默认自动帮你开启）
-常见问题：不小心把传送小地图拖到垃圾桶里删除了？在控制台输入一行代码 lua gt:get_config().KeyboardMapEnable=true 就能恢复
+KEY FIXES
+
+- Fixed Tainted Forgotten throwing his bone when navigating with TAB + ↑↓←→.
+- Fixed mouse teleportation and map orientation in the Downpour II mirror world.
+- HUD offset is detected automatically from options.ini.
+- Fixed compatibility with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1978904635]Minimap API[/url] and Repentance+.
+- Prevented accidental tear firing when clicking the teleport map.
+- The teleport map remembers its position between runs.
+
+FEATURES
+
+Configure these features with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url]:
+
+- Bookmark rooms with TAB + 1, TAB + 2, etc.; use the same shortcut again to teleport back (MCM: AllowBookmarking).
+- Return to the previously visited room with TAB + Z; press it again to return (MCM: LastRoomShortcut).
+- Restart quickly with TAB + R (MCM: FastRestartEnable).
+- Controller users can assign alternate buttons for the Z and R shortcuts.
+- Show special-room icons: the mirror room and white fireplace in Downpour II, minecart and buttons in Mines II, and tinted skull in Depths II (MCM: ShowSpecialIcons).
+- Teleport into an uncleared room when it has a cleared neighbor (MCM: AllowNeighborRoom).
+- Optionally ignore Curse of the Lost (MCM: FollowCurseOfLost).
+- Move quickly to a neighboring room with TAB + WASD (MCM: QuicklyOneRoomMove, off by default).
+- Move the teleport-map cursor faster with TAB + ↑↓←→ (MCM: FasterCursorMove, off by default).
+- Remove the black transition animation for faster teleportation (MCM: FastTransition, off by default).
+- Integrate with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3071704639]Dangerous room! Caution[/url] to color dangerous rooms.
+- Enable Fair Trip rules, which add time based on movement speed and teleport distance and require a cleared route (MCM: FairTripTime, off by default). Thanks @iamthestoat and @Porp!
+- Bind a custom keyboard/controller button for the teleport map, useful for avoiding EID's TAB shortcut (MCM: OverlayKey / OverlayKeyController). Thanks @Porp!
+- Scale the teleport map from 0.5x to 2.5x (MCM: MinimapScale).
+
+FAQ
+
+Accidentally dragged the teleport map into the trash? Restore it from MCM, or enter this command in the in-game console:
+lua gt:get_config().KeyboardMapEnable=true
+
+Original [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831]GoodTrip[/url] by @tarako
+Co-authored with @Porp
+GitHub: https://github.com/archibate/isaacmods
+
+┌──────────────────────────────────────────────────────────┐
+│★ Check out my other fixed mod: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3169946719]TimeMachine [Fixed][/url] ★│
+└──────────────────────────────────────────────────────────┘
 </description>
-    <version>2.2.33</version>
+    <version>2.2.34</version>
     <visibility>Public</visibility>
     <tag id="Rooms"/>
     <tag id="Floors"/>
