@@ -64,6 +64,7 @@ local icon_flag2 = {"IconLockedRoom", "IconTreasureRoomGreed", "IconBossAmbushRo
 local scpos = Vector(0, 0)
 local grid_room = {}
 local grid_room_mark = {}
+local room_neighbours = {} --used instead of minimapi's GetAdjacentRooms() method
 local draw_room_id = {}
 local draw_room_pos = {}
 local draw_room_shape = {}
@@ -109,7 +110,24 @@ local tele_maze = false
 local secret_pre_room_id = {}
 local prep_alarm = false
 local n_room_num = 0
-
+--
+	Controller = Controller or {}
+	Controller.DPAD_LEFT = 0
+	Controller.DPAD_RIGHT = 1
+	Controller.DPAD_UP = 2
+	Controller.DPAD_DOWN = 3
+	Controller.BUTTON_A = 4
+	Controller.BUTTON_B = 5
+	Controller.BUTTON_X = 6
+	Controller.BUTTON_Y = 7
+	Controller.BUMPER_LEFT = 8
+	Controller.TRIGGER_LEFT = 9
+	Controller.STICK_LEFT = 10
+	Controller.BUMPER_RIGHT = 11
+	Controller.TRIGGER_RIGHT = 12
+	Controller.STICK_RIGHT = 13
+	Controller.BUTTON_BACK = 14
+	Controller.BUTTON_START = 15
 ----
 local gtconfig = {
     KeyboardMapEnable = true, --An extra minimap for controller or keyboard. true = enable. false = disable.
@@ -125,7 +143,7 @@ local gtconfig = {
     -- AllowRightClick = false,  --mouse right click on bigmap to teleport
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
-    MinimapAPICompat = false,  --master switch for MinimapAPI integration (FairTripTime needs this); off by default for low-end machines
+    -- MinimapAPICompat = false,  --master switch for MinimapAPI integration (FairTripTime needs this); off by default for low-end machines
     FairTripTime = true,  --weather to incur fair time according to distance
     ShowSpecialIcons = true,  --show icons on room that have mirror, white fireplace, minecart, mine button, or tinted skull
     -- ShowDoorsAllowed = false,  --show doors allowed for secret rooms
@@ -133,6 +151,10 @@ local gtconfig = {
     ControllerAlternateZ = nil,  --replacement for Z in the TAB+Z last room shortcut
     ControllerAlternateR = nil,  --replacement for R in the TAB+R restart shortcut
     MinimapScale = 10,  --keyboard minimap size, 5 = 0.5x .. 10 = 1.0x .. 25 = 2.5x
+    --for users with MCM that want their overlay key to always be the map key
+    OverlayKey = nil,  --The key to open the overlay on keyboard
+    OverlayKeyController = nil --The button to open the overlay on controller
+
 }
 ----
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
@@ -185,12 +207,12 @@ if ModConfigMenu then
 
         { "ShowSpecialIcons", "Show an icon on room that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
-        { "MinimapAPICompat", "Master switch for MinimapAPI integration, needed by FairTripTime (off by default)" },
-        { "FairTripTime", "Fairly increase game time according to player move speed and distance (requires MinimapAPI and MinimapAPICompat on)" },
+        -- { "MinimapAPICompat", "Master switch for MinimapAPI integration, needed by FairTripTime (off by default)" },
+        { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "FastTransition", "Even faster transition without animation" },
     }) do
         ModConfigMenu.AddSetting(
-          "GoodTrip [Fixed]", nil,
+          "GoodTrip [Fixed]", "General",
           {
             Type = ModConfigMenu.OptionType.BOOLEAN,
             CurrentSetting = function()
@@ -207,7 +229,7 @@ if ModConfigMenu then
         )
     end
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]", "General",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 5,
@@ -226,7 +248,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]", "General",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 14,
@@ -245,7 +267,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]", "General",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 5,
@@ -266,7 +288,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]",  "Keybinds",
       {
         Type = ModConfigMenu.OptionType.KEYBIND_CONTROLLER,
         CurrentSetting = function()
@@ -291,7 +313,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", nil,
+      "GoodTrip [Fixed]",  "Keybinds",
       {
         Type = ModConfigMenu.OptionType.KEYBIND_CONTROLLER,
         CurrentSetting = function()
@@ -313,6 +335,61 @@ if ModConfigMenu then
                 return "Press a button on your controller to change this setting."
             end,
         Info = { "(For controller users only) we have TAB + R to fast restart, which button on the controller would act as R?" },
+      }
+    )
+    ModConfigMenu.AddSetting(
+      "GoodTrip [Fixed]", "Keybinds",
+      {
+        Type = ModConfigMenu.OptionType.KEYBIND_KEYBOARD,
+        CurrentSetting = function()
+          return gtconfig.OverlayKey
+        end,
+        Default = Keyboard.KEY_TAB,
+        Display = function()
+          return "OverlayKey: " .. (
+                    gtconfig.OverlayKey and
+                    InputHelper.KeyboardToString[gtconfig.OverlayKey]
+                    or 'None'
+                )
+        end,
+        OnChange = function(b)
+          gtconfig.OverlayKey = b
+        end,
+            PopupGfx = ModConfigMenu.PopupGfx.WIDE_SMALL,
+            PopupWidth = 280,
+            Popup = function()
+                return "Press a button on your controller to change this setting."
+            end,
+        Info = { "Keyboard key to open the overlay" },
+      }
+    )
+
+  -- Controller keybind
+  -- here we bind Controller input instead of Action input to allow 
+    ModConfigMenu.AddSetting(
+      "GoodTrip [Fixed]", "Keybinds",
+      {
+        Type = ModConfigMenu.OptionType.KEYBIND_CONTROLLER,
+        CurrentSetting = function()
+          return gtconfig.OverlayKeyController
+        end,
+        Default = Controller.BUTTON_BACK,
+        Display = function()
+          return "OverlayKeyController: " .. (
+                    gtconfig.OverlayKeyController and
+                    InputHelper.ControllerToString[gtconfig.OverlayKeyController]
+                    or 'None'
+                )
+        end,
+        OnChange = function(b)
+          gtconfig.OverlayKeyController = b
+        end,
+            PopupGfx = ModConfigMenu.PopupGfx.WIDE_SMALL,
+            PopupWidth = 280,
+            Popup = function()
+                return "Press a button on your controller to change this setting."
+            end,
+        Info = { "Controller button to open the overlay" },
       }
     )
     _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
@@ -342,6 +419,20 @@ if ModConfigMenu then
     end)
 end
 ---functions---
+--debug function for recursive print
+function _gt.dump(o)
+   if type(o) == 'table' then
+      local s = '{ '
+      for k,v in pairs(o) do
+         if type(k) ~= 'number' then k = '"'..k..'"' end
+         s = s .. '['..k..'] = ' .. _gt.dump(v) .. ','
+      end
+      return s .. '} '
+   else
+      return tostring(o)
+   end
+end
+
 function _gt:check_pos_en_box(pos,ltpos,rbpos)
   if pos.X > ltpos.X and pos.X < rbpos.X and pos.Y > ltpos.Y and pos.Y < rbpos.Y then
     return true
@@ -555,15 +646,12 @@ function _gt:teleport_to_grid_index(gid) ----core
     end
 
     local dist = 0
-    if gtconfig.FairTripTime and gtconfig.MinimapAPICompat and MinimapAPI then
-        local curRoom = MinimapAPI:GetCurrentRoom()
-        if curRoom then
-          dist = _gt:fair_trip(curRoom.Descriptor.SafeGridIndex, gid)
-          if dist == 999 then
-            _gt:tele_failed()
-            return
-          end
-        end
+    if gtconfig.FairTripTime then
+      dist = _gt:fair_trip(crd.SafeGridIndex, gid)
+      if dist == 999 then
+        _gt:tele_failed()
+        return
+      end
     end
 
     if crd.Data.Type == 7 and secret_pre_room_id[crid] then -- from secret room (skip if antechamber never recorded)
@@ -721,6 +809,57 @@ function _gt:get_grid_room()
     end
 end
 --
+function _gt:get_room_neighbours()
+    room_neighbours = {}
+    local all_room = level:GetRooms()
+    for i = 0, all_room.Size do
+      local des = all_room:Get(i)
+      if des then
+            room_neighbours[des.SafeGridIndex] = {
+            --may be redundant to keep descriptor here and in grid_room, maybe it could be merged
+          Descriptor = des,
+          Neighbors = {}
+        }
+    end
+    end
+
+    --discover neighbours
+    --maybe use neighlut for more efficient way later
+
+      local offsets = {
+        -13,
+        13,
+        -1,
+        1
+      }
+      for _, room in pairs(room_neighbours) do
+        local safeIndex = room.Descriptor.SafeGridIndex
+
+        for gridIndex, cellRoom in pairs(grid_room) do
+          if cellRoom.SafeGridIndex == safeIndex then
+              for _, offset in ipairs(offsets) do
+                  local other = grid_room[gridIndex + offset]
+
+                  if other and other.SafeGridIndex ~= safeIndex then
+                      room.Neighbors[other.SafeGridIndex] = true
+                  end
+              end
+          end
+        end
+      end
+        -- Convert neighbour sets to arrays
+      for _, room in pairs(room_neighbours) do
+        local list = {}
+
+        for id in pairs(room.Neighbors) do
+          list[#list + 1] = id
+        end
+
+        room.Neighbors = list
+      end
+
+end
+
 function _gt:get_corner_room(num)
     local corner_room = Vector(6, 6)
     local fx = {1, -1, 1, -1}
@@ -1222,6 +1361,36 @@ function _gt:mirror_mmp_dir(p)
     end
 end
 
+function _gt:is_overlay_triggerd()
+    if ModConfigMenu then 
+      if (Input.IsButtonTriggered(gtconfig.OverlayKey,0) 
+      or Input.IsButtonTriggered(gtconfig.OverlayKeyController,player.ControllerIndex)) then
+        return true
+      else
+        return false
+      end
+    end
+    if Input.IsActionTriggered(ButtonAction.ACTION_MAP,player.ControllerIndex) then
+      return true
+    end
+    return false
+end
+
+function _gt:is_overlay_pressed()
+    if ModConfigMenu then 
+      if (Input.IsButtonPressed(gtconfig.OverlayKey,0) 
+      or Input.IsButtonPressed(gtconfig.OverlayKeyController,player.ControllerIndex)) then
+        return true
+      else
+        return false
+      end
+    end
+    if Input.IsActionPressed(ButtonAction.ACTION_MAP,player.ControllerIndex) then
+      return true
+    end
+    return false
+end
+
 function _gt:mouse_action()
     if _gt:IsMouseBtnTriggered(0) then
       --
@@ -1323,6 +1492,7 @@ function _gt:itemused()
     -- print('itemused', args)
     mmp_ctrl = false
     _gt:get_grid_room()
+    _gt:get_room_neighbours()
     _gt:prep()
 end
 function _gt:check_and_tele_room(tgid)
@@ -1350,11 +1520,13 @@ function _gt:step()
     mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
     mouse_moved = (mpos - last_mpos):LengthSquared() > 4 --camera-independent (round-trip cancels camera); every frame so the baseline is fresh at TAB-open
     last_mpos = mpos
-    if Input.IsActionTriggered(ButtonAction.ACTION_MAP,player.ControllerIndex) then
+
+    if _gt:is_overlay_triggerd() then
       _gt:get_grid_room()
       _gt:prep()
     end
-    if Input.IsActionPressed(ButtonAction.ACTION_MAP,player.ControllerIndex) then
+
+    if _gt:is_overlay_pressed() then
       if gtconfig.LastRoomShortcut then
         if Input.IsButtonTriggered(Keyboard.KEY_Z, player.ControllerIndex)
         or (gtconfig.ControllerAlternateZ and Input.IsButtonTriggered(
@@ -1496,6 +1668,7 @@ function _gt:new_room()
     local last_crd = crd
     --
     _gt:get_grid_room()
+    _gt:get_room_neighbours()
     room = Game():GetRoom()
     crd = level:GetCurrentRoomDesc()
     crid = crd.GridIndex
@@ -1538,16 +1711,19 @@ end
 --
 function _gt:new_level()
     hudoffset = Options.HUDOffset * 10 --refresh in case the HUD-offset slider changed mid-run
-    if MinimapAPI then
-        -- print('GoodTrip [Fixed] detected MinimapAPI')
-        pcall(function ()
-            minimapoffx = MinimapAPI.Config.PositionX - 6 --* 2.4
-            minimapoffy = MinimapAPI.Config.PositionY - 6 --* 1.3
-        end)
-    end
+    -- if you want to let the user disable api completly despite having it use this
+    -- if gtconfig.MinimapAPICompat and MinimapAPI then
+    -- if MinimapAPI then
+    --     -- print('GoodTrip [Fixed] detected MinimapAPI')
+    --     pcall(function ()
+    --         minimapoffx = MinimapAPI.Config.PositionX - 6 --* 2.4
+    --         minimapoffy = MinimapAPI.Config.PositionY - 6 --* 1.3
+    --     end)
+    -- end
     bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
     level = Game():GetLevel()
     _gt:get_grid_room()
+    _gt:get_room_neighbours()
     n_room_num = level:GetRooms().Size
     stageeffect = 0
     if not level:IsAscent() then
@@ -1570,36 +1746,39 @@ function _gt:get_config()
 end
 --
 --
+
 function _gt:fair_trip(roomIndex, target)
 	--BFS shortest distance; only cleared rooms can be passed through,
 	--but any room connected to the target counts as the last hop (+1)
-	local startRoom = MinimapAPI:GetRoomAtPosition(MinimapAPI:GridIndexToVector(roomIndex))
-	local targetRoom = MinimapAPI:GetRoomAtPosition(MinimapAPI:GridIndexToVector(target))
+
+	local startRoom = grid_room[roomIndex]
+	local targetRoom = grid_room[target]
 	if not startRoom or not targetRoom then
 		return 0
 	end
-	local safeTarget = targetRoom.Descriptor.SafeGridIndex
-	local visited = {[startRoom.Descriptor.SafeGridIndex] = true}
+	local safeTarget = targetRoom.SafeGridIndex
+	local visited = {[startRoom.SafeGridIndex] = true}
 	local queue = {{room = startRoom, dist = 0}}
 	local head = 1
 	while queue[head] do
 		local cur = queue[head]
 		head = head + 1
-		local safeIndex = cur.room.Descriptor.SafeGridIndex
+		local safeIndex = cur.room.SafeGridIndex
 		if safeIndex == safeTarget and cur.room.Clear then
 			return cur.dist
 		end
-		if _gt:check_neigh_connected(targetRoom.Descriptor, function(rd)
+		if _gt:check_neigh_connected(targetRoom, function(rd)
 			return rd.SafeGridIndex == safeIndex
 		end) then
 			return cur.dist + 1
 		end
 		if cur.room.Clear then
-			for _, adj in ipairs(cur.room:GetAdjacentRooms()) do
-				local sid = adj.Descriptor.SafeGridIndex
+			for _, adj in ipairs(room_neighbours[cur.room.SafeGridIndex].Neighbors) do
+        local adj_dsc = grid_room[adj]
+				local sid = adj_dsc.SafeGridIndex
 				if not visited[sid] then
 					visited[sid] = true
-					queue[#queue+1] = {room = adj, dist = cur.dist + 1}
+					queue[#queue+1] = {room = adj_dsc, dist = cur.dist + 1}
 				end
 			end
 		end
