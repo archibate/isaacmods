@@ -152,9 +152,8 @@ local gtconfig = {
     ControllerAlternateR = nil,  --replacement for R in the TAB+R restart shortcut
     MinimapScale = 10,  --keyboard minimap size, 5 = 0.5x .. 10 = 1.0x .. 25 = 2.5x
     --for users with MCM that want their overlay key to always be the map key
-    VanillaOverlayKey = true,
-    OverlayKey = Keyboard.KEY_TAB,  --The key to open the overlay on keyboard
-    OverlayKeyController = Controller.BUTTON_BACK --The button to open the overlay on controller
+    OverlayKey = nil,  --The key to open the overlay on keyboard
+    OverlayKeyController = nil --The button to open the overlay on controller
 
 }
 ----
@@ -190,7 +189,6 @@ local bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99} -- press TAB+1~9
 -------------------------------
 ---configs---
 if ModConfigMenu then
-    gtconfig.VanillaOverlayKey = false --assume MCM users want to use different keys for ingame map and overlay map
     local oldcfgdatas = nil
     if ModConfigMenu.GetCategoryIDByName("GoodTrip [Fixed]") ~= nil then
         print('GoodTrip [Fixed] is reloading ModConfigMenu options')
@@ -212,7 +210,6 @@ if ModConfigMenu then
         -- { "MinimapAPICompat", "Master switch for MinimapAPI integration, needed by FairTripTime (off by default)" },
         { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "FastTransition", "Even faster transition without animation" },
-        { "VanillaOverlayKey", "Use the same key for overlay map as the in-game map (custom keybinds won't work)" },
     }) do
         ModConfigMenu.AddSetting(
           "GoodTrip [Fixed]", "General",
@@ -363,7 +360,7 @@ if ModConfigMenu then
             Popup = function()
                 return "Press a button on your controller to change this setting."
             end,
-        Info = { "Key to open the overlay (Only if VanillaOverlayKey is disabled)" },
+        Info = { "Keyboard key to open the overlay" },
       }
     )
 
@@ -392,7 +389,7 @@ if ModConfigMenu then
             Popup = function()
                 return "Press a button on your controller to change this setting."
             end,
-        Info = { "Button to open the overlay (Only if VanillaOverlayKey is disabled)" },
+        Info = { "Controller button to open the overlay" },
       }
     )
     _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
@@ -420,8 +417,6 @@ if ModConfigMenu then
             _gt:SaveData(dat)
         end
     end)
-else
-  gtconfig.VanillaOverlayKey = true --only vanilla ovelay key if the user doesn't have MCM to avoid confusion
 end
 ---functions---
 --debug function for recursive print
@@ -1358,6 +1353,36 @@ function _gt:mirror_mmp_dir(p)
     end
 end
 
+function _gt:is_overlay_triggerd()
+    if ModConfigMenu then 
+      if (Input.IsButtonTriggered(gtconfig.OverlayKey,0) 
+      or Input.IsButtonTriggered(gtconfig.OverlayKeyController,player.ControllerIndex)) then
+        return true
+      else
+        return false
+      end
+    end
+    if Input.IsActionTriggered(ButtonAction.ACTION_MAP,player.ControllerIndex) then
+      return true
+    end
+    return false
+end
+
+function _gt:is_overlay_pressed()
+    if ModConfigMenu then 
+      if (Input.IsButtonPressed(gtconfig.OverlayKey,0) 
+      or Input.IsButtonPressed(gtconfig.OverlayKeyController,player.ControllerIndex)) then
+        return true
+      else
+        return false
+      end
+    end
+    if Input.IsActionPressed(ButtonAction.ACTION_MAP,player.ControllerIndex) then
+      return true
+    end
+    return false
+end
+
 function _gt:mouse_action()
     if _gt:IsMouseBtnTriggered(0) then
       --
@@ -1488,16 +1513,12 @@ function _gt:step()
     mouse_moved = (mpos - last_mpos):LengthSquared() > 4 --camera-independent (round-trip cancels camera); every frame so the baseline is fresh at TAB-open
     last_mpos = mpos
 
-    if not gtconfig.VanillaOverlayKey and (Input.IsButtonTriggered(gtconfig.OverlayKey,0) 
-     or Input.IsButtonTriggered(gtconfig.OverlayKeyController,player.ControllerIndex)) 
-    or (gtconfig.VanillaOverlayKey and Input.IsActionTriggered(ButtonAction.ACTION_MAP,player.ControllerIndex)) then
+    if _gt:is_overlay_triggerd() then
       _gt:get_grid_room()
       _gt:prep()
     end
 
-    if not gtconfig.VanillaOverlayKey and (Input.IsButtonPressed(gtconfig.OverlayKey,0) 
-     or Input.IsButtonPressed(gtconfig.OverlayKeyController,player.ControllerIndex)) 
-    or (gtconfig.VanillaOverlayKey and Input.IsActionPressed(ButtonAction.ACTION_MAP,player.ControllerIndex)) then
+    if _gt:is_overlay_pressed() then
       if gtconfig.LastRoomShortcut then
         if Input.IsButtonTriggered(Keyboard.KEY_Z, player.ControllerIndex)
         or (gtconfig.ControllerAlternateZ and Input.IsButtonTriggered(
