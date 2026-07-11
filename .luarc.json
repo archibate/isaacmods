@@ -142,7 +142,10 @@
         "DetailedRespawn",
         "MinimapAPI",
         "ModConfigMenu",
-        "gt"
+        "gt",
+        "DangerCaution",
+        "InputHelper",
+        "CallbackPriority"
     ],
     "runtime.version": "Lua 5.3",
     "workspace.library": [
