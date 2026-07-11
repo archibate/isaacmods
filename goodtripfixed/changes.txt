@@ -1,3 +1,3 @@
-- Fair Trip no longer needs MinimapAPI (thanks @Porp!): pathfinding is now standalone and the MinimapAPICompat switch is retired. FairTripTime is OFF by default — turn it on in MCM if you want fair time penalties; players who had opted in via the old switch keep their setting
-- New: custom overlay key (MCM: OverlayKey / OverlayKeyController, thanks @Porp!) — bind a different key/button to open the teleport map, e.g. to dodge EID's TAB item reminder; unbound = vanilla map key, bound = replaces it
-- Fixed a room-adjacency wrap-around inherited from the original GoodTrip: a room on the map's left edge could treat a room on the right edge of the neighboring row as its "cleared neighbor", allowing a teleport that should have been rejected (also affected fair trip's last-hop check)
+- Corner-map click teleport rewritten for MinimapAPI users: we now ask MinimapAPI where each room is actually drawn, so clicks land correctly in every display mode (small, bordered, TAB-expanded), at any custom map position, and in mirror world — fixes the offset / dead clicks reported with MinimapAPI installed
+- Vanilla corner-map clicks calibrated pixel-perfect in both the normal and the mirror world (measured in-game; the mirror world no longer needs per-version constants)
+- HUD offset changes now take effect on click detection immediately instead of after the next floor

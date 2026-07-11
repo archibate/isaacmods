@@ -180,8 +180,6 @@ local function cycle_mmscale() --zoom button: x1.0 -> x1.5 -> x2.0 -> x1.0
 end
 ----
 local hudoffset = Options.HUDOffset * 10  --need your real hudoffset of game [0,10]
-local minimapoffx = 0
-local minimapoffy = 0
 local debug = false
 local tele_cd = 0
 local bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99} -- press TAB+1~9 to mark or switch to, TAB+0 to clear all marks
@@ -751,23 +749,64 @@ function _gt:teleport_to_grid_index(gid) ----core
     if debug or gtconfig.FastTransition then tele_cd = 1 end
 end
 --
+--hit-test against MinimapAPI's own rendered rooms: each room carries its
+--on-screen anchor (RenderOffset) with position, display mode, small/large
+--pitch and the mirror-world flip all baked in, so we invert that instead of
+--guessing the vanilla map geometry (which MinimapAPI replaces entirely)
+function _gt:get_pos_grid_index_minimapapi(pos)
+    local sx = MinimapAPI.GlobalScaleX or 1
+    if sx ~= 1 and sx ~= -1 then
+      return -99 --mid mirror-flip animation, geometry unreliable for a few frames
+    end
+    local mlevel = MinimapAPI:GetLevel()
+    if not mlevel then
+      return -99
+    end
+    local large = MinimapAPI:IsLarge()
+    local pw, ph = large and 17 or 8, large and 15 or 7
+    local pivot = large and Vector(-4, -4) or Vector(-2, -2)
+    for _, mroom in ipairs(mlevel) do
+      if mroom.RenderOffset and mroom.Descriptor and mroom:IsVisible() then
+        local ox = mroom.RenderOffset.X - pivot.X
+        if sx == -1 then
+          --the sprite flips around its anm2 pivot, so the baked-in anim-pivot
+          --compensation flips too (measured: half a cell, toward the left)
+          ox = ox + pivot.X * 2
+        end
+        local oy = mroom.RenderOffset.Y - pivot.Y
+        for _, c in ipairs(MinimapAPI:GetRoomShapePositions(mroom.Shape)) do
+          local x0 = ox + c.X * pw * sx
+          local x1 = x0 + pw * sx
+          local y0 = oy + c.Y * ph
+          if pos.X >= math.min(x0, x1) and pos.X < math.max(x0, x1)
+              and pos.Y >= y0 and pos.Y < y0 + ph then
+            return mroom.Descriptor.SafeGridIndex
+          end
+        end
+      end
+    end
+    return -99
+end
+--
 function _gt:get_pos_grid_index(pos)
     if (not gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
       return -99
     end
+    if MinimapAPI then
+      return _gt:get_pos_grid_index_minimapapi(pos)
+    end
     local rtr = _gt:get_corner_room(2)
-    -----RTmap----- 
-    local ltx = scpos.X - (rtr.X + 1) * 17 - 5 - hudoffset * 2.4 - minimapoffx --withrighttopmap
-    local lty = - (rtr.Y) * 15 + 5 + hudoffset * 1.3 + minimapoffy --whthrighttopmap
+    -----RTmap-----
+    local ltx = scpos.X - (rtr.X + 1) * 17 - 4 - hudoffset * 2.4 --withrighttopmap (interpolated from edge tests: -5 read 2px right, -3 read 1px left)
+    local lty = - (rtr.Y) * 15 + 5 + hudoffset * 1.3 --whthrighttopmap
     if pos.X > ltx and pos.Y > lty and pos.X < ltx + 222 and pos.Y < lty + 196 then
         local px = pos.X
         --repentance stage 2c:mirror--
         if room:IsMirrorWorld() then
           local ltr = _gt:get_corner_room(3)
-          local rtx = scpos.X - (ltr.X + 1) * 17 - 5 - hudoffset * 2.4 - minimapoffx --withleftbottommap
+          local rtx = scpos.X - (ltr.X + 1) * 17 - 4 - hudoffset * 2.4 --withleftbottommap (kept in step with ltx)
           -- print(rtr.X, ltr.X) -- 3 -> 9; 4 -> 9; 5 -> 9; 6 -> 7; 7 -> 5
-          -- Repentance+ re-anchored the corner map: +27, vs -32 on old Repentance
-          px = ltx + (rtx - px) + (9 - math.max(0, rtr.X - ltr.X - 5) * 2)*17 + (REPENTANCE_PLUS and 27 or -32)
+          px = ltx + (rtx - px) + (9 - math.max(0, rtr.X - ltr.X - 5) * 2)*17 - 34
         end
       local mgid = math.floor((px - ltx)/ 17) + math.floor((pos.Y - lty)/ 15) * 13
       return mgid
@@ -1297,6 +1336,7 @@ end
 function _gt:tab_action()
     local cp = Isaac.WorldToRenderPosition(Vector(320,280))
     scpos = cp + cp
+    hudoffset = Options.HUDOffset * 10 --live: the map moves the moment the slider moves, so must our anchor (refreshing only on new_level lagged until the next floor)
     --
     if gtconfig.FastRestartEnable and Input.IsButtonTriggered(Keyboard.KEY_R, player.ControllerIndex)
         or (gtconfig.ControllerAlternateR and Input.IsButtonTriggered(gtconfig.ControllerAlternateR, player.ControllerIndex)) then
@@ -1713,14 +1753,8 @@ end
 --
 function _gt:new_level()
     hudoffset = Options.HUDOffset * 10 --refresh in case the HUD-offset slider changed mid-run
-    --NOT gated by any option: when MinimapAPI renders the corner map at a
-    --custom position, our click hit-test must follow or every click is offset
-    if MinimapAPI then
-        pcall(function ()
-            minimapoffx = MinimapAPI.Config.PositionX - 6 --* 2.4
-            minimapoffy = MinimapAPI.Config.PositionY - 6 --* 1.3
-        end)
-    end
+    --(the old MinimapAPI position sync is gone: with MinimapAPI present the
+    --hit-test now inverts MinimapAPI's own per-room render anchors instead)
     bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
     level = Game():GetLevel()
     _gt:get_grid_room()
