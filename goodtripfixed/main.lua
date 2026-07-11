@@ -152,8 +152,11 @@ local gtconfig = {
     MinimapScale = 10,  --keyboard minimap size, 5 = 0.5x .. 10 = 1.0x .. 25 = 2.5x
     --for users with MCM that want their overlay key to always be the map key
     OverlayKey = nil,  --The key to open the overlay on keyboard
-    OverlayKeyController = nil --The button to open the overlay on controller
-
+    OverlayKeyController = nil, --The button to open the overlay on controller
+    --self-service calibration for corner-map clicks, in pixels: if clicks land
+    --one room LEFT of where you aim, increase; RIGHT of aim, decrease
+    CalibMainX = 0,
+    CalibMirrorX = 0,
 }
 ----
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
@@ -283,6 +286,30 @@ if ModConfigMenu then
         Info = { "Keyboard minimap size, x0.5 (tiny) to x1.0 (original) up to x2.5" },
       }
     )
+    for _, info in ipairs({
+        { "CalibMainX", "CalibClickMain", "Corner-map click calibration in normal world (pixels): clicks landing LEFT of your aim -> increase, RIGHT of aim -> decrease" },
+        { "CalibMirrorX", "CalibClickMirror", "Corner-map click calibration in mirror world (pixels): clicks landing LEFT of your aim -> increase, RIGHT of aim -> decrease" },
+    }) do
+        ModConfigMenu.AddSetting(
+          "GoodTrip [Fixed]", "General",
+          {
+            Type = ModConfigMenu.OptionType.NUMBER,
+            Minimum = -17,
+            Maximum = 17,
+            Default = 0,
+            CurrentSetting = function()
+              return gtconfig[info[1]] or 0
+            end,
+            Display = function()
+              return ("%s: %+dpx"):format(info[2], gtconfig[info[1]] or 0)
+            end,
+            OnChange = function(b)
+              gtconfig[info[1]] = b
+            end,
+            Info = { info[3] },
+          }
+        )
+    end
     ModConfigMenu.AddSetting(
       "GoodTrip [Fixed]",  "Keybinds",
       {
@@ -792,6 +819,11 @@ function _gt:get_pos_grid_index(pos)
     if (not gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
       return -99
     end
+    --user self-calibration (MCM): shift the perceived click so the selection
+    --moves the same screen direction in both worlds; fresh Vector, the
+    --caller's mouse position must stay untouched
+    local calib = room:IsMirrorWorld() and (gtconfig.CalibMirrorX or 0) or (gtconfig.CalibMainX or 0)
+    pos = Vector(pos.X + calib, pos.Y)
     if MinimapAPI then
       return _gt:get_pos_grid_index_minimapapi(pos)
     end
