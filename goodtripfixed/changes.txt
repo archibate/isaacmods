@@ -1,1 +1,2 @@
-- Fixed teleport crashing on some game builds with "bad argument to StartRoomTransition (number expected, got boolean)" — a legacy duplicate transition call passed the TeleportAnimation boolean as the animation id; strict builds rejected it and the teleport silently died (thanks @校医院也有B超 for the console log!)
+- Fixed mirror-world corner-map clicks landing 2 rooms off on old Repentance (non-Rep+) builds: Repentance+ re-anchored the corner map, so the mirror click phase is now version-gated — measured in-game on both builds (thanks @阿泽 for the report!)
+- Click calibration sliders extended to +-100px, and new vertical sliders added (CalibClickMainY / CalibClickMirrorY) — whatever your setup does to the map anchor, you can now self-calibrate both axes in MCM

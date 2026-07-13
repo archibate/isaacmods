@@ -155,8 +155,11 @@ local gtconfig = {
     OverlayKeyController = nil, --The button to open the overlay on controller
     --self-service calibration for corner-map clicks, in pixels: if clicks land
     --one room LEFT of where you aim, increase; RIGHT of aim, decrease
+    --(Y likewise: land ABOVE your aim, increase; BELOW, decrease)
     CalibMainX = 0,
     CalibMirrorX = 0,
+    CalibMainY = 0,
+    CalibMirrorY = 0,
 }
 ----
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
@@ -289,13 +292,15 @@ if ModConfigMenu then
     for _, info in ipairs({
         { "CalibMainX", "CalibClickMain", "Corner-map click calibration in normal world (pixels): clicks landing LEFT of your aim -> increase, RIGHT of aim -> decrease" },
         { "CalibMirrorX", "CalibClickMirror", "Corner-map click calibration in mirror world (pixels): clicks landing LEFT of your aim -> increase, RIGHT of aim -> decrease" },
+        { "CalibMainY", "CalibClickMainY", "Corner-map click calibration in normal world (pixels): clicks landing ABOVE your aim -> increase, BELOW your aim -> decrease" },
+        { "CalibMirrorY", "CalibClickMirrorY", "Corner-map click calibration in mirror world (pixels): clicks landing ABOVE your aim -> increase, BELOW your aim -> decrease" },
     }) do
         ModConfigMenu.AddSetting(
           "GoodTrip [Fixed]", "General",
           {
             Type = ModConfigMenu.OptionType.NUMBER,
-            Minimum = -17,
-            Maximum = 17,
+            Minimum = -100, --several cells: game builds re-anchor the corner map whole cells apart, ±1 cell wasn't enough
+            Maximum = 100,
             Default = 0,
             CurrentSetting = function()
               return gtconfig[info[1]] or 0
@@ -825,24 +830,27 @@ function _gt:get_pos_grid_index(pos)
     --user self-calibration (MCM): shift the perceived click so the selection
     --moves the same screen direction in both worlds; fresh Vector, the
     --caller's mouse position must stay untouched
-    local calib = room:IsMirrorWorld() and (gtconfig.CalibMirrorX or 0) or (gtconfig.CalibMainX or 0)
-    pos = Vector(pos.X + calib, pos.Y)
+    local mir = room:IsMirrorWorld()
+    local calibx = mir and (gtconfig.CalibMirrorX or 0) or (gtconfig.CalibMainX or 0)
+    local caliby = mir and (gtconfig.CalibMirrorY or 0) or (gtconfig.CalibMainY or 0)
+    pos = Vector(pos.X + calibx, pos.Y + caliby)
     if MinimapAPI then
       return _gt:get_pos_grid_index_minimapapi(pos)
     end
     local rtr = _gt:get_corner_room(2)
     -----RTmap-----
-    local ltx = scpos.X - (rtr.X + 1) * 17 - 3 - hudoffset * 2.4 --withrighttopmap; the -3 anchors the map's col-0 cell edge, calibrated in-game with the CalibClickMain slider
+    local ltx = scpos.X - (rtr.X + 1) * 17 - 4 - hudoffset * 2.4 --withrighttopmap; -4 includes the calibrated vanilla-map +1px main-world correction
     local lty = - (rtr.Y) * 15 + 5 + hudoffset * 1.3 --whthrighttopmap
     if pos.X > ltx and pos.Y > lty and pos.X < ltx + 222 and pos.Y < lty + 196 then
         local px = pos.X
         --repentance stage 2c:mirror--
         if room:IsMirrorWorld() then
           local ltr = _gt:get_corner_room(3)
-          local rtx = scpos.X - (ltr.X + 1) * 17 - 3 - hudoffset * 2.4 --withleftbottommap (kept in step with ltx)
+          local rtx = scpos.X - (ltr.X + 1) * 17 - 5 - hudoffset * 2.4 --withleftbottommap; -5 includes the calibrated vanilla-map +2px mirror-world correction
           -- print(rtr.X, ltr.X) -- 3 -> 9; 4 -> 9; 5 -> 9; 6 -> 7; 7 -> 5
-          --the tail constant is the mirror flip's phase, calibrated in-game with the CalibClickMirror slider
-          px = ltx + (rtx - px) + (9 - math.max(0, rtr.X - ltr.X - 5) * 2)*17 - 34
+          --the tail constant is the mirror flip's phase, slider-calibrated on each
+          --game version (Rep+ re-anchored the corner map 2 cells from old Repentance)
+          px = ltx + (rtx - px) + (9 - math.max(0, rtr.X - ltr.X - 5) * 2)*17 - (REPENTANCE_PLUS and 34 or 0)
         end
       local mgid = math.floor((px - ltx)/ 17) + math.floor((pos.Y - lty)/ 15) * 13
       return mgid
