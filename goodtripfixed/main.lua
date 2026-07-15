@@ -605,22 +605,103 @@ local function current_custom_room()
     end
     return mroom
 end
+--
+--aux-widget support: while the player stands in a handler-carrying virtual
+--room, the 13x13 widget grid is rebuilt from the MinimapAPI rooms of the
+--current dimension. Wrappers mimic just enough of a RoomDescriptor for the
+--existing prep/draw/cursor code to work untouched; __mroom carries the real
+--MinimapAPI room every teleport decision routes through.
+local custom_mode = false
+local custom_current_cell = -1
+--
+local function build_custom_grid_room(grid)
+    custom_mode = false
+    custom_current_cell = -1
+    local cur = current_custom_room()
+    if not cur or type(MinimapAPI.GetLevel) ~= "function" then return false end
+    local ok, mlevel = pcall(MinimapAPI.GetLevel, MinimapAPI)
+    if not ok or type(mlevel) ~= "table" then return false end
+    --normalize the virtual map's own coordinates into the 13x13 widget grid
+    local minx, miny
+    for _, mroom in ipairs(mlevel) do
+      if type(mroom.TeleportHandler) == "table" and mroom.Position then
+        if minx == nil or mroom.Position.X < minx then minx = mroom.Position.X end
+        if miny == nil or mroom.Position.Y < miny then miny = mroom.Position.Y end
+      end
+    end
+    if minx == nil then return false end
+    local placed = false
+    for _, mroom in ipairs(mlevel) do
+      if type(mroom.TeleportHandler) == "table" and mroom.Position then
+        local cx = mroom.Position.X - minx + 1
+        local cy = mroom.Position.Y - miny + 1
+        if cx >= 0 and cx <= 12 and cy >= 0 and cy <= 12 then
+          local cell = cx + cy * 13
+          local wrapper = {
+            GridIndex = cell,
+            SafeGridIndex = cell,
+            ListIndex = -1,
+            DisplayFlags = 5,
+            VisitedCount = 1,
+            Clear = true,
+            ChallengeDone = true,
+            Data = {Shape = mroom.Shape or 1, Type = mroom.Type or 1, Name = "gtcustom"},
+            __mroom = mroom,
+          }
+          if mroom == cur then
+            --the current-room highlight and the not-current guard both match
+            --on ListIndex equality with crd
+            wrapper.ListIndex = crd.ListIndex
+            custom_current_cell = cell
+          end
+          grid[cell] = grid[cell] or wrapper
+          --fill the extra cells of big shapes so cursor/hit-tests resolve
+          --anywhere on the room
+          local shapeOK, cells = pcall(MinimapAPI.GetRoomShapePositions, MinimapAPI, mroom.Shape or 1)
+          if shapeOK and type(cells) == "table" then
+            for _, off in ipairs(cells) do
+              local tx, ty = cx + off.X, cy + off.Y
+              if tx >= 0 and tx <= 12 and ty >= 0 and ty <= 12 then
+                local tcell = tx + ty * 13
+                grid[tcell] = grid[tcell] or wrapper
+              end
+            end
+          end
+          placed = true
+        end
+      end
+    end
+    custom_mode = placed
+    return placed
+end
 --end MinimapAPI custom-room teleport--------------------------------------------
 --
 function _gt:check_teleble(gid)
     --Isaac.RenderText("check_teleble_running", 50, 50, 1, 1, 1, 1)--test
     if gid == -99 or (gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
       return false
-    elseif debug and grid_room[gid] then
+    elseif debug and not custom_mode and grid_room[gid] then
       return true
     end
     --check_current_room--
+    if custom_mode then
+      --virtual mode: widget cells hold wrappers and the real map resolves
+      --custom targets; every decision belongs to the room's TeleportHandler.
+      --gid==false is the widget-enable gate.
+      if gid == false then return true end
+      if is_custom_target(gid) then return handler_can_teleport(gid.mroom) end
+      local rd = grid_room[gid]
+      if rd and rd.__mroom then
+        if rd.ListIndex == crd.ListIndex then return false end --current room
+        return handler_can_teleport(rd.__mroom)
+      end
+      return false
+    end
     local cid = crd.SafeGridIndex
     if grid_room[cid] == nil then --inmap  --(romved)momboss
-      --off the native grid: inside a MinimapAPI virtual room that carries a
-      --TeleportHandler, its owning mod may still allow travel to other
-      --handler rooms; every other target (native cells, the aux-widget gate
-      --gid==false) stays unteleportable
+      --off the native grid without a virtual map: inside a MinimapAPI virtual
+      --room that carries a TeleportHandler, its owning mod may still allow
+      --travel to other handler rooms; everything else stays unteleportable
       if not is_custom_target(gid) or current_custom_room() == nil then
         return false
       end
@@ -714,6 +795,19 @@ function _gt:teleport_to_grid_index(gid) ----core
       tele_cd = 45
       if not gtconfig.TeleportAnimation then tele_cd = 10 end
       if debug or gtconfig.FastTransition then tele_cd = 1 end
+      return
+    end
+    if custom_mode then
+      --widget cells in virtual mode carry wrappers; same delegation
+      local rd = grid_room[gid]
+      if rd and rd.__mroom then
+        if not handler_teleport(rd.__mroom) then
+          _gt:tele_failed()
+        end
+        tele_cd = 45
+        if not gtconfig.TeleportAnimation then tele_cd = 10 end
+        if debug or gtconfig.FastTransition then tele_cd = 1 end
+      end
       return
     end
     --
@@ -1035,6 +1129,9 @@ end
 function _gt:get_grid_room()
     grid_room = {}
     grid_room_mark = {}
+    if build_custom_grid_room(grid_room) then
+      return --virtual map owns the widget grid; native descriptors stay out
+    end
     local all_room = level:GetRooms()
     for i = 0, all_room.Size do
       local des = all_room:Get(i)
@@ -1061,6 +1158,7 @@ end
 --
 function _gt:get_room_neighbours()
     room_neighbours = {}
+    if custom_mode then return end --virtual rooms have no native adjacency
     local all_room = level:GetRooms()
     for i = 0, all_room.Size do
       local des = all_room:Get(i)
@@ -1247,8 +1345,9 @@ function _gt:prep_minimap()
     if mmp_ctrl then
       if mmp_1step_mgid == -2 then
       else
-        local gx = crsid % 13
-        local gy = (crsid - gx)/ 13
+        local ccid = custom_mode and custom_current_cell or crsid
+        local gx = ccid % 13
+        local gy = (ccid - gx)/ 13
         -- print('writemgpos')
         mmp_ctrl_pos = mmp_pos0 + Vector(gx * 8 + 6, gy * 7 + 5) * mmsc
       end
@@ -1604,8 +1703,9 @@ function _gt:tab_action()
         if kb_active or not in_ui then --keyboard owns the cursor (show it at current room even if mouse rests on the widget), or mouse is away from the minimap
           if not mmp_ctrl then
             mmp_ctrl = true
-            local gx = crsid % 13
-            local gy = (crsid - gx)/ 13
+            local ccid = custom_mode and custom_current_cell or crsid
+            local gx = ccid % 13
+            local gy = (ccid - gx)/ 13
             if mmp_1step_mgid >= 0 then
               gx = mmp_1step_mgid % 13
               gy = (mmp_1step_mgid - gx)/ 13
