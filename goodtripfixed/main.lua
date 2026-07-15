@@ -566,6 +566,47 @@ function _gt:check_neigh_connected(trd, cond)
     return false
 end
 --
+--MinimapAPI custom-room teleport-----------------------------------------------
+--MinimapAPI rooms without a native RoomDescriptor (StageAPI extra rooms and
+--other virtual maps) may carry MinimapAPI's own TeleportHandler contract
+--(CanTeleport/Teleport - the same one its built-in NiceJourney teleport
+--honors). Such rooms travel through the same variables as grid indices,
+--wrapped in a table; type() is the discriminator. All handler calls are
+--pcall-guarded so a broken handler reads as "not teleportable" instead of
+--crashing the render loop. Rooms without a handler behave exactly as before.
+local function is_custom_target(gid)
+    return type(gid) == "table" and gid.mroom ~= nil
+end
+--
+local function handler_can_teleport(mroom)
+    local h = mroom.TeleportHandler
+    if type(h) ~= "table" or type(h.CanTeleport) ~= "function" then return false end
+    local ok, result = pcall(h.CanTeleport, h, mroom, false)
+    return ok and result == true
+end
+--
+local function handler_teleport(mroom)
+    local h = mroom.TeleportHandler
+    if type(h) ~= "table" or type(h.Teleport) ~= "function" then return false end
+    local ok, result = pcall(h.Teleport, h, mroom)
+    return ok and result == true
+end
+--
+--the MinimapAPI room the player is standing in, accepted only when it is a
+--handler-carrying virtual room; only consulted once the native current-room
+--check already failed, so native floors never pay for this
+local function current_custom_room()
+    if not MinimapAPI or type(MinimapAPI.GetCurrentRoom) ~= "function" then
+      return nil
+    end
+    local ok, mroom = pcall(MinimapAPI.GetCurrentRoom, MinimapAPI)
+    if not ok or type(mroom) ~= "table" or type(mroom.TeleportHandler) ~= "table" then
+      return nil
+    end
+    return mroom
+end
+--end MinimapAPI custom-room teleport--------------------------------------------
+--
 function _gt:check_teleble(gid)
     --Isaac.RenderText("check_teleble_running", 50, 50, 1, 1, 1, 1)--test
     if gid == -99 or (gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
@@ -575,7 +616,17 @@ function _gt:check_teleble(gid)
     end
     --check_current_room--
     local cid = crd.SafeGridIndex
-    if grid_room[cid] == nil or not crd.Clear then --inmap/cleaned/  --(romved)momboss
+    if grid_room[cid] == nil then --inmap  --(romved)momboss
+      --off the native grid: inside a MinimapAPI virtual room that carries a
+      --TeleportHandler, its owning mod may still allow travel to other
+      --handler rooms; every other target (native cells, the aux-widget gate
+      --gid==false) stays unteleportable
+      if not is_custom_target(gid) or current_custom_room() == nil then
+        return false
+      end
+      return handler_can_teleport(gid.mroom)
+    end
+    if not crd.Clear then --cleaned
       return false
     elseif (crd.Data.Type == 6 or crd.Data.Type == 11) then --miniboss/challengeroom
       if not _gt:check_room_open() then
@@ -586,6 +637,11 @@ function _gt:check_teleble(gid)
     if gid == false then return true end --skip targetroom check
     --check_target_room--
     -- print('ct', grid_room[gid], gid)
+    if is_custom_target(gid) then
+      --the native current-room gates above still apply; the target itself is
+      --entirely the handler's call
+      return handler_can_teleport(gid.mroom)
+    end
     if grid_room[gid] == nil then
       return false
     else
@@ -647,6 +703,19 @@ function _gt:check_curse_room(gid)
 end
 --
 function _gt:teleport_to_grid_index(gid) ----core
+    --
+    if is_custom_target(gid) then
+      --the handler performs the whole transition (StageAPI extra rooms need
+      --their own state machine, a native StartRoomTransition would corrupt
+      --it); only the shared click cooldown and the failure buzz live here
+      if not handler_teleport(gid.mroom) then
+        _gt:tele_failed()
+      end
+      tele_cd = 45
+      if not gtconfig.TeleportAnimation then tele_cd = 10 end
+      if debug or gtconfig.FastTransition then tele_cd = 1 end
+      return
+    end
     --
     for _,en in pairs(Isaac.GetRoomEntities()) do
 			if en.Type == 867 then
@@ -803,21 +872,32 @@ function _gt:get_pos_grid_index_minimapapi(pos)
     local pw, ph = large and 17 or 8, large and 15 or 7
     local pivot = large and Vector(-4, -4) or Vector(-2, -2)
     for _, mroom in ipairs(mlevel) do
-      if mroom.RenderOffset and mroom.Descriptor and mroom:IsVisible() then
-        local ox = mroom.RenderOffset.X - pivot.X
-        if sx == -1 then
-          --the sprite flips around its anm2 pivot, so the baked-in anim-pivot
-          --compensation flips too (measured: half a cell, toward the left)
-          ox = ox + pivot.X * 2
+      if mroom.RenderOffset and mroom:IsVisible() then
+        --a room without a native Descriptor is only a target if it carries
+        --MinimapAPI's TeleportHandler contract (virtual rooms - StageAPI
+        --extra rooms etc.)
+        local target = nil
+        if mroom.Descriptor then
+          target = mroom.Descriptor.SafeGridIndex
+        elseif type(mroom.TeleportHandler) == "table" then
+          target = {mroom = mroom}
         end
-        local oy = mroom.RenderOffset.Y - pivot.Y
-        for _, c in ipairs(MinimapAPI:GetRoomShapePositions(mroom.Shape)) do
-          local x0 = ox + c.X * pw * sx
-          local x1 = x0 + pw * sx
-          local y0 = oy + c.Y * ph
-          if pos.X >= math.min(x0, x1) and pos.X < math.max(x0, x1)
-              and pos.Y >= y0 and pos.Y < y0 + ph then
-            return mroom.Descriptor.SafeGridIndex
+        if target ~= nil then
+          local ox = mroom.RenderOffset.X - pivot.X
+          if sx == -1 then
+            --the sprite flips around its anm2 pivot, so the baked-in anim-pivot
+            --compensation flips too (measured: half a cell, toward the left)
+            ox = ox + pivot.X * 2
+          end
+          local oy = mroom.RenderOffset.Y - pivot.Y
+          for _, c in ipairs(MinimapAPI:GetRoomShapePositions(mroom.Shape)) do
+            local x0 = ox + c.X * pw * sx
+            local x1 = x0 + pw * sx
+            local y0 = oy + c.Y * ph
+            if pos.X >= math.min(x0, x1) and pos.X < math.max(x0, x1)
+                and pos.Y >= y0 and pos.Y < y0 + ph then
+              return target
+            end
           end
         end
       end
