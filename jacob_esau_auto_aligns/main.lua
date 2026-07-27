@@ -95,12 +95,32 @@ end
 
 mod:initializeState()
 
+--mouse control drives none of the shooting inputs, they stay zero however you
+--aim or click; the aim direction is the only source that follows the cursor,
+--and it also reads zero while not firing, so it doubles as the "is shooting"
+--gate. Keyboard & controller keep using the shooting input as before.
+function mod:getShootDir(player)
+	local shot = player:GetShootingInput()
+	if shot:Length() >= 0.1 then
+		return shot
+	end
+	return player:GetAimDirection()
+end
+
+--the Move Esau binding is its own switch: 'None' (-1) disables it, and either
+--the keyboard key or the controller button counts as held
+function mod:isMoveEsauHeld(player)
+	local cfg = mod:getConfig()
+	return cfg.MoveEsauKey ~= -1 and Input.IsButtonPressed(cfg.MoveEsauKey, player.ControllerIndex)
+		or cfg.MoveEsauBtn ~= -1 and Input.IsButtonPressed(cfg.MoveEsauBtn, player.ControllerIndex)
+end
+
 function mod:mayRotateByShoot(player)
     local cfg = mod:getConfig()
 	if cfg.ShootAlignTime == -1 then
 		return false
 	end
-	local shot = player:GetShootingInput()
+	local shot = mod:getShootDir(player)
 	if shot:Length() < 0.1 then
 		mod.State.shootTime = 0
 		mod.State.lastShotDir = Vector(0, 0)
@@ -143,17 +163,15 @@ function mod:performAlignment(player)
             cfg.JacobAsFront = not cfg.JacobAsFront
         end
     end
-    local shot = player:GetShootingInput()
+    local shot = mod:getShootDir(player)
 	if cfg.OnlyAlignOnShoot and shot:Length() < 0.1 then
 		return
 	end
-	if cfg.DecoupleOnCtrl then
-		if Input.IsActionPressed(ButtonAction.ACTION_DROP, player.ControllerIndex) then
-			return
-		end
-		if cfg.MoveEsauKey and Input.IsButtonPressed(cfg.MoveEsauKey, player.ControllerIndex) then
-			return
-		end
+	if cfg.DecoupleOnCtrl and Input.IsActionPressed(ButtonAction.ACTION_DROP, player.ControllerIndex) then
+		return
+	end
+	if mod:isMoveEsauHeld(player) then
+		return
 	end
 	local twin = player:GetOtherTwin()
 	local dir = twin.Position - player.Position
@@ -208,10 +226,7 @@ mod:AddCallback(ModCallbacks.MC_INPUT_ACTION, function(_, entity, hook, action)
 	if not moveActions[action] or not entity then return end
 	local player = entity:ToPlayer()
 	if not player or player:GetPlayerType() ~= PlayerType.PLAYER_JACOB or not player:GetOtherTwin() then return end
-	local cfg = mod:getConfig()
-	if cfg.MoveEsauKey ~= -1 and Input.IsButtonPressed(cfg.MoveEsauKey, player.ControllerIndex)
-	or cfg.MoveEsauBtn ~= -1 and Input.IsButtonPressed(cfg.MoveEsauBtn, player.ControllerIndex)
-	then
+	if mod:isMoveEsauHeld(player) then
 		if hook == InputHook.GET_ACTION_VALUE then
 			return 0
 		else
