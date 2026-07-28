@@ -33,12 +33,13 @@ Configure these features with [url=https://steamcommunity.com/sharedfiles/filede
 - Controller users can assign alternate buttons for the Z and R shortcuts.
 - Show special-room icons: the mirror room and white fireplace in Downpour II, minecart and buttons in Mines II, and tinted skull in Depths II (MCM: ShowSpecialIcons).
 - Teleport into an uncleared room when it has a cleared neighbor (MCM: AllowNeighborRoom).
+- Require a path of cleared rooms between you and the target, so an isolated island is no free ride (MCM: FairTripPath). Thanks @Kattack!
 - Optionally ignore Curse of the Lost (MCM: FollowCurseOfLost).
 - Move quickly to a neighboring room with TAB + WASD (MCM: QuicklyOneRoomMove, off by default).
 - Move the teleport-map cursor faster with TAB + ↑↓←→ (MCM: FasterCursorMove, off by default).
 - Remove the black transition animation for faster teleportation (MCM: FastTransition, off by default).
 - Integrate with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3071704639]Dangerous room! Caution[/url] to color dangerous rooms.
-- Enable Fair Trip rules, which add time based on movement speed and teleport distance and require a cleared route (MCM: FairTripTime, off by default). Thanks @iamthestoat and @Porp!
+- Enable Fair Trip rules, which add time based on movement speed and the length of the cleared route (MCM: FairTripTime, off by default). Thanks @iamthestoat and @Porp!
 - Bind a custom keyboard/controller button for the teleport map, useful for avoiding EID's TAB shortcut (MCM: OverlayKey / OverlayKeyController). Thanks @Porp!
 - Scale the teleport map from 0.5x to 2.5x (MCM: MinimapScale).
 

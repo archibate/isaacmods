@@ -1,2 +1,3 @@
 - Fixed mirror-world corner-map clicks landing 2 rooms off on old Repentance (non-Rep+) builds: Repentance+ re-anchored the corner map, so the mirror click phase is now version-gated — measured in-game on both builds (thanks @阿泽 for the report!)
 - Click calibration sliders extended to +-100px, and new vertical sliders added (CalibClickMainY / CalibClickMirrorY) — whatever your setup does to the map anchor, you can now self-calibrate both axes in MCM
+- Fixed teleporting across unexplored rooms: after an Emperor card drops you on an isolated island, trips back now require a path of cleared rooms, as the original mod's visited+cleared gate implied (MCM: FairTripPath, on by default — thanks @Kattack for the report!)

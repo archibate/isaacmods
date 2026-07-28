@@ -144,6 +144,7 @@ local gtconfig = {
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
     FairTripTime = false,  --weather to incur fair time according to distance; off by default so the apiless rework doesn't spring time penalties on existing players
+    FairTripPath = true,  --true = enable / false = disable. only trip to rooms linked to the current one by cleared rooms
     ShowSpecialIcons = true,  --show icons on room that have mirror, white fireplace, minecart, mine button, or tinted skull
     -- ShowDoorsAllowed = false,  --show doors allowed for secret rooms
     -- DebugMod = false,  --testonly.
@@ -213,6 +214,7 @@ if ModConfigMenu then
         { "ShowSpecialIcons", "Show an icon on room that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
         { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
+        { "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
         { "FastTransition", "Even faster transition without animation" },
     }) do
         ModConfigMenu.AddSetting(
@@ -566,6 +568,30 @@ function _gt:check_neigh_connected(trd, cond)
     return false
 end
 --
+function _gt:get_reachable_rooms()
+    --flood out of the current room through visited+cleared rooms: a trip may
+    --only land on the island the player could have walked to. grid adjacency is
+    --a superset of the real door graph, so this never blocks a walkable target
+    local start = crd.SafeGridIndex
+    local reach = {[start] = true}
+    local queue = {start}
+    local head = 1
+    while queue[head] do
+      local node = room_neighbours[queue[head]]
+      head = head + 1
+      if node then
+        for _, adj in ipairs(node.Neighbors) do
+          local rd = grid_room[adj]
+          if rd and not reach[adj] and rd.VisitedCount > 0 and rd.Clear then
+            reach[adj] = true
+            queue[#queue + 1] = adj
+          end
+        end
+      end
+    end
+    return reach
+end
+--
 function _gt:check_teleble(gid)
     --Isaac.RenderText("check_teleble_running", 50, 50, 1, 1, 1, 1)--test
     if gid == -99 or (gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
@@ -593,15 +619,21 @@ function _gt:check_teleble(gid)
       if trd.ListIndex == crd.ListIndex then --notcurrent
         return false
       end
+      --the room to step off from must be on the player's own island, else an
+      --Emperor'd boss room would be a free lift back across unexplored rooms.
+      --only cleared rooms are looked up in reach, where the flood's plain 4-dir
+      --adjacency and check_neigh_connected's shape table agree
+      local reach = gtconfig.FairTripPath and _gt:get_reachable_rooms() or nil
       if not gtconfig.AllowNeighborRoom then
         if trd.VisitedCount == 0 or not trd.Clear then --notvisited/notcleaned
           return false
         end
-        return true
+        return not reach or reach[trd.SafeGridIndex] == true
       else
         -- print(stage, Game():IsGreedMode(), trd.Data.Type)
         if _gt:check_neigh_connected(trd, function(rd)
             return (rd.DisplayFlags & 1 ~= 0) and rd.VisitedCount > 0 and rd.Clear
+              and (not reach or reach[rd.SafeGridIndex])
         end) then
             return true
         end
