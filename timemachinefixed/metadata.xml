@@ -3,101 +3,54 @@
     <name>TimeMachine [Fixed]</name>
     <directory>timemachinefixed</directory>
     <id>3169946719</id>
-    <description>TimeMachine with BUGs fixed!
+    <description>Machines and beggars speed up while you use them, saving your real-world time without breaking the in-game timer.
 
-- Fixed Boss Rush / Blue Womb (Hush) not open even when reached in 20/30 mins (Mausoleum Boss Rush is also fixed).
-- Fixed Soul of Forgotten, Soul of Jacob &amp; Esau, Strawman, Found Soul using Blood Donation Machines causing game crush.
+This is a maintained version of [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2617557401]TimeMachine[/url] by @tarako. You only need to enable TimeMachine [Fixed]; the original mod is not required.
 
-本模组修复了 TimeMachine 恼人的 BUG！
+SUPPORTED
 
-- 修复 Boss Rush 和凹凸的门在20/30分钟内赶到依然会无法开启的问题（陵墓层的 Boss Rush 也正常了）。
-- 修复了使用骨哥符文，双子符文，稻草人（店长跟班），复得幽魂（饰品）导致游戏崩溃的问题。
+- Slot Machine and Fortune Telling Machine
+- Crane Game
+- Blood Donation Machine and Confessional
+- Shell Game and Hell Game
+- Greed Donation Machine
+- Beggar, Devil Beggar, Key Master, Bomb Bum, Battery Bum, and Rotten Beggar
+- Multiplayer
 
-As well as many feature improvements:
+KEY FIXES
 
-- Supports speeding up Shell Game, Hell Game and Greed Donation Machine.
+- Fixed Boss Rush, Hush, and Mausoleum Boss Rush entrances failing to open when reached within their time limits.
+- Fixed crashes involving Soul of the Forgotten, Soul of Jacob and Esau, Strawman, or Found Soul when using Blood Donation Machines.
+- Fixed players passing through beggars, being pushed to an abnormal distance, or teleporting at high speed.
 
-除此之外，还有许多功能改进：
+SAFETY &amp; CONFIGURATION
 
-- 现在也支持加速三选一游戏和贪婪存款机了。
+Configure maximum speed, acceleration, and individual machine toggles with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url].
 
-- All settings now live in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url] (just like [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url]): max speed, speed-up rate, and per-machine toggles.
-- Kill the flies spawned by Shell Game / Hell Game / beggars, so speeding them up won't get you hurt — on by default (MCM: KillSpawnedFlies, toggle off if you prefer).
-- Delay troll bombs dropped by machines / beggars until you are done — on by default (MCM: DefuseSpawnedBombs, toggle off if you prefer).
-- No more sudden deaths: acceleration automatically stops when the next donation could kill you (a full heart from Womb onwards is accounted for) — The Lost donating with The Chariot, Keeper, and just-revived Lazarus are safe now (MCM: PreventSuddenDeath, on by default; turn it off to quick-sell blood while invincible).
+- Flies spawned by shell games, hell games, and beggars are removed so accelerated interactions cannot hurt you (MCM: KillSpawnedFlies, on by default).
+- Troll bombs from machines and beggars are delayed until the interaction ends (MCM: DefuseSpawnedBombs, on by default).
+- Acceleration stops when the next donation could kill you, including the increased Blood Donation Machine damage from Womb onward (MCM: PreventSuddenDeath, on by default).
+- The Lost using The Chariot, Keeper, and a recently revived Lazarus are handled safely. Disable PreventSuddenDeath if you intentionally want to donate rapidly while invincible.
+- Player speed and the in-game timer accelerate with the machine to prevent unintended advantages.
 
-If you have found any other bugs, please let me know to fix them.
+让机器和乞丐在连续使用时越来越快，节省现实时间，同时保持游戏内计时公平。
 
-- 所有设置现已进入 Mod Config Menu [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url]（和 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] 一样）：最大速度、加速快慢、每种机器的开关。
-- 清除三选一游戏和乞丐生成的苍蝇，加速喂机器时不再受伤——默认开启（MCM: KillSpawnedFlies，可在设置里关闭）。
-- 延缓机器/乞丐生成的即爆炸弹，等机器停了再爆——默认开启（MCM: DefuseSpawnedBombs，可在设置里关闭）。
-- 不再有猝死：当下一口献血可能致死时会自动停止加速（子宫层起卖血机一次抽一整颗心，已考虑在内）——Lost 用战车卡卖血、店长、刚复活的拉撒路现在都不会暴毙了。无敌时间仍随加速一起流动，不会因加速多赚。（MCM: PreventSuddenDeath，默认开启；想无敌快速卖血可关闭）
+本修复版支持老虎机、预言机、娃娃机、献血机、告解室、三选一游戏、贪婪存款机以及各种乞丐，并支持多人游戏。只需启用 TimeMachine [Fixed]，无需同时启用旧版。
 
-如果还有发现其他 BUG，欢迎告诉我来修复！
+主要修复：
 
-- Hint: You only need to enable this TimeMachine [Fixed] mod, no need to enable the old TimeMachine if you want to use this fixed version.
+- 修复在时限内到达，Boss Rush、凹凸及陵墓 Boss Rush 入口仍无法开启的问题。
+- 修复骨哥符文、双子符文、稻草人和复得幽魂使用献血机时导致的崩溃。
+- 修复高速互动时穿过乞丐、距离异常或瞬移的问题。
 
-- 提示：如果你想使用这个修复版的话，只需要启用这个 TimeMachine [Fixed] 模组即可，无需再启用旧版的 TimeMachine 模组。
+所有速度与机器开关均可在 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url] 中调整。默认还会清除互动生成的苍蝇、延缓即爆炸弹，并在下一次献血可能致死时自动停止加速；这些安全功能都可以单独关闭。
+
+发现其他问题，欢迎留言反馈！
 
 ┌──────────────────────────────────────────────────────────┐
-│★Check out my other fixed mod: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] ← 向你推荐★│
+│★ Check out my other fixed mod: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863]GoodTrip [Fixed][/url] ★│
 └──────────────────────────────────────────────────────────┘
-
-以下为旧版介绍：
-[Repentance]
-Let some machines work in the mode similar to Donation Machine.
-- Slot Machine
-- Fortune Telling Machine
-- Crane Game
-- Blood Donation Machine
-- Confessional
-Also some beggars.(1.4 new)
-- Beggar
-- Devil Beggar
-- Key Master
-- Bomb Bum
-- Battery Bum
-- Rotten Beggar
-- (1.5:now its configurable in tmmc_config.lua)
-(Beggars are too small, you need to align yourself to the center of their top or bottom)
-They will run faster and faster(with a limit) to save your (real)time!!
-- You can set the speed and enable/disable machines you like in &quot;..\Steam\steamapps\common\The Binding of Isaac Rebirth\mods\timemachine_2617557401\tmmc_config.lua&quot;
--------------
--Changelog-
--------------
--Oct.3, 2021
-1.Added support for multiplayer games.
-2.Mod now lets players get the same speed as the machine running, so as not to be used for unexpected gains.
-3.When you are interacting with the machine, the timer also becomes faster. (This will not actually affect the timing of BR or hush for the time being(until 1.7))
--Oct.4, 2021
-1.Added support for beggars.
-2.Now it’s easier for players to align the center of machines to interact with them.
--Oct.5, 2021
-1.Added configuration list. Now you can customize the machine you want to take effect.
-2.Fixed an issue that caused the player to pass through the beggar or get an abnormal distance from the beggar due to the speed being too fast.
--Nov.18, 2021
-1.fixbug for bluewomb timer.
--Jan.17, 2022
-
-┌─────────────────────────────────────────────┐
-│★Check out my other mod: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863] GoodTrip[Fixed] [/url] ← 向你推荐★│
-└─────────────────────────────────────────────┘
-【使用说明】
-功能：现在你可以像玩捐款机一样越来越快地玩别的机器了！
-·小孩不是机器，救救孩子，谢谢。
-(1.4：小孩现在也是机器，如果你想快速和小孩玩，你得注意对准他的正下方或者正上方。)
-·速度一开始没那么快，不用担心蹭一下就被献血机抽成干，谢谢！
-·原型是去年1969定制的十连抽功能mod，几经修改后大家都很想要就努力做完了正式版(
-·&lt;del&gt;你可以在&quot;Steam\steamapps\common\The Binding of Isaac Rebirth\mods\timemachine_2617557401\tmmc_config.lua&quot;文件里设置你喜欢的速率(包括初始速率，递增的速率和到达最大值后的速率)&lt;/del&gt;now configurable in MCM after fixed!
-管他那么多！订阅就完事了！
-【更新记录】
-1.2：现在不止机器会被加速，以撒也会被加速，以免利用无敌献血获取更多回报
-1.3：增加了对非p1玩家的支持；
-现在计时器也会加速流动避免影响平衡。
-1.4：增加了对乞丐的支持，增加了微弱的辅助吸附帮助玩家对齐机器的中央。
-1.5：现在可以在配置文件里自定义想要生效的机器了。解决了速度过快时穿过机器或者与机器距离不正常的问题。
-1.6：修复了一个高速度时撞向乞丐会瞬移的bug。
-1.7：修复了显示30分钟后凹凸门依然开启的bug。</description>
+</description>
     <version>1.25</version>
     <visibility>Public</visibility>
     <tag id="Tweaks"/>

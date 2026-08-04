@@ -1,1 +1,2 @@
-- Fixed Jacob no longer shooting while holding Alt (Move Esau Key): now only his movement is held, he keeps shooting — same as how vanilla Ctrl keeps Esau shooting (thanks @Yucchi for the suggestion)
+- Fixed alignment never triggering when aiming with the mouse: mouse control leaves the shooting inputs empty, so the aim direction is read instead (thanks @Секатор and @t.figura for reporting)
+- Fixed the Move Esau controller button being ignored while aligning, and the Move Esau binding no longer needs Decouple On Ctrl switched on — setting it to None is what disables it (thanks @bear rye for reporting)
