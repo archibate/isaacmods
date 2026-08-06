@@ -218,6 +218,7 @@ if ModConfigMenu then
         { "AllowNeighborRoom", "Allow moving into uncleaned neighbor room" },
         { "AllowBookmarking", "Allow adding bookmarks for rooms via TAB + 1~9" },
         { "LastRoomShortcut", "Allow teleport back to last room via TAB + Z" },
+        { "FastRestartEnable", "Allow restarting the run quickly via TAB + R" },
         { "NoShootWhenClick", "Disable shoot when teleporting via TAB + Click" },
         { "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
         { "GameMapCursor", "Draw the keyboard/controller cursor on the game's own map (top-right corner map or MinimapAPI) instead of the mod's draggable widget" },
@@ -1554,8 +1555,9 @@ function _gt:tab_action()
     scpos = cp + cp
     hudoffset = Options.HUDOffset * 10 --live: the map moves the moment the slider moves, so must our anchor (refreshing only on new_level lagged until the next floor)
     --
-    if gtconfig.FastRestartEnable and Input.IsButtonTriggered(Keyboard.KEY_R, player.ControllerIndex)
-        or (gtconfig.ControllerAlternateR and Input.IsButtonTriggered(gtconfig.ControllerAlternateR, player.ControllerIndex)) then
+    if gtconfig.FastRestartEnable
+        and (Input.IsButtonTriggered(Keyboard.KEY_R, player.ControllerIndex)
+            or (gtconfig.ControllerAlternateR and Input.IsButtonTriggered(gtconfig.ControllerAlternateR, player.ControllerIndex))) then
       print('GoodTrip [Fixed] !!!FAST RESTARTING!!!')
       Isaac.ExecuteCommand("restart")
     end

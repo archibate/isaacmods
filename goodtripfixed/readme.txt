@@ -52,7 +52,7 @@ Change MouseControl=0 to MouseControl=1
 
 【注意】
 ·游戏内如果有调整ui偏移量，须用记事本打开同目录下gtconfig.lua设置文件，找到HudOffset = 0 ←修改这个数为游戏菜单设置hud offset数值相同，范围为0~10，来进行校正；或者直接把游戏内ui偏移调整为0，否则会影响选择右上角房间的准确性。
-·附加功能 TAB+R 光速重开。 可以在gtconfig文件修改FastRestartEnable开启，为了避免误按默认关闭了。
+·附加功能 TAB+R 光速重开，默认开启。 如果容易误按，可以在 Mod Config Menu 里关闭 FastRestartEnable。
 【附录】
 ·答gtconfig.lua所在位置
 ！！忏悔mod在新地址！！
