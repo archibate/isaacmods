@@ -7,7 +7,8 @@
 --     its source with only a DAMAGE_LASER flag, so the weapon has to be recovered
 --     by looking at which lasers the player currently has alive;
 --   * burn and poison ticks carry NO source at all -- empty entity, empty spawner --
---     so each enemy remembers who last hurt it, and its ticks are credited back;
+--     so each status is watched for the frame it lands on an enemy, and its owner
+--     from that moment is credited for every tick it goes on to deal;
 --   * enemies damage each other (a boss's own eye laser hits it); those hits must
 --     not be credited to the player.
 
@@ -180,6 +181,33 @@ local function credit(label, damage)
     total = total + damage
 end
 
+local function creditStatus(applier, status, damage)
+    if applier == nil then return end
+    credit(applier .. " (" .. status .. ")", damage)
+end
+
+-- Whoever hurt an enemy last is not always whoever set it alight, so each status is
+-- pinned to an owner on the frame it appears, and that owner survives a weapon switch.
+function mod:onUpdate()
+    for _, entity in ipairs(Isaac.GetRoomEntities()) do
+        if entity:IsActiveEnemy(false) then
+            local data = entity:GetData()
+            local burning = entity:HasEntityFlags(EntityFlag.FLAG_BURN)
+            local poisoned = entity:HasEntityFlags(EntityFlag.FLAG_POISON)
+            -- an enemy can catch fire before anything of ours has been credited on it,
+            -- so keep looking for the owner until one is known rather than lose the burn
+            if burning and (not data.dmvpWasBurning or data.dmvpBurnFrom == nil) then
+                data.dmvpBurnFrom = data.dmvpLastSource
+            end
+            if poisoned and (not data.dmvpWasPoisoned or data.dmvpPoisonFrom == nil) then
+                data.dmvpPoisonFrom = data.dmvpLastSource
+            end
+            data.dmvpWasBurning = burning
+            data.dmvpWasPoisoned = poisoned
+        end
+    end
+end
+
 function mod:onEntityTakeDamage(entity, amount, flags, source, countdownFrames)
     if entity:ToPlayer() ~= nil then return end
     if not entity:IsActiveEnemy(false) then return end
@@ -187,11 +215,23 @@ function mod:onEntityTakeDamage(entity, amount, flags, source, countdownFrames)
     -- overkill would otherwise credit damage the enemy never had left to lose
     local dealt = math.min(amount, entity.HitPoints)
 
-    -- burn and poison ticks arrive sourceless, so credit whoever last hurt the enemy
+    -- burn and poison ticks arrive sourceless, so they go to whoever set the status
     if source.Entity == nil and flags & DamageFlag.DAMAGE_POISON_BURN ~= 0 then
-        local culprit = entity:GetData().dmvpLastSource
-        if culprit ~= nil then
-            credit(culprit .. " (burn)", dealt)
+        local data = entity:GetData()
+        local burning = entity:HasEntityFlags(EntityFlag.FLAG_BURN)
+        local poisoned = entity:HasEntityFlags(EntityFlag.FLAG_POISON)
+        if burning and poisoned then
+            -- the tick names neither status, so it is shared: the totals stay right and
+            -- the split is only as good as the two ticking at a similar rate
+            creditStatus(data.dmvpBurnFrom, "burn", dealt / 2)
+            creditStatus(data.dmvpPoisonFrom, "poison", dealt / 2)
+        elseif burning then
+            creditStatus(data.dmvpBurnFrom, "burn", dealt)
+        elseif poisoned then
+            creditStatus(data.dmvpPoisonFrom, "poison", dealt)
+        else
+            -- the status expired on this very tick, so its owner is already gone
+            creditStatus(data.dmvpBurnFrom or data.dmvpPoisonFrom, "burn/poison", dealt)
         end
         return
     end
@@ -199,8 +239,16 @@ function mod:onEntityTakeDamage(entity, amount, flags, source, countdownFrames)
     local label = resolveSource(source, flags)
     if label == nil then return end
 
-    credit(label, dealt)
+    -- the burn a blast leaves behind should read as the weapon, not as the blast
     entity:GetData().dmvpLastSource = label
+
+    -- a tear that explodes still arrives as a tear, so the blast has to say so
+    -- itself; bombs already name themselves and need no such marking
+    if flags & DamageFlag.DAMAGE_EXPLOSION ~= 0 and source.Type ~= EntityType.ENTITY_BOMB then
+        label = label .. " (explosion)"
+    end
+
+    credit(label, dealt)
 
     -- observer only: returning non-nil would stop other mods' damage callbacks
     return nil
@@ -234,5 +282,6 @@ function mod:onNewRoom()
 end
 
 mod:AddPriorityCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, CallbackPriority.LATE, mod.onEntityTakeDamage)
+mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)

@@ -5,7 +5,7 @@
     <description>Shows what dealt the damage: an on-screen breakdown of your damage to enemies, ranked by source (tears, Brimstone, Tech X, Mom's Knife, bombs, each familiar by name, and burn/poison).
 
 Resets each room. Damage enemies deal to each other is never credited to you.</description>
-    <version>0.1</version>
+    <version>1.0</version>
     <visibility>Private</visibility>
     <tag id="Tweaks"/>
 </metadata>
