@@ -197,6 +197,7 @@ local function update_analog_mappings()
         movkey = {ButtonAction.ACTION_UP, ButtonAction.ACTION_LEFT, ButtonAction.ACTION_RIGHT, ButtonAction.ACTION_DOWN}
     end
 end
+update_analog_mappings() --the other calls live in the MCM block, so hand-edited configs would never take effect
 ----
 local hudoffset = Options.HUDOffset * 10  --need your real hudoffset of game [0,10]
 local debug = false
