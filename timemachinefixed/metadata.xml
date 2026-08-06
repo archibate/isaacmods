@@ -30,7 +30,8 @@ Configure maximum speed, acceleration, and individual machine toggles with [url=
 - Flies spawned by shell games, hell games, and beggars are removed so accelerated interactions cannot hurt you (MCM: KillSpawnedFlies, on by default).
 - Troll bombs from machines and beggars are delayed until the interaction ends (MCM: DefuseSpawnedBombs, on by default).
 - Acceleration stops when the next donation could kill you, including the increased Blood Donation Machine damage from Womb onward (MCM: PreventSuddenDeath, on by default).
-- The Lost using The Chariot, Keeper, and a recently revived Lazarus are handled safely. Disable PreventSuddenDeath if you intentionally want to donate rapidly while invincible.
+- The Lost using The Chariot, Keeper, and a recently revived Lazarus are handled safely. Disable PreventSuddenDeath if you intentionally want to keep donating when the next one could kill you.
+- Donating while invincible (The Chariot, Power Pill, Unicorn) pays exactly what it pays unaccelerated: the buff runs at the machine's speed, so you get no more and no less.
 - Player speed and the in-game timer accelerate with the machine to prevent unintended advantages.
 
 让机器和乞丐在连续使用时越来越快，节省现实时间，同时保持游戏内计时公平。
@@ -43,7 +44,7 @@ Configure maximum speed, acceleration, and individual machine toggles with [url=
 - 修复骨哥符文、双子符文、稻草人和复得幽魂使用献血机时导致的崩溃。
 - 修复高速互动时穿过乞丐、距离异常或瞬移的问题。
 
-所有速度与机器开关均可在 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url] 中调整。默认还会清除互动生成的苍蝇、延缓即爆炸弹，并在下一次献血可能致死时自动停止加速；这些安全功能都可以单独关闭。
+所有速度与机器开关均可在 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url] 中调整。默认还会清除互动生成的苍蝇、延缓即爆炸弹，并在下一次献血可能致死时自动停止加速；这些安全功能都可以单独关闭。无敌状态（战车牌、独角兽等）下卖血的收益与不加速时完全相同。
 
 发现其他问题，欢迎留言反馈！
 

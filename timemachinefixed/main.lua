@@ -149,7 +149,7 @@ if ModConfigMenu then
     for _, info in ipairs({
         { "supressFly", "KillSpawnedFlies", "Kill flies spawned by Shell Game / Hell Game / beggars so speeding up won't get you hurt" },
         { "supressBomb", "DefuseSpawnedBombs", "Delay troll bombs dropped by machines / beggars so they explode after you finished" },
-        { "preventDeath", "PreventSuddenDeath", "Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to quick-sell blood while invincible)" },
+        { "preventDeath", "PreventSuddenDeath", "Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to keep accelerating at lethal HP too)" },
     }) do
         ModConfigMenu.AddSetting(
           "TimeMachine [Fixed]", nil,
