@@ -1,4 +1,1 @@
-- Fixed MCM settings (KillSpawnedFlies / DefuseSpawnedBombs / PreventSuddenDeath / machine toggles) not persisting until you left a run: they are now saved the moment you change them, so they survive a luamod hot-reload and an unexpected crash / alt-F4
-- KillSpawnedFlies now blocks the one contact hit a machine-spawned fly/spider could land before being culled — only while accelerating at a machine, with the option on, in a cleared room (real combat and blood-machine donations are unaffected)
-- KillSpawnedFlies and DefuseSpawnedBombs now default ON for new installs (most requested change); existing saved preferences are kept, turn them off in MCM if you prefer the raw behavior
-
+- Fixed invincible blood selling (The Chariot / Power Pill / Unicorn) paying out far less than vanilla: the invincibility was burning at twice the machine's rate, so a Chariot donation run gave about half the coins and cost an extra heart at the end — only post-hit i-frames are fast-forwarded now (thanks @TesKwokin and @Tako-chan for the reports!)

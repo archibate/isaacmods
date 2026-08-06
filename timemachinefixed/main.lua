@@ -280,10 +280,13 @@ function tmmc:step()
                                 local oldPosition = player.Position
                                 player:Update()
                                 player.Position = oldPosition
-                                --invincibility (i-frames or a buff) also runs at the accelerated
-                                --rate, so invincible donation yields no more than vanilla; the
-                                --lethal-HP guard above is what prevents the sudden deaths
-                                if health_machine[slot.Variant] and player:HasInvincibility()
+                                --post-hit i-frames would stall the accelerated machine (it cannot
+                                --take blood again until they expire), so burn them at double rate.
+                                --Effect invincibility (The Chariot / Power Pill / Unicorn) has no
+                                --damage cooldown and must NOT be burned this way: it has to flow
+                                --1:1 with the machine, or the free donations it buys drop below
+                                --vanilla
+                                if health_machine[slot.Variant] and player:GetDamageCooldown() > 0
                                     and (not tmmc.preventDeath
                                          or tmmc:hp_halves(player) > tmmc:machine_cost(slot.Variant)) then
                                     oldPosition = player.Position
