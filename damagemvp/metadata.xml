@@ -2,9 +2,9 @@
 <metadata>
     <name>Damage MVP</name>
     <directory>damagemvp</directory>
-    <description>Shows what dealt the damage: an on-screen breakdown of your damage to enemies, ranked by source (tears, Brimstone, Tech X, Mom's Knife, bombs, each familiar by name, and burn/poison).
+    <description>Shows what dealt the damage: an on-screen breakdown of your damage to enemies in the current room, ranked by source — tears, lasers named by weapon, melee, bombs, each familiar by name, blasts from exploding shots, and the creep, gas and fire they leave behind.
 
-Resets each room. Damage enemies deal to each other is never credited to you.</description>
+Burn and poison ticks go to whatever applied the status, not to whatever hit last. Resets each room. Damage enemies deal to each other is never credited to you.</description>
     <version>1.0</version>
     <visibility>Private</visibility>
     <tag id="Tweaks"/>
