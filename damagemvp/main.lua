@@ -25,10 +25,26 @@ local LINE_HEIGHT = 11
 -- reported bare rather than handed to whatever weapon happens to fire next
 local UNATTRIBUTED = false
 
+-- the enum names have no punctuation, and a name read off one of them reads wrong
+-- without it -- "Bobs Brain", "Moms Razor"
+local WORD_FIXUPS = {
+    BLUEBABYS = "Blue Baby's",
+    BOBS = "Bob's",
+    CAINS = "Cain's",
+    DR = "Dr.",
+    EVES = "Eve's",
+    FATES = "Fate's",
+    GUPPYS = "Guppy's",
+    ISAACS = "Isaac's",
+    MOMS = "Mom's",
+    MR = "Mr.",
+    SAMSONS = "Samson's",
+}
+
 local function prettify(enumName)
     local words = {}
     for word in enumName:gmatch("[^_]+") do
-        words[#words + 1] = word:sub(1, 1) .. word:sub(2):lower()
+        words[#words + 1] = WORD_FIXUPS[word] or (word:sub(1, 1) .. word:sub(2):lower())
     end
     return table.concat(words, " ")
 end
@@ -175,9 +191,16 @@ local function weaponOf(source, flags)
         local name = EFFECT_NAMES[source.Variant]
         if name ~= nil then return prettify(name) end
     end
+    -- a familiar's doing belongs to the familiar whatever shape it arrives in -- a
+    -- tear, a beam, a blast -- so this comes before naming the shape itself. The
+    -- hazards above are the exception: a fire is a fire whoever lit it.
     if source.Type == EntityType.ENTITY_FAMILIAR then
         return familiarLabel(source.Variant)
     end
+    if source.SpawnerType == EntityType.ENTITY_FAMILIAR then
+        return familiarLabel(source.SpawnerVariant)
+    end
+
     if source.Type == EntityType.ENTITY_BOMB then
         return bombLabel(entity, source.Variant)
     end
@@ -189,9 +212,6 @@ local function weaponOf(source, flags)
         return heldWeapon(player, MELEE_WEAPONS) or "Melee"
     end
     if source.Type == EntityType.ENTITY_TEAR then
-        if source.SpawnerType == EntityType.ENTITY_FAMILIAR then
-            return familiarLabel(source.SpawnerVariant)
-        end
         return TEAR_LABELS[source.Variant] or "Tears"
     end
     return "Other"

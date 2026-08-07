@@ -15,13 +15,13 @@ local STEPS = {
     "restart 0", 60,
     "debug 3",
     "stage 1", 60,
-    "giveitem c8",
-    "giveitem c67",
-    "giveitem c95",
+    "giveitem c275",
+    "giveitem c273",
+    "giveitem c88",
     "spawn 20.0.0",
 }
 
-local HINT = "shoot Monstro and drop a bomb -- expect Tears, the three familiars and Bombs"
+local HINT = "keep firing at Monstro -- Lil Brimstone, Bob's Brain and Little Chubby each want their own row"
 
 local mod = RegisterMod("devrepro", 1)
 

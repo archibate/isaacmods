@@ -79,6 +79,8 @@ local HINT = "walk into the boss room and fire once"
 - `debug <N>`: testing cheats — `3` invincibility, `8` active always charged, `10`
   quick kill enemies (rooms clear in ~1s). Run again to toggle off. Flag clear on restart.
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
+- Bombs, keys or coins needed? `giveitem c190` (Pyro) fills bombs, `c17` (Skeleton Key)
+  keys, `c18` (A Dollar) coins — 99 each, so nobody scrounges for pickups mid-test.
 - **Never quote an ID from memory** — models hallucinate them. Grep the ground truth
   first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
   EntityType, CardType, TrinketType...).
