@@ -82,6 +82,7 @@ local HINT = "walk into the boss room and fire once"
 - **Never quote an ID from memory** — models hallucinate them. Grep the ground truth
   first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
   EntityType, CardType, TrinketType...).
+- `restart` and `stage` takes time to take effect, so a `60` frame delay is required.
 
 Read the outcome yourself instead of asking the user to describe it. Instrument the mod
 under test with `Isaac.DebugString("[TAG] ...")` — state it prints, the board it draws,

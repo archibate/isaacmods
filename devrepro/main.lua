@@ -15,12 +15,13 @@ local STEPS = {
     "restart 0", 60,
     "debug 3",
     "stage 1", 60,
-    "giveitem c257",
     "giveitem c8",
+    "giveitem c67",
+    "giveitem c95",
     "spawn 20.0.0",
 }
 
-local HINT = "shoot Monstro once, then stop and let Brother Bobby hit it while it burns"
+local HINT = "shoot Monstro and drop a bomb -- expect Tears, the three familiars and Bombs"
 
 local mod = RegisterMod("devrepro", 1)
 
