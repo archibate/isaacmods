@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+    <name>Dev Repro</name>
+    <directory>devrepro</directory>
+    <description>Development driver: runs a canned console sequence at a keypress, one command per frame, so a reproduction can be replayed without retyping it.
+
+Not for release.</description>
+    <version>1.0</version>
+    <visibility>Private</visibility>
+    <tag id="Tweaks"/>
+</metadata>

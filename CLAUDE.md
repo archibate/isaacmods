@@ -25,8 +25,9 @@ mod's source. Open this directory as the editor root so the shared `.luarc.json`
 ## Working here
 
 - Runtime is **Lua 5.3**; `luac -p main.lua` catches syntax errors, not logic bugs.
-- Agents can't see the running game. For runtime bugs: add a `print()` probe, have the
-  user reproduce and read it back, fix from the data, then remove the probe.
+- Agents can't see the running game. For runtime bugs: instrument with
+  `Isaac.DebugString`, have the user run the reproduction, read `log.txt` yourself, fix
+  from the data, then remove the instrument. See the Console Repro Contract below.
 - Map/teleport code carries hand-tuned pixel offsets that differ across game versions and
   in mirror world — measure in-game, don't guess.
 - Verify game mechanics against WebSearch before matching them in code.
@@ -52,30 +53,42 @@ with the user.
 
 ## Console Repro Contract
 
-Reproduction guides hand the user an exact console sequence in a fenced code block,
-one command per line, copy-paste ready:
+Reproductions run through `devrepro/`, not through copy-paste. Write the command list
+into the `STEPS` table of `devrepro/main.lua`, put anything the user must do by hand
+into `HINT`, and ask them to press **F1**. The driver reloads itself first, so the list
+that runs is always the one just written.
 
-```
-luamod goodtripfixed
-restart 0
-debug 3
-debug 10
-stage 7
-giveitem c561
-lua print(Isaac.GetPlayer(0).TearRange)
+```lua
+local STEPS = {
+    "luamod goodtripfixed",
+    "restart 0", 60,
+    "debug 3",
+    "stage 7", 60,
+    "giveitem c561",
+}
+
+local HINT = "walk into the boss room and fire once"
 ```
 
-- Start with `luamod <modname>` (bare folder name, no `_workshopid` suffix) whenever the
-  mod's Lua was just edited — it hot-reloads without a game restart.
+- A string is a console command; a number is that many frames to wait. `restart` and
+  `stage` only take effect on a later frame, so each needs a wait behind it.
+- Start with `luamod <modname>` (bare folder name, no `_workshopid` suffix) so the mod
+  under test picks up its latest Lua.
 - `restart <PlayerType>` picks the character; `giveitem cNNN` gives items (`tNNN` for
-  trinkets, `kNN` for cards); `stage N[a-d]` jumps floors; `lua print(Isaac.GetXX())`
-  reads game state back.
+  trinkets, `kNN` for cards); `stage N[a-d]` jumps floors.
 - `debug <N>`: testing cheats — `3` invincibility, `8` active always charged, `10`
   quick kill enemies (rooms clear in ~1s). Run again to toggle off. Flag clear on restart.
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
 - **Never quote an ID from memory** — models hallucinate them. Grep the ground truth
   first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
   EntityType, CardType, TrinketType...).
+
+Read the outcome yourself instead of asking the user to describe it. Instrument the mod
+under test with `Isaac.DebugString("[TAG] ...")` — state it prints, the board it draws,
+whichever branch is in question — and once the user says the reproduction is done, read
+`~/.local/share/Steam/steamapps/compatdata/250900/pfx/drive_c/users/steamuser/Documents/My Games/Binding of Isaac Repentance+/log.txt`
+and grep the tag. A dedup guard is worth it on anything that fires per frame. Strip the
+instruments before the fix is called done.
 
 ## API references
 
