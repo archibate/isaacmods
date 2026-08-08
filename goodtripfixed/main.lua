@@ -2,6 +2,10 @@ local hasoldgoodtrip = (gt and not gt.isgtfixed)
 local _gt = RegisterMod("GoodTrip [Fixed]", 1)
 gt = _gt
 _gt.isgtfixed = true
+--drawing the cursor on the game's own map needs a Repentogon render callback to
+--land above the map, so it sits behind it for everyone else: kept out of MCM and
+--off until that is solved, flip it from the console to work on it
+_gt.enableGMC = false
 local function show_warn(warnmsg)
     local warncounter = 300
     print(warnmsg)
@@ -155,7 +159,6 @@ local gtconfig = {
     OverlayKey = nil,  --The key to open the overlay on keyboard
     OverlayKeyController = nil, --The button to open the overlay on controller
     SwapAnalogSticks = false, --Swap the left and right analog sticks
-    GameMapCursor = false, --draw the keyboard cursor on the game's own map instead of the aux widget
     --self-service calibration for corner-map clicks, in pixels: if clicks land
     --one room LEFT of where you aim, increase; RIGHT of aim, decrease
     --(Y likewise: land ABOVE your aim, increase; BELOW, decrease)
@@ -222,7 +225,6 @@ if ModConfigMenu then
         { "FastRestartEnable", "Allow restarting the run quickly via TAB + R" },
         { "NoShootWhenClick", "Disable shoot when teleporting via TAB + Click" },
         { "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
-        { "GameMapCursor", "Draw the keyboard/controller cursor on the game's own map (top-right corner map or MinimapAPI) instead of the mod's draggable widget" },
 
         { "ShowSpecialIcons", "Show an icon on room that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
@@ -1302,7 +1304,7 @@ function _gt:prep_minimap()
 end
 --
 function _gt:draw_minimap_ui()
-    if gtconfig.GameMapCursor then --the game's own map is the widget: no window chrome
+    if _gt.enableGMC then --the game's own map is the widget: no window chrome
       return
     end
     if not ((gtconfig.KeyboardMapEnable and _gt:check_teleble(false)) or debug) then -------return when gtconfig.KeyboardMapEnable disable & debug disable
@@ -1352,7 +1354,7 @@ function _gt:draw_minimap_ui()
     gtui:Render(mmp_ltpos + Vector(12, 0) * mmsc, Vector(0, 0), Vector(0, 0))
 end
 --
---GameMapCursor mode: the aux window stays hidden, the keyboard cursor is
+--game-map cursor mode: the aux window stays hidden, the keyboard cursor is
 --drawn on the game's own map instead; selection & teleport logic untouched
 function _gt:draw_gamemap_cursor()
     if not mmp_ctrl then
@@ -1380,7 +1382,7 @@ function _gt:draw_gamemap_cursor()
 end
 --
 function _gt:draw_minimap()
-    if gtconfig.GameMapCursor then
+    if _gt.enableGMC then
       _gt:draw_gamemap_cursor()
       return
     end
@@ -1581,7 +1583,7 @@ function _gt:tab_action()
             or Input.IsActionPressed(key[4],player.ControllerIndex)
         --with the cursor on the game's own map there is no widget for the mouse
         --to hover, so the keyboard always owns the cursor
-        local in_ui = not gtconfig.GameMapCursor
+        local in_ui = not _gt.enableGMC
             and _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
         if arrowdown then --keyboard used: it becomes the active device
           kb_active = true
@@ -1671,7 +1673,7 @@ function _gt:mouse_action()
       ---
       if (_gt:check_teleble(mgid) and tele_cd < 1) then
         _gt:teleport_to_grid_index(mgid)
-      elseif gtconfig.KeyboardMapEnable and not gtconfig.GameMapCursor then --aux-widget zones (window click / pin / zoom / drag): only when the widget is visible
+      elseif gtconfig.KeyboardMapEnable and not _gt.enableGMC then --aux-widget zones (window click / pin / zoom / drag): only when the widget is visible
         mgid = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
         --
         if (_gt:check_teleble(mgid) and tele_cd < 1) then
@@ -1849,7 +1851,7 @@ function _gt:step()
       end
     elseif (gtconfig.KeyboardMapEnable) or debug then -------return when gtconfig.KeyboardMapEnable & debug disable
       --PIN ACTION WITHOUT TAB--
-      if mmp_pin == 1 and not gtconfig.GameMapCursor and crd.Clear and _gt:check_teleble(false) then
+      if mmp_pin == 1 and not _gt.enableGMC and crd.Clear and _gt:check_teleble(false) then
         if mouse_in_ui then
           ---click
           if _gt:IsMouseBtnTriggered(0) then

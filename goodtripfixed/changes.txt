@@ -1,2 +1,1 @@
-- Fixed the controller fast-restart button ignoring the FastRestartEnable switch: turning it off only disabled the R key, so a bound ControllerAlternateR still restarted the run — including while paging item descriptions with EID (thanks @TesKwokin for the report!)
-- New: move the map cursor with the left stick instead of the right one (MCM: SwapAnalogSticks), so characters that shoot on aim don't fire while you pick a room — thanks @FatPorpoise for the pull request and @Gokudera ElPsyCongroo for the request!
+- Withdrew the experimental GameMapCursor mode, which drew its cursor behind the game's map and left the draggable teleport map hidden — anyone who had switched it on gets their map back (thanks @白纸 and @未宇Fln for the reports!)
