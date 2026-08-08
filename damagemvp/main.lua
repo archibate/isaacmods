@@ -443,9 +443,18 @@ end
 
 -- Only the hits of the player whose beam this is: in co-op each has their own
 -- beams closing their own updates, and one must not take the other's.
+local seenAward = {}
+
 local function awardQueuedHits(label, shooter)
     local frame = Game():GetFrameCount()
     local waiting = {}
+    -- development aid, to be dropped before release: one line per distinct award,
+    -- since this fires every frame a beam is on something
+    local note = "[DMVP] award n=" .. #queuedHits .. " to=" .. label
+    if not seenAward[note] then
+        seenAward[note] = true
+        Isaac.DebugString(note)
+    end
     for _, hit in ipairs(queuedHits) do
         if shooter ~= nil and GetPtrHash(hit.player) ~= GetPtrHash(shooter) then
             waiting[#waiting + 1] = hit
