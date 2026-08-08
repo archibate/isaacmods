@@ -196,7 +196,8 @@ local function weaponOf(source, flags)
             or "Melee"
     end
 
-    if ownerOf(entity) == nil then return nil end
+    local owner = ownerOf(entity)
+    if owner == nil then return nil end
 
     -- a lingering fire is its own hazard: the candle's is dropped by the player,
     -- the one an exploding shot leaves behind is dropped by that shot
@@ -227,8 +228,7 @@ local function weaponOf(source, flags)
         return LASER_LABELS[source.Variant] or "Laser"
     end
     if source.Type == EntityType.ENTITY_KNIFE then
-        local player = ownerOf(entity)
-        return heldWeapon(player, MELEE_WEAPONS) or "Melee"
+        return heldWeapon(owner, MELEE_WEAPONS) or "Melee"
     end
     if source.Type == EntityType.ENTITY_TEAR then
         return TEAR_LABELS[source.Variant] or "Tears"
