@@ -250,10 +250,6 @@ local function logPlainLaser(player, amount, verdict, flags, victim)
     Isaac.DebugString(line)
 end
 
--- A beam that reports the player names no weapon, but the beam itself is still in
--- the room and knows what it is. Returns the name, or false when the beams cannot
--- answer -- several kinds of ours in flight, or one that cannot even say what it
--- looks like -- or nil when there is no beam of ours to ask at all.
 -- A hit never names the beam behind it -- the source is the player. But every beam
 -- of yours that reaches an enemy lands its own hit on it, in the order the room
 -- lists the beams: two beams in flight give two hits that frame, first hit to first
@@ -295,9 +291,43 @@ local function nthCulprit(entityType, player, nth, nameOf)
     return nil
 end
 
+-- Development aid, to be dropped before release: the counting rule holds only if
+-- every beam that is alive hits every enemy it is credited against. With a crowd,
+-- one enemy may be reached by only one of two beams -- and then its single hit is
+-- wrongly handed to whichever beam the room lists first. This reports the count.
+local function logCount(player, victim, nth)
+    local beams = 0
+    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
+        local owner = ownerOf(laser)
+        if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then beams = beams + 1 end
+    end
+    if beams < 2 then return end
+
+    -- how far off the aim line the victim sits: a beam reaches along it, a ring
+    -- reaches all round, so an enemy well off the line was not the beam's doing
+    local offLine, along = "?", "?"
+    local aim = player:GetAimDirection()
+    if aim ~= nil and victim ~= nil then
+        local to = victim.Position - player.Position
+        local length = math.sqrt(aim.X * aim.X + aim.Y * aim.Y)
+        if length > 0.01 then
+            local ux, uy = aim.X / length, aim.Y / length
+            along = string.format("%.0f", to.X * ux + to.Y * uy)
+            offLine = string.format("%.0f", math.abs(to.X * uy - to.Y * ux))
+        end
+    end
+
+    Isaac.DebugString("[DMVP] count f=" .. Game():GetFrameCount()
+        .. " seq=" .. nthHitThisFrame("any", nil)
+        .. " victim=" .. tostring(victim ~= nil and GetPtrHash(victim) or "?")
+        .. " nth=" .. nth .. " beams=" .. beams
+        .. " off=" .. offLine)
+end
+
 local function beamBehind(player, victim)
-    return nthCulprit(EntityType.ENTITY_LASER, player,
-        nthHitThisFrame("beam", victim),
+    local nth = nthHitThisFrame("beam", victim)
+    pcall(logCount, player, victim, nth)
+    return nthCulprit(EntityType.ENTITY_LASER, player, nth,
         function(laser) return beamName(laser.Variant, laser.SubType) or "Laser" end)
 end
 

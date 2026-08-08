@@ -15,13 +15,14 @@ local STEPS = {
     "restart 0", 10,
     "debug 3",
     "debug 9",
+    "debug 6",
     "stage 1", 10,
     "giveitem c118",
     "giveitem c399",
-    "spawn 408.0.0",
+    "spawn 36.0.0",
 }
 
-local HINT = "Brimstone and Maw together -- fire and charge; expect two rows, not one"
+local HINT = "Brimstone and Maw into Gurdy's flies -- a crowd, so the two beams hit different enemies"
 
 local mod = RegisterMod("devrepro", 1)
 
