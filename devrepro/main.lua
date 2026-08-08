@@ -22,7 +22,7 @@ local STEPS = {
     "spawn 408.0.0",
 }
 
-local HINT = "both Shoop and Trisagion -- shoot and fire; one shared row named for the beam"
+local HINT = "both Shoop and Trisagion -- shoot and fire; both land on one Shoop row"
 
 local mod = RegisterMod("devrepro", 1)
 

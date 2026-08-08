@@ -95,9 +95,9 @@ local SWINGING_FAMILIARS = {
 }
 
 -- A laser entity's variant is the only trace left of which item fired it, and only
--- where that variant is one item's own signature. Two of these were measured to be
--- shared and are deliberately absent; the rest below are inherited from an earlier
--- build and unmeasured, so any of them may yet turn out to be shared too.
+-- where that variant is one item's own signature. Two below were measured to be
+-- shared by two items each and are named accordingly; the rest are inherited from
+-- an earlier build and unmeasured, so any of them may yet prove shared too.
 local LASER_LABELS = {
     [LaserVariant.THICK_RED] = "Brimstone",
     [LaserVariant.THICKER_RED] = "Brimstone",
