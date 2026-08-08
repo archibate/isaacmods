@@ -248,7 +248,8 @@ end
 
 -- A beam that reports the player names no weapon, but the beam itself is still in
 -- the room and knows what it is. Returns the name, or false when the beams cannot
--- answer -- several kinds of ours in flight -- or nil when there is none to ask.
+-- answer -- several kinds of ours in flight, or one that cannot even say what it
+-- looks like -- or nil when there is no beam of ours to ask at all.
 local function liveBeam(player, amount)
     local kinds, kindCount = {}, 0
     local exact, exactCount = {}, 0
