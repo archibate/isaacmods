@@ -251,12 +251,26 @@ local function logPlainLaser(player, amount, verdict, flags, victim)
 end
 
 
--- Development aid, to be dropped before release: one line per event in a frame --
--- each of your beams updating, each collision, each laser hit -- so the order they
--- arrive in can be read. A beam that hits nothing still updates, which is what the
--- run grouping had no way to see.
-local function logTimeline(what)
-    Isaac.DebugString("[DMVP] tl f=" .. Game():GetFrameCount() .. " " .. what)
+-- The hit names only the player, but the beam that landed it is still in the room
+-- at that moment -- measured -- so what is in flight names it. Nil when two
+-- different kinds are, because nothing the game exposes ties a hit to one beam:
+-- not the damage, which matches; not the geometry, which reads nil; and not the
+-- order they arrive in, since a beam can hit before it ever reports an update.
+local function beamInFlight(player)
+    local kinds, count, any = {}, 0, nil
+    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
+        local owner = ownerOf(laser)
+        if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
+            local label = beamName(laser.Variant, laser.SubType)
+            if label ~= nil and not kinds[label] then
+                kinds[label] = true
+                count = count + 1
+                any = label
+            end
+        end
+    end
+    if count == 1 then return any end
+    return nil
 end
 
 -- Whichever of the player's familiars could have thrown a blow that names no
@@ -322,10 +336,10 @@ local function weaponOf(source, flags, amount, victim)
     if source.Type == EntityType.ENTITY_PLAYER then
         local player = entity ~= nil and entity:ToPlayer() or nil
         if player == nil then return nil end
-        -- a beam's hit is queued and named when that beam closes its update, so it
-        -- never reaches here; this answers only a beam already gone from the room
+        -- the beam is in the room at the instant it lands its hit, so what is in
+        -- flight names it; the weapon wielded answers only when none is
         if flags & DamageFlag.DAMAGE_LASER ~= 0 then
-            return heldWeapon(player, LASER_WEAPONS) or "Laser"
+            return beamInFlight(player) or heldWeapon(player, LASER_WEAPONS) or "Laser"
         end
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
         -- character's melee, and the cooldown flag is what tells them apart
@@ -425,50 +439,6 @@ local function credit(label, damage)
     changed = true
 end
 
--- A hit never names the beam behind it -- the source is the player. But a beam
--- deals its damage during its own update, and the game closes every update with a
--- callback, so a hit belongs to the next beam that reports in. Crediting therefore
--- waits: hits queue, and the beam finishing next takes the queue. A beam that
--- reached nothing simply finds it empty, which is what defeats every attempt to
--- count or order hits alone -- an absent beam is invisible to those.
---
--- Measured: three hits landed between Technology 2's update and Shoop's, and Shoop
--- was the beam that had actually reached those enemies past the rocks.
-local queuedHits = {}
-
-local function queueBeamHit(player, victim, dealt, exploded)
-    queuedHits[#queuedHits + 1] =
-        { player = player, victim = victim, dealt = dealt, exploded = exploded }
-end
-
--- Only the hits of the player whose beam this is: in co-op each has their own
--- beams closing their own updates, and one must not take the other's.
-local seenAward = {}
-
-local function awardQueuedHits(label, shooter)
-    local frame = Game():GetFrameCount()
-    local waiting = {}
-    -- development aid, to be dropped before release: one line per distinct award,
-    -- since this fires every frame a beam is on something
-    local note = "[DMVP] award n=" .. #queuedHits .. " to=" .. label
-    if not seenAward[note] then
-        seenAward[note] = true
-        Isaac.DebugString(note)
-    end
-    for _, hit in ipairs(queuedHits) do
-        if shooter ~= nil and GetPtrHash(hit.player) ~= GetPtrHash(shooter) then
-            waiting[#waiting + 1] = hit
-        else
-            -- remembered bare, so a status this hit applies reads as the weapon
-            local data = hit.victim:GetData()
-            data.dmvpHitLabel = label
-            data.dmvpHitFrame = frame
-            credit(hit.exploded and (label .. " (explosion)") or label, hit.dealt)
-        end
-    end
-    queuedHits = waiting
-end
-
 -- Whoever hurt an enemy last is not always whoever set it alight. A status is
 -- pinned to an owner the moment it appears and is never re-pinned while it lasts,
 -- so a later weapon can never inherit someone else's burn.
@@ -527,17 +497,6 @@ function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
         return nil
     end
 
-    -- a beam's hit cannot be named yet: the beam that dealt it is the one that
-    -- closes its update next, so this waits in the queue until then
-    if source.Type == EntityType.ENTITY_PLAYER and flags & DamageFlag.DAMAGE_LASER ~= 0 then
-        local shooter = source.Entity ~= nil and source.Entity:ToPlayer() or nil
-        if shooter ~= nil then
-            queueBeamHit(shooter, victim, dealt,
-                flags & DamageFlag.DAMAGE_EXPLOSION ~= 0)
-            return nil
-        end
-    end
-
     local weapon = weaponOf(source, flags, amount, victim)
     if weapon == nil then
         -- something not ours touched this enemy last, so a status appearing now
@@ -568,13 +527,6 @@ end
 function mod:onUpdate()
     local frame = Game():GetFrameCount()
 
-    -- a hit still waiting at the end of a frame came from a beam that never closed
-    -- an update -- one already gone from the room -- so the weapon wielded answers
-    while #queuedHits > 0 do
-        local shooter = queuedHits[1].player
-        awardQueuedHits(heldWeapon(shooter, LASER_WEAPONS) or "Laser", shooter)
-    end
-
     for _, entity in ipairs(Isaac.GetRoomEntities()) do
         if entity:IsEnemy() then syncStatus(entity, frame) end
     end
@@ -602,9 +554,6 @@ end
 function mod:onNewRoom()
     tally = {}
     total = 0
-    -- a hit still waiting as the room changes belongs to the room being left, and
-    -- its beam is gone; carrying it over would spend it on the next room's board
-    queuedHits = {}
 end
 
 -- The stubs promise fields and methods the game does not always have -- Radius,
@@ -627,23 +576,3 @@ mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
 
--- the beam closing its update takes whatever hits have queued since the last one
-function mod:onLaserUpdate(laser)
-    local shooter = ownerOf(laser)
-    if shooter == nil then return end
-    logTimeline("beam " .. tostring(laser.Variant) .. "." .. tostring(laser.SubType))
-    if #queuedHits == 0 then return end
-    awardQueuedHits(beamName(laser.Variant, laser.SubType) or "Laser", shooter)
-end
-
-function mod:onNpcCollision(npc, collider, low)
-    -- only a laser answers the question; everything else touching an enemy would
-    -- bury the log
-    if collider == nil or collider.Type ~= EntityType.ENTITY_LASER then return nil end
-    logTimeline("coll npc=" .. GetPtrHash(npc)
-        .. " with=" .. tostring(collider.Variant) .. "." .. tostring(collider.SubType))
-    return nil
-end
-
-mod:AddCallback(ModCallbacks.MC_POST_LASER_UPDATE, mod.onLaserUpdate)
-mod:AddCallback(ModCallbacks.MC_PRE_NPC_COLLISION, mod.onNpcCollision)
