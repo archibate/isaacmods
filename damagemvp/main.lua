@@ -256,20 +256,29 @@ end
 -- beam. Measured over consecutive frames with Brimstone and Maw's ring, which are
 -- otherwise identical in every field the game exposes.
 --
--- So each hit is counted per victim per frame, and that count picks the culprit.
--- The same holds for anything else of yours that hits without naming itself.
-local countedFrame, hitCounts = -1, {}
+-- Better than that: the game works through one beam's victims before starting the
+-- next, so a frame's hits arrive in runs, one run per beam. Measured -- two enemies
+-- and two beams gave A, B, A rather than A, A, B, which only beam-by-beam ordering
+-- produces. A victim appearing twice therefore opens the next run, and the run's
+-- number picks the beam. This is what lets an enemy only the second beam reaches be
+-- credited to it, rather than to whichever beam the room happens to list first.
+local groups = {}
 
-local function nthHitThisFrame(kind, victim)
+local function runThisFrame(kind, victim)
     local frame = Game():GetFrameCount()
-    if frame ~= countedFrame then
-        countedFrame = frame
-        hitCounts = {}
+    local group = groups[kind]
+    if group == nil or group.frame ~= frame then
+        group = { frame = frame, index = 1, seen = {} }
+        groups[kind] = group
     end
-    local key = kind .. "@" .. tostring(victim ~= nil and GetPtrHash(victim) or 0)
-    local nth = (hitCounts[key] or 0) + 1
-    hitCounts[key] = nth
-    return nth
+
+    local key = victim ~= nil and GetPtrHash(victim) or 0
+    if group.seen[key] then
+        group.index = group.index + 1
+        group.seen = {}
+    end
+    group.seen[key] = true
+    return group.index
 end
 
 -- Walks the room's entities of one type that belong to the player and could have
@@ -294,46 +303,30 @@ end
 -- Development aid, to be dropped before release: the counting rule holds only if
 -- every beam that is alive hits every enemy it is credited against. With a crowd,
 -- one enemy may be reached by only one of two beams -- and then its single hit is
--- wrongly handed to whichever beam the room lists first. This reports the count.
-local function logCount(player, victim, nth)
+-- Development aid, to be dropped before release: which run a hit was placed in,
+-- against the beams alive, so a mis-grouping shows up rather than passing quietly.
+local function logRun(player, victim, run)
     local beams = 0
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
         local owner = ownerOf(laser)
         if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then beams = beams + 1 end
     end
     if beams < 2 then return end
-
-    -- how far off the aim line the victim sits: a beam reaches along it, a ring
-    -- reaches all round, so an enemy well off the line was not the beam's doing
-    local offLine, along = "?", "?"
-    local aim = player:GetAimDirection()
-    if aim ~= nil and victim ~= nil then
-        local to = victim.Position - player.Position
-        local length = math.sqrt(aim.X * aim.X + aim.Y * aim.Y)
-        if length > 0.01 then
-            local ux, uy = aim.X / length, aim.Y / length
-            along = string.format("%.0f", to.X * ux + to.Y * uy)
-            offLine = string.format("%.0f", math.abs(to.X * uy - to.Y * ux))
-        end
-    end
-
-    Isaac.DebugString("[DMVP] count f=" .. Game():GetFrameCount()
-        .. " seq=" .. nthHitThisFrame("any", nil)
+    Isaac.DebugString("[DMVP] run f=" .. Game():GetFrameCount()
         .. " victim=" .. tostring(victim ~= nil and GetPtrHash(victim) or "?")
-        .. " nth=" .. nth .. " beams=" .. beams
-        .. " off=" .. offLine)
+        .. " run=" .. run .. " beams=" .. beams)
 end
 
 local function beamBehind(player, victim)
-    local nth = nthHitThisFrame("beam", victim)
-    pcall(logCount, player, victim, nth)
-    return nthCulprit(EntityType.ENTITY_LASER, player, nth,
+    local run = runThisFrame("beam", victim)
+    pcall(logRun, player, victim, run)
+    return nthCulprit(EntityType.ENTITY_LASER, player, run,
         function(laser) return beamName(laser.Variant, laser.SubType) or "Laser" end)
 end
 
 local function swingBehind(player, victim)
     return nthCulprit(EntityType.ENTITY_FAMILIAR, player,
-        nthHitThisFrame("swing", victim),
+        runThisFrame("swing", victim),
         function(familiar) return SWINGING_FAMILIARS[familiar.Variant] end)
 end
 
