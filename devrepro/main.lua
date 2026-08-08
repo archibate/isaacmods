@@ -17,12 +17,13 @@ local STEPS = {
     "debug 9",
     "debug 6",
     "stage 1", 10,
-    "giveitem c118",
-    "giveitem c399",
+    "debug 8",
+    "giveitem c49",
+    "giveitem c152",
     "spawn 36.0.0",
 }
 
-local HINT = "Brimstone and Maw into Gurdy's flies -- a crowd, so the two beams hit different enemies"
+local HINT = "Shoop and Technology 2 into Gurdy's flies -- hold shoot and press space"
 
 local mod = RegisterMod("devrepro", 1)
 

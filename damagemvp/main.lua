@@ -300,9 +300,6 @@ local function nthCulprit(entityType, player, nth, nameOf)
     return nil
 end
 
--- Development aid, to be dropped before release: the counting rule holds only if
--- every beam that is alive hits every enemy it is credited against. With a crowd,
--- one enemy may be reached by only one of two beams -- and then its single hit is
 -- Development aid, to be dropped before release: which run a hit was placed in,
 -- against the beams alive, so a mis-grouping shows up rather than passing quietly.
 local function logRun(player, victim, run)
