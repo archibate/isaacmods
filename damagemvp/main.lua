@@ -230,7 +230,7 @@ local seenLaser = {}
 
 -- everything is stringified rather than formatted as a number: a field the stubs
 -- promise can still come back nil, and a probe must never be what crashes a run
-local function logPlainLaser(player, amount, verdict)
+local function logPlainLaser(player, amount, verdict, flags, victim)
     local alive = {}
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
         local owner = ownerOf(laser)
@@ -239,15 +239,10 @@ local function logPlainLaser(player, amount, verdict)
             whose = GetPtrHash(owner) == GetPtrHash(player) and "mine" or "other"
         end
         alive[#alive + 1] = tostring(laser.Variant) .. "." .. tostring(laser.SubType)
-            .. "/" .. whose
-            .. "/dmg" .. tostring(laser.CollisionDamage)
-            .. "/len" .. tostring(laser.LaserLength)
-            .. "/max" .. tostring(laser.MaxDistance)
-            .. "/flags" .. tostring(laser.TearFlags)
-            .. "/age" .. tostring(laser.FrameCount)
-            .. "/angle" .. tostring(laser.AngleDegrees)
+            .. "/" .. whose .. "/dmg" .. tostring(laser.CollisionDamage)
     end
     local line = "[DMVP] beam -> " .. tostring(verdict)
+        .. "  flags=" .. string.format("0x%X", flags or 0)
         .. "  amount=" .. tostring(amount)
         .. "  alive=" .. table.concat(alive, " ")
     if seenLaser[line] then return end
@@ -259,47 +254,57 @@ end
 -- the room and knows what it is. Returns the name, or false when the beams cannot
 -- answer -- several kinds of ours in flight, or one that cannot even say what it
 -- looks like -- or nil when there is no beam of ours to ask at all.
-local function liveBeam(player, amount)
-    local kinds, kindCount = {}, 0
-    local exact, exactCount = {}, 0
-    local anyKind, anyExact = nil, nil
+-- A hit never names the beam behind it -- the source is the player. But every beam
+-- of yours that reaches an enemy lands its own hit on it, in the order the room
+-- lists the beams: two beams in flight give two hits that frame, first hit to first
+-- beam. Measured over consecutive frames with Brimstone and Maw's ring, which are
+-- otherwise identical in every field the game exposes.
+--
+-- So each hit is counted per victim per frame, and that count picks the culprit.
+-- The same holds for anything else of yours that hits without naming itself.
+local countedFrame, hitCounts = -1, {}
 
-    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
-        local owner = ownerOf(laser)
+local function nthHitThisFrame(kind, victim)
+    local frame = Game():GetFrameCount()
+    if frame ~= countedFrame then
+        countedFrame = frame
+        hitCounts = {}
+    end
+    local key = kind .. "@" .. tostring(victim ~= nil and GetPtrHash(victim) or 0)
+    local nth = (hitCounts[key] or 0) + 1
+    hitCounts[key] = nth
+    return nth
+end
+
+-- Walks the room's entities of one type that belong to the player and could have
+-- landed such a hit, and names the nth of them. Nil when there are fewer of them
+-- than hits to explain -- better silent than handing the extra to whichever came
+-- first.
+local function nthCulprit(entityType, player, nth, nameOf)
+    local seen = 0
+    for _, entity in ipairs(Isaac.FindByType(entityType, -1, -1, false, false)) do
+        local owner = ownerOf(entity)
         if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-            local label = beamName(laser.Variant, laser.SubType)
-            if label == nil then return false end
-            if not kinds[label] then
-                kinds[label] = true
-                kindCount = kindCount + 1
-                anyKind = label
-            end
-            -- each beam declares the damage it deals, so a hit of exactly that much
-            -- came from that beam. Read off the entity, so a damage up or an Almond
-            -- Milk moves the hit and the beam's own figure together.
-            local dealt = laser.CollisionDamage
-            if dealt ~= nil and math.abs(dealt - amount) < 0.01 and not exact[label] then
-                exact[label] = true
-                exactCount = exactCount + 1
-                anyExact = label
+            local label = nameOf(entity)
+            if label ~= nil then
+                seen = seen + 1
+                if seen == nth then return label end
             end
         end
     end
+    return nil
+end
 
-    if kindCount == 0 then return nil end
-    if kindCount == 1 then return anyKind end
-    if exactCount == 1 then return anyExact end
-    -- Two of ours in flight dealing the very same damage -- Brimstone always spawns
-    -- Maw's ring alongside it -- and the hit belongs to one of them. Naming both is
-    -- the whole truth; picking one would be a coin toss and "Laser" throws away
-    -- what is actually known.
-    if kindCount == 2 then
-        local both = {}
-        for label in pairs(kinds) do both[#both + 1] = label end
-        table.sort(both)
-        return both[1] .. " / " .. both[2]
-    end
-    return false
+local function beamBehind(player, victim)
+    return nthCulprit(EntityType.ENTITY_LASER, player,
+        nthHitThisFrame("beam", victim),
+        function(laser) return beamName(laser.Variant, laser.SubType) or "Laser" end)
+end
+
+local function swingBehind(player, victim)
+    return nthCulprit(EntityType.ENTITY_FAMILIAR, player,
+        nthHitThisFrame("swing", victim),
+        function(familiar) return SWINGING_FAMILIARS[familiar.Variant] end)
 end
 
 -- Development aid, to be dropped before release: a crushing blow names no weapon.
@@ -336,29 +341,9 @@ local function logShape(source, flags)
     Isaac.DebugString(line)
 end
 
--- Whichever of the player's familiars could have thrown a blow that names no
--- weapon. Nil when none is out, or when several different ones are and the swing
--- could have been any of them.
-local function liveSwing(player)
-    local kinds, count, any = {}, 0, nil
-    for _, familiar in ipairs(Isaac.FindByType(EntityType.ENTITY_FAMILIAR, -1, -1, false, false)) do
-        local label = SWINGING_FAMILIARS[familiar.Variant]
-        if label ~= nil and not kinds[label] then
-            local owner = ownerOf(familiar)
-            if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-                kinds[label] = true
-                count = count + 1
-                any = label
-            end
-        end
-    end
-    if count == 1 then return any end
-    return nil
-end
-
 -- The bare name of the weapon behind a hit, or nil when it was not ours.
 -- Modifiers such as "(explosion)" are the caller's business.
-local function weaponOf(source, flags, amount)
+local function weaponOf(source, flags, amount, victim)
     local entity = source.Entity
 
     -- the player's own beams and swings carry no weapon of their own
@@ -366,13 +351,10 @@ local function weaponOf(source, flags, amount)
         local player = entity ~= nil and entity:ToPlayer() or nil
         if player == nil then return nil end
         if flags & DamageFlag.DAMAGE_LASER ~= 0 then
-            -- the beam in the room is the best witness. Only when there is none to
-            -- ask does the weapon wielded answer; when there are several, no name
-            -- can be picked between them without guessing
-            local beam = liveBeam(player, amount)
-            if beam == nil then beam = heldWeapon(player, LASER_WEAPONS) end
-            logPlainLaser(player, amount, beam)
-            if beam then return beam end
+            -- the beam that landed this particular hit is the best witness; the
+            -- weapon wielded answers only when no beam of yours is in the room
+            local beam = beamBehind(player, victim) or heldWeapon(player, LASER_WEAPONS)
+            if beam ~= nil then return beam end
             return "Laser"
         end
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
@@ -384,7 +366,7 @@ local function weaponOf(source, flags, amount)
             logSwing(player, "crush")
             return "Crush"
         end
-        local swing = heldWeapon(player, MELEE_WEAPONS) or liveSwing(player)
+        local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player, victim)
         if swing ~= nil then return swing end
         logSwing(player, "melee")
         return "Melee"
@@ -531,7 +513,7 @@ function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
         return nil
     end
 
-    local weapon = weaponOf(source, flags, amount)
+    local weapon = weaponOf(source, flags, amount, victim)
     if weapon == nil then
         -- something not ours touched this enemy last, so a status appearing now
         -- belongs to nobody rather than to whatever we hit it with earlier
