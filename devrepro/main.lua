@@ -16,17 +16,11 @@ local STEPS = {
     "debug 3",
     "debug 9",
     "stage 1", 10,
-    "giveitem c494",
-    "giveitem c308",
-    "giveitem c495",
-    "giveitem c399",
-    "giveitem c172",
-    "giveitem c410",
     "giveitem c533",
-    "spawn 36.0.0",
+    "spawn 408.0.0",
 }
 
-local HINT = "shoot Gurdy and its flies, walk your trail over them, hold to charge the void ring"
+local HINT = "Trisagion only -- just shoot the skinless Hush and let me see its beam variant"
 
 local mod = RegisterMod("devrepro", 1)
 

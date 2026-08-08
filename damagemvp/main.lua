@@ -94,13 +94,17 @@ local SWINGING_FAMILIARS = {
     [FamiliarVariant.UMBILICAL_BABY] = "Gello",
 }
 
--- a laser entity's variant is the only trace left of which item fired it
+-- A laser entity's variant is the only trace left of which item fired it, and only
+-- where that variant is one item's own signature. Two of these were measured to be
+-- shared and are deliberately absent; the rest below are inherited from an earlier
+-- build and unmeasured, so any of them may yet turn out to be shared too.
 local LASER_LABELS = {
     [LaserVariant.THICK_RED] = "Brimstone",
     [LaserVariant.THICKER_RED] = "Brimstone",
     [LaserVariant.GIANT_RED] = "Brimstone",
     [LaserVariant.THIN_RED] = "Technology",
-    [LaserVariant.SHOOP] = "Shoop da Whoop",
+    -- SHOOP is not Shoop's alone: Trisagion fires the same beam, so it has no name
+    -- here and lands on the generic row rather than on the wrong item
     [LaserVariant.LIGHT_BEAM] = "Holy Light",
     [LaserVariant.LIGHT_RING] = "Tech X",
     [LaserVariant.BRIM_TECH] = "Tech X",
