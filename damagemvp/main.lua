@@ -103,8 +103,10 @@ local LASER_LABELS = {
     [LaserVariant.THICKER_RED] = "Brimstone",
     [LaserVariant.GIANT_RED] = "Brimstone",
     [LaserVariant.THIN_RED] = "Technology",
-    -- SHOOP is not Shoop's alone: Trisagion fires the same beam, so it has no name
-    -- here and lands on the generic row rather than on the wrong item
+    -- Trisagion fires this one too, and nothing the game exposes tells the two
+    -- apart -- variant, subtype, sprite and animation all match, and every measure
+    -- of shape reads nil. Merged under the better known of the pair, by choice
+    [LaserVariant.SHOOP] = "Shoop",
     [LaserVariant.LIGHT_BEAM] = "Holy Light",
     [LaserVariant.LIGHT_RING] = "Tech X",
     [LaserVariant.BRIM_TECH] = "Tech X",
@@ -237,16 +239,6 @@ local function logPlainLaser(player, amount, verdict)
     Isaac.DebugString(line)
 end
 
--- A beam no item can be pinned to still knows what it looks like, and the game's
--- own word for that beats lumping every nameless beam together. "LargeRedLaser" is
--- what both Shoop and Trisagion fire, and neither may claim it.
-local function beamLooks(laser)
-    local sprite = laser:GetSprite()
-    local animation = sprite ~= nil and sprite:GetAnimation() or nil
-    if animation == nil or animation == "" then return nil end
-    return (animation:gsub("(%l)(%u)", "%1 %2"))
-end
-
 -- A beam that reports the player names no weapon, but the beam itself is still in
 -- the room and knows what it is. Returns the name, or false when the beams cannot
 -- answer -- several kinds of ours in flight, or one that cannot even say what it
@@ -259,7 +251,7 @@ local function liveBeam(player, amount)
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
         local owner = ownerOf(laser)
         if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-            local label = LASER_LABELS[laser.Variant] or beamLooks(laser)
+            local label = LASER_LABELS[laser.Variant]
             if label == nil then return false end
             if not kinds[label] then
                 kinds[label] = true
@@ -405,7 +397,6 @@ local function weaponOf(source, flags, amount)
     end
     if source.Type == EntityType.ENTITY_LASER then
         local beam = LASER_LABELS[source.Variant]
-        if beam == nil and entity ~= nil then beam = beamLooks(entity) end
         if beam ~= nil then return beam end
         logPlainLaser(owner, amount, "unknown variant " .. source.Variant)
         return "Laser"
