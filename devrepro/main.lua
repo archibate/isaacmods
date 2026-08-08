@@ -12,16 +12,15 @@
 
 local STEPS = {
     "luamod damagemvp",
-    "restart 0", 60,
-    "debug 3",
+    "restart 16", 60,
+    "debug 8",
     "stage 1", 60,
-    "giveitem c275",
-    "giveitem c273",
-    "giveitem c88",
-    "spawn 20.0.0",
+    "giveitem c147",
+    "giveitem c117",
+    "spawn 36.0.0",
 }
 
-local HINT = "keep firing at Monstro -- Lil Brimstone, Bob's Brain and Little Chubby each want their own row"
+local HINT = "as Forgotten: bone Gurdy, then the axe; take one hit so Dead Bird spawns -- three rows"
 
 local mod = RegisterMod("devrepro", 1)
 

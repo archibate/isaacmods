@@ -87,6 +87,12 @@ local MELEE_WEAPONS = {
     WeaponType.WEAPON_UMBILICAL_WHIP,
 }
 
+-- a character whose melee claims no weapon of its own can only be named by who
+-- is swinging it
+local CHARACTER_MELEE = {
+    [PlayerType.PLAYER_LILITH_B] = "Gello",
+}
+
 -- a laser entity's variant is the only trace left of which item fired it
 local LASER_LABELS = {
     [LaserVariant.THICK_RED] = "Brimstone",
@@ -103,8 +109,10 @@ local LASER_LABELS = {
     [LaserVariant.ELECTRIC] = "Jacob's Ladder",
 }
 
--- the swords throw a beam that is a tear, so it must not fall through to "Tears"
+-- some weapons throw a tear that is not a tear -- the swords their beam, the urn
+-- its flame -- and none of them may fall through to "Tears"
 local TEAR_LABELS = {
+    [TearVariant.FIRE] = "Urn of Souls",
     [TearVariant.SWORD_BEAM] = "Spirit Sword",
     [TearVariant.TECH_SWORD_BEAM] = "Tech Sword",
 }
@@ -174,7 +182,18 @@ local function weaponOf(source, flags)
             -- weapon held, so it stays a plain laser rather than a wrong name
             return heldWeapon(player, LASER_WEAPONS) or "Laser"
         end
-        return heldWeapon(player, MELEE_WEAPONS) or "Melee"
+        -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
+        -- character's melee, and the cooldown flag is what tells them apart
+        if flags & DamageFlag.DAMAGE_COUNTDOWN ~= 0 then return "Contact" end
+        -- the axe's swing claims no weapon at all, only a crushing blow, so the
+        -- item in hand is the only thing left that names it
+        if flags & DamageFlag.DAMAGE_CRUSH ~= 0
+            and player:HasCollectible(CollectibleType.COLLECTIBLE_NOTCHED_AXE) then
+            return "Notched Axe"
+        end
+        return heldWeapon(player, MELEE_WEAPONS)
+            or CHARACTER_MELEE[player:GetPlayerType()]
+            or "Melee"
     end
 
     if ownerOf(entity) == nil then return nil end

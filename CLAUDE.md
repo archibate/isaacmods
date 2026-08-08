@@ -61,9 +61,9 @@ that runs is always the one just written.
 ```lua
 local STEPS = {
     "luamod goodtripfixed",
-    "restart 0", 60,
+    "restart 0", 30,
     "debug 3",
-    "stage 7", 60,
+    "stage 7", 30,
     "giveitem c561",
 }
 
@@ -76,17 +76,16 @@ local HINT = "walk into the boss room and fire once"
   under test picks up its latest Lua.
 - `restart <PlayerType>` picks the character; `giveitem cNNN` gives items (`tNNN` for
   trinkets, `kNN` for cards); `stage N[a-d]` jumps floors.
-- `debug <N>`: testing cheats — `3` invincibility, `8` active always charged, `10`
-  quick kill enemies (rooms clear in ~1s). Run again to toggle off. Flag clear on restart.
+- `debug <N>`: enable testing cheats accordingly to help user reproduce easy — `3` invincibility (prevent player death during test), `4` +40 damage (kills faster), `8` active always charged (to allow test active items repeatitively), `9` very high luck (luck-gated tear effects fire more often), `10` quick kill enemies (useful when need to walk through rooms). Run again to toggle off. Flags clear on restart.
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
 - Bombs, keys or coins needed? `giveitem c190` (Pyro) fills bombs, `c17` (Skeleton Key)
-  keys, `c18` (A Dollar) coins — 99 each, so nobody scrounges for pickups mid-test.
+  keys, `c18` (A Dollar) coins — each fills the counter, so nobody scrounges mid-test.
 - Target dummy: `spawn 36.0.0` (Gurdy) stands still and takes a beating. Reach for
   `spawn 20.0.0` (Monstro) only when the test needs a boss that moves.
 - **Never quote an ID from memory** — models hallucinate them. Grep the ground truth
   first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
   EntityType, CardType, TrinketType...).
-- `restart` and `stage` takes time to take effect, so a `60` frame delay is required.
+- `restart` and `stage` takes time to take effect, so a `30` frame delay is required.
 
 Read the outcome yourself instead of asking the user to describe it. Instrument the mod
 under test with `Isaac.DebugString("[TAG] ...")` — state it prints, the board it draws,
