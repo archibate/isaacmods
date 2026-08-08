@@ -87,10 +87,11 @@ local MELEE_WEAPONS = {
     WeaponType.WEAPON_UMBILICAL_WHIP,
 }
 
--- a character whose melee claims no weapon of its own can only be named by who
--- is swinging it
-local CHARACTER_MELEE = {
-    [PlayerType.PLAYER_LILITH_B] = "Gello",
+-- familiars that hit for you but report the player rather than themselves, so the
+-- swing names no weapon. The familiar is in the room, and that is what names it --
+-- the same creature whether it came from an item or from the character
+local SWINGING_FAMILIARS = {
+    [FamiliarVariant.UMBILICAL_BABY] = "Gello",
 }
 
 -- a laser entity's variant is the only trace left of which item fired it
@@ -128,10 +129,12 @@ local TEAR_LABELS = {
 -- judged from what actually turns up rather than guessed off the enum.
 local seenTear = {}
 
-local function logPlainTear(variant)
-    if seenTear[variant] then return end
-    seenTear[variant] = true
-    Isaac.DebugString("[DMVP] plain tear variant=" .. variant)
+local function logPlainTear(source)
+    local line = "[DMVP] plain tear variant=" .. tostring(source.Variant)
+        .. " spawner=" .. tostring(source.SpawnerType) .. "." .. tostring(source.SpawnerVariant)
+    if seenTear[line] then return end
+    seenTear[line] = true
+    Isaac.DebugString(line)
 end
 
 -- Development aid, to be dropped before release: every colour of creep laid by the
@@ -266,20 +269,41 @@ end
 -- there can name it -- the alternative is guessing from what he happens to own.
 local seenCrush = {}
 
-local function logCrush(player)
+local function logSwing(player, what)
     local alive = {}
-    for _, kind in ipairs({ EntityType.ENTITY_KNIFE, EntityType.ENTITY_EFFECT }) do
+    for _, kind in ipairs({ EntityType.ENTITY_FAMILIAR, EntityType.ENTITY_KNIFE }) do
         for _, entity in ipairs(Isaac.FindByType(kind, -1, -1, false, false)) do
             local owner = ownerOf(entity)
             if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-                alive[#alive + 1] = entity.Type .. "." .. entity.Variant
+                alive[#alive + 1] = tostring(entity.Type) .. "." .. tostring(entity.Variant)
             end
         end
     end
-    local line = "[DMVP] crush alive=" .. table.concat(alive, ",")
+    local line = "[DMVP] " .. what .. " char=" .. tostring(player:GetPlayerType())
+        .. " alive=" .. table.concat(alive, ",")
     if seenCrush[line] then return end
     seenCrush[line] = true
     Isaac.DebugString(line)
+end
+
+-- Whichever of the player's familiars could have thrown a blow that names no
+-- weapon. Nil when none is out, or when several different ones are and the swing
+-- could have been any of them.
+local function liveSwing(player)
+    local kinds, count, any = {}, 0, nil
+    for _, familiar in ipairs(Isaac.FindByType(EntityType.ENTITY_FAMILIAR, -1, -1, false, false)) do
+        local label = SWINGING_FAMILIARS[familiar.Variant]
+        if label ~= nil and not kinds[label] then
+            local owner = ownerOf(familiar)
+            if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
+                kinds[label] = true
+                count = count + 1
+                any = label
+            end
+        end
+    end
+    if count == 1 then return any end
+    return nil
 end
 
 -- The bare name of the weapon behind a hit, or nil when it was not ours.
@@ -307,12 +331,13 @@ local function weaponOf(source, flags, amount)
         -- a crushing blow claims no weapon at all, and nothing in the room says
         -- which one landed it, so it stays a crush rather than a guess
         if flags & DamageFlag.DAMAGE_CRUSH ~= 0 then
-            logCrush(player)
+            logSwing(player, "crush")
             return "Crush"
         end
-        return heldWeapon(player, MELEE_WEAPONS)
-            or CHARACTER_MELEE[player:GetPlayerType()]
-            or "Melee"
+        local swing = heldWeapon(player, MELEE_WEAPONS) or liveSwing(player)
+        if swing ~= nil then return swing end
+        logSwing(player, "melee")
+        return "Melee"
     end
 
     local owner = ownerOf(entity)
@@ -358,7 +383,7 @@ local function weaponOf(source, flags, amount)
     if source.Type == EntityType.ENTITY_TEAR then
         local label = TEAR_LABELS[source.Variant]
         if label ~= nil then return label end
-        logPlainTear(source.Variant)
+        logPlainTear(source)
         return "Tears"
     end
     return "Other"

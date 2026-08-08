@@ -16,11 +16,11 @@ local STEPS = {
     "debug 3",
     "debug 8",
     "stage 1", 60,
-    "giveitem c494",
-    "spawn 36.0.0",
+    "giveitem c728",
+    "spawn 408.0.0",
 }
 
-local HINT = "shoot Gurdy with Jacob's Ladder only -- I need to see if its spark is the same beam"
+local HINT = "let Gello whip the skinless Hush -- then restart 32 and do the same; both want a Gello row"
 
 local mod = RegisterMod("devrepro", 1)
 
