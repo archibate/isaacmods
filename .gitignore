@@ -4,3 +4,6 @@
 
 # Session memory (remember skill)
 /.remember/
+
+# Bytecode dropped by `luac` when it is asked to compile rather than just check
+/luac.out
