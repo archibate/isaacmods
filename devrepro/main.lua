@@ -12,15 +12,16 @@
 
 local STEPS = {
     "luamod damagemvp",
-    "restart 16", 60,
+    "restart 0", 60,
+    "debug 3",
     "debug 8",
     "stage 1", 60,
-    "giveitem c147",
-    "giveitem c117",
+    "giveitem c623",
+    "giveitem c190",
     "spawn 36.0.0",
 }
 
-local HINT = "as Forgotten: bone Gurdy, then the axe; take one hit so Dead Bird spawns -- three rows"
+local HINT = "throw keys at Gurdy with the bomb button -- expect a Sharp Key row"
 
 local mod = RegisterMod("devrepro", 1)
 

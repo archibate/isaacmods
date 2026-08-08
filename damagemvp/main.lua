@@ -112,10 +112,25 @@ local LASER_LABELS = {
 -- some weapons throw a tear that is not a tear -- the swords their beam, the urn
 -- its flame -- and none of them may fall through to "Tears"
 local TEAR_LABELS = {
+    [TearVariant.BOBS_HEAD] = "Bob's Rotten Head",
     [TearVariant.FIRE] = "Urn of Souls",
+    [TearVariant.KEY] = "Sharp Key",
+    [TearVariant.KEY_BLOOD] = "Sharp Key",
     [TearVariant.SWORD_BEAM] = "Spirit Sword",
     [TearVariant.TECH_SWORD_BEAM] = "Tech Sword",
 }
+
+-- Development aid, to be dropped before release: most tear variants are a skin on
+-- the same tear stream and belong on one row, but a few are a weapon of their own.
+-- This reports which ones are landing on the plain row, so the difference can be
+-- judged from what actually turns up rather than guessed off the enum.
+local seenTear = {}
+
+local function logPlainTear(variant)
+    if seenTear[variant] then return end
+    seenTear[variant] = true
+    Isaac.DebugString("[DMVP] plain tear variant=" .. variant)
+end
 
 -- a shot leaves hazards behind that outlive it -- creep, gas, fire -- and each is
 -- named from the game's own effect table so none of them lands on an "Other" row.
@@ -231,7 +246,10 @@ local function weaponOf(source, flags)
         return heldWeapon(owner, MELEE_WEAPONS) or "Melee"
     end
     if source.Type == EntityType.ENTITY_TEAR then
-        return TEAR_LABELS[source.Variant] or "Tears"
+        local label = TEAR_LABELS[source.Variant]
+        if label ~= nil then return label end
+        logPlainTear(source.Variant)
+        return "Tears"
     end
     return "Other"
 end
@@ -248,10 +266,23 @@ local function sortedRows()
     return rows
 end
 
+-- Development aid, to be dropped before release: the board goes to the game log
+-- whenever it changes, so a run's rows can be read out of log.txt afterwards
+-- instead of being read off the screen and described.
+local changed = false
+
+local function logBoard()
+    Isaac.DebugString(string.format("[DMVP] board total=%.1f", total))
+    for _, row in ipairs(sortedRows()) do
+        Isaac.DebugString(string.format("[DMVP]   %s = %.1f", row.label, row.damage))
+    end
+end
+
 local function credit(label, damage)
     if damage <= 0 then return end
     tally[label] = (tally[label] or 0) + damage
     total = total + damage
+    changed = true
 end
 
 -- Whoever hurt an enemy last is not always whoever set it alight. A status is
@@ -343,6 +374,12 @@ function mod:onUpdate()
     local frame = Game():GetFrameCount()
     for _, entity in ipairs(Isaac.GetRoomEntities()) do
         if entity:IsEnemy() then syncStatus(entity, frame) end
+    end
+
+    -- once a second catches the board settling without burying the log
+    if changed and frame % 30 == 0 then
+        changed = false
+        logBoard()
     end
 end
 
