@@ -441,16 +441,23 @@ local function queueBeamHit(player, victim, dealt, exploded)
         { player = player, victim = victim, dealt = dealt, exploded = exploded }
 end
 
-local function awardQueuedHits(label)
+-- Only the hits of the player whose beam this is: in co-op each has their own
+-- beams closing their own updates, and one must not take the other's.
+local function awardQueuedHits(label, shooter)
     local frame = Game():GetFrameCount()
+    local waiting = {}
     for _, hit in ipairs(queuedHits) do
-        -- remembered bare, so a status this hit applies reads as the weapon
-        local data = hit.victim:GetData()
-        data.dmvpHitLabel = label
-        data.dmvpHitFrame = frame
-        credit(hit.exploded and (label .. " (explosion)") or label, hit.dealt)
+        if shooter ~= nil and GetPtrHash(hit.player) ~= GetPtrHash(shooter) then
+            waiting[#waiting + 1] = hit
+        else
+            -- remembered bare, so a status this hit applies reads as the weapon
+            local data = hit.victim:GetData()
+            data.dmvpHitLabel = label
+            data.dmvpHitFrame = frame
+            credit(hit.exploded and (label .. " (explosion)") or label, hit.dealt)
+        end
     end
-    queuedHits = {}
+    queuedHits = waiting
 end
 
 -- Whoever hurt an enemy last is not always whoever set it alight. A status is
@@ -585,6 +592,9 @@ end
 function mod:onNewRoom()
     tally = {}
     total = 0
+    -- a hit still waiting as the room changes belongs to the room being left, and
+    -- its beam is gone; carrying it over would spend it on the next room's board
+    queuedHits = {}
 end
 
 -- The stubs promise fields and methods the game does not always have -- Radius,
@@ -609,10 +619,11 @@ mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
 
 -- the beam closing its update takes whatever hits have queued since the last one
 function mod:onLaserUpdate(laser)
-    if ownerOf(laser) == nil then return end
+    local shooter = ownerOf(laser)
+    if shooter == nil then return end
     logTimeline("beam " .. tostring(laser.Variant) .. "." .. tostring(laser.SubType))
     if #queuedHits == 0 then return end
-    awardQueuedHits(beamName(laser.Variant, laser.SubType) or "Laser")
+    awardQueuedHits(beamName(laser.Variant, laser.SubType) or "Laser", shooter)
 end
 
 function mod:onNpcCollision(npc, collider, low)
