@@ -118,6 +118,22 @@ local LASER_LABELS = {
     [LaserVariant.ELECTRIC] = "Electric",
 }
 
+-- An item riding another's beam variant is told apart only by its subtype: Maw of
+-- the Void's ring is a Brimstone beam in every respect but that, and without this
+-- its damage is quietly swallowed by the Brimstone row.
+local LASER_SUBTYPES = {
+    [LaserVariant.THICK_RED] = { [3] = "Maw of the Void" },
+}
+
+local function beamName(variant, subtype)
+    local bySubtype = LASER_SUBTYPES[variant]
+    if bySubtype ~= nil and subtype ~= nil then
+        local named = bySubtype[subtype]
+        if named ~= nil then return named end
+    end
+    return LASER_LABELS[variant]
+end
+
 -- some weapons throw a tear that is not a tear -- the swords their beam, the urn
 -- its flame -- and none of them may fall through to "Tears"
 local TEAR_LABELS = {
@@ -251,7 +267,7 @@ local function liveBeam(player, amount)
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
         local owner = ownerOf(laser)
         if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-            local label = LASER_LABELS[laser.Variant]
+            local label = beamName(laser.Variant, laser.SubType)
             if label == nil then return false end
             if not kinds[label] then
                 kinds[label] = true
@@ -273,6 +289,16 @@ local function liveBeam(player, amount)
     if kindCount == 0 then return nil end
     if kindCount == 1 then return anyKind end
     if exactCount == 1 then return anyExact end
+    -- Two of ours in flight dealing the very same damage -- Brimstone always spawns
+    -- Maw's ring alongside it -- and the hit belongs to one of them. Naming both is
+    -- the whole truth; picking one would be a coin toss and "Laser" throws away
+    -- what is actually known.
+    if kindCount == 2 then
+        local both = {}
+        for label in pairs(kinds) do both[#both + 1] = label end
+        table.sort(both)
+        return both[1] .. " / " .. both[2]
+    end
     return false
 end
 
@@ -396,7 +422,7 @@ local function weaponOf(source, flags, amount)
         return bombLabel(entity, source.Variant)
     end
     if source.Type == EntityType.ENTITY_LASER then
-        local beam = LASER_LABELS[source.Variant]
+        local beam = beamName(source.Variant, entity ~= nil and entity.SubType or nil)
         if beam ~= nil then return beam end
         logPlainLaser(owner, amount, "unknown variant " .. source.Variant)
         return "Laser"

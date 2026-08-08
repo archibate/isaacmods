@@ -16,13 +16,12 @@ local STEPS = {
     "debug 3",
     "debug 9",
     "stage 1", 10,
-    "debug 8",
-    "giveitem c49",
-    "giveitem c533",
+    "giveitem c118",
+    "giveitem c399",
     "spawn 408.0.0",
 }
 
-local HINT = "both Shoop and Trisagion -- shoot and fire; both land on one Shoop row"
+local HINT = "Brimstone and Maw together -- fire and charge; expect two rows, not one"
 
 local mod = RegisterMod("devrepro", 1)
 

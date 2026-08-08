@@ -84,6 +84,7 @@ local HINT = "walk into the boss room and fire once"
 - `restart <PlayerType>` picks the character; `giveitem cNNN` gives items (`tNNN` for
   trinkets, `kNN` for cards); `stage N[a-d]` jumps floors.
 - `debug <N>`: enable testing cheats accordingly to help user reproduce easy — `3` invincibility (prevent player death during test), `4` +40 damage (kills faster), `8` active always charged (to allow test active items repeatitively), `9` very high luck (luck-gated tear effects fire more often), `10` quick kill enemies (useful when need to walk through rooms). Run again to toggle off. Flags clear on restart.
+- `lua print(...)`: run lua expression.
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
 - Bombs, keys or coins needed? `giveitem c190` (Pyro) fills bombs, `c17` (Skeleton Key)
   keys, `c18` (A Dollar) coins — each fills the counter, so nobody scrounges mid-test.
