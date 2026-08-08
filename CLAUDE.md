@@ -80,8 +80,9 @@ local HINT = "walk into the boss room and fire once"
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
 - Bombs, keys or coins needed? `giveitem c190` (Pyro) fills bombs, `c17` (Skeleton Key)
   keys, `c18` (A Dollar) coins — each fills the counter, so nobody scrounges mid-test.
-- Target dummy: `spawn 36.0.0` (Gurdy) stands still and takes a beating. Reach for
-  `spawn 20.0.0` (Monstro) only when the test needs a boss that moves.
+- Target dummy: `spawn 408.0.0` (Hush, skinless) by default — a cut enemy that stands
+  still and has no attack beyond contact. `spawn 36.0.0` (Gurdy) when the test wants an
+  enemy that keeps spawning flies; `spawn 20.0.0` (Monstro) when it wants one that moves.
 - **Never quote an ID from memory** — models hallucinate them. Grep the ground truth
   first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
   EntityType, CardType, TrinketType...).

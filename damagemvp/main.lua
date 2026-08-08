@@ -106,7 +106,9 @@ local LASER_LABELS = {
     [LaserVariant.THICKER_BRIM_TECH] = "Tech X",
     [LaserVariant.GIANT_BRIM_TECH] = "Tech X",
     [LaserVariant.TRACTOR_BEAM] = "Tractor Beam",
-    [LaserVariant.ELECTRIC] = "Jacob's Ladder",
+    -- Technology Zero and Jacob's Ladder both fire this one, so it is named for the
+    -- beam; either item's name here would be wrong half the time
+    [LaserVariant.ELECTRIC] = "Electric",
 }
 
 -- some weapons throw a tear that is not a tear -- the swords their beam, the urn

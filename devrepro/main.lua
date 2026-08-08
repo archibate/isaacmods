@@ -16,13 +16,11 @@ local STEPS = {
     "debug 3",
     "debug 8",
     "stage 1", 60,
-    "giveitem c49",
-    "giveitem c152",
-    "giveitem c561",
+    "giveitem c494",
     "spawn 36.0.0",
 }
 
-local HINT = "with Almond Milk on: hold the shoot key on Gurdy and press space at the same time"
+local HINT = "shoot Gurdy with Jacob's Ladder only -- I need to see if its spark is the same beam"
 
 local mod = RegisterMod("devrepro", 1)
 
