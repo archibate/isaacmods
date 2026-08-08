@@ -16,11 +16,13 @@ local STEPS = {
     "debug 3",
     "debug 9",
     "stage 1", 10,
+    "debug 8",
+    "giveitem c49",
     "giveitem c533",
     "spawn 408.0.0",
 }
 
-local HINT = "Trisagion only -- just shoot the skinless Hush and let me see its beam variant"
+local HINT = "both Shoop and Trisagion -- shoot and fire; one shared row named for the beam"
 
 local mod = RegisterMod("devrepro", 1)
 

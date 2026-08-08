@@ -220,8 +220,13 @@ local function logPlainLaser(player, amount, verdict)
         if owner ~= nil then
             whose = GetPtrHash(owner) == GetPtrHash(player) and "mine" or "other"
         end
-        alive[#alive + 1] = tostring(laser.Variant) .. "/" .. whose
+        local sprite = laser:GetSprite()
+        alive[#alive + 1] = tostring(laser.Variant) .. "." .. tostring(laser.SubType)
+            .. "/" .. whose
             .. "/dmg" .. tostring(laser.CollisionDamage)
+            .. "/t" .. tostring(laser.Timeout)
+            .. "/" .. tostring(sprite ~= nil and sprite:GetFilename() or "?")
+            .. "/" .. tostring(sprite ~= nil and sprite:GetAnimation() or "?")
     end
     local line = "[DMVP] beam -> " .. tostring(verdict)
         .. "  amount=" .. tostring(amount)
@@ -231,10 +236,19 @@ local function logPlainLaser(player, amount, verdict)
     Isaac.DebugString(line)
 end
 
+-- A beam no item can be pinned to still knows what it looks like, and the game's
+-- own word for that beats lumping every nameless beam together. "LargeRedLaser" is
+-- what both Shoop and Trisagion fire, and neither may claim it.
+local function beamLooks(laser)
+    local sprite = laser:GetSprite()
+    local animation = sprite ~= nil and sprite:GetAnimation() or nil
+    if animation == nil or animation == "" then return nil end
+    return (animation:gsub("(%l)(%u)", "%1 %2"))
+end
+
 -- A beam that reports the player names no weapon, but the beam itself is still in
--- the room and its variant does know. Returns the name, or false when the beams
--- cannot answer -- several kinds of ours in flight, or one whose variant is unknown
--- -- or nil when there is no beam of ours to ask at all.
+-- the room and knows what it is. Returns the name, or false when the beams cannot
+-- answer -- several kinds of ours in flight -- or nil when there is none to ask.
 local function liveBeam(player, amount)
     local kinds, kindCount = {}, 0
     local exact, exactCount = {}, 0
@@ -243,7 +257,7 @@ local function liveBeam(player, amount)
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
         local owner = ownerOf(laser)
         if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-            local label = LASER_LABELS[laser.Variant]
+            local label = LASER_LABELS[laser.Variant] or beamLooks(laser)
             if label == nil then return false end
             if not kinds[label] then
                 kinds[label] = true
@@ -389,6 +403,7 @@ local function weaponOf(source, flags, amount)
     end
     if source.Type == EntityType.ENTITY_LASER then
         local beam = LASER_LABELS[source.Variant]
+        if beam == nil and entity ~= nil then beam = beamLooks(entity) end
         if beam ~= nil then return beam end
         logPlainLaser(owner, amount, "unknown variant " .. source.Variant)
         return "Laser"
