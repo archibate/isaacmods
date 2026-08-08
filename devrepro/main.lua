@@ -20,14 +20,37 @@ local STEPS = {
     "spawn 408.0.0",
 }
 
-local HINT = "let Gello whip the skinless Hush -- then restart 32 and do the same; both want a Gello row"
+local HINT = "let Gello whip the skinless Hush -- expect a Gello row"
 
 local mod = RegisterMod("devrepro", 1)
 
--- set just before the reload that brought this copy in, so a plain game start
--- (where the global is absent) sits still instead of replaying the last script
-local running = DevReproPending == true
+-- carries which key was pressed across the reload that brought this copy in; a
+-- plain game start finds it absent and sits still rather than replaying anything
+local pressed = DevReproPending
 DevReproPending = nil
+
+local running = pressed == "run"
+
+-- F2 writes something out of the game rather than playing anything. Rewrite this
+-- for whatever needs enumerating; it beats reading a wiki, which is where
+-- hallucinated ids come from.
+local KIND = { [ItemType.ITEM_PASSIVE] = "P", [ItemType.ITEM_ACTIVE] = "A",
+    [ItemType.ITEM_FAMILIAR] = "F" }
+
+local function dump()
+    local config = Isaac.GetItemConfig()
+    for id = 1, 5000 do
+        local item = config:GetCollectible(id)
+        if item ~= nil then
+            Isaac.DebugString("[ITEM] " .. id
+                .. "|" .. (KIND[item.Type] or tostring(item.Type))
+                .. "|" .. tostring(item.Name))
+        end
+    end
+    Isaac.DebugString("[ITEM] end of table")
+end
+
+if pressed == "dump" then dump() end
 
 local step = 0
 local waiting = 0
@@ -53,18 +76,22 @@ function mod:onUpdate()
 end
 
 function mod:onRender()
-    if Input.IsButtonTriggered(Keyboard.KEY_F1, 0) then
-        DevReproPending = true
-        Isaac.ExecuteCommand("luamod devrepro")
-        return
+    for key, intent in pairs({ [Keyboard.KEY_F1] = "run", [Keyboard.KEY_F2] = "dump" }) do
+        if Input.IsButtonTriggered(key, 0) then
+            DevReproPending = intent
+            Isaac.ExecuteCommand("luamod devrepro")
+            return
+        end
     end
 
     if running then
         Isaac.RenderText(string.format("running  %d/%d", step, #STEPS), 25, 25, 1, 0.9, 0.3, 1)
+    elseif pressed == "dump" then
+        Isaac.RenderText("dumped to log", 25, 25, 0.6, 0.9, 0.6, 1)
     elseif step > 0 then
         Isaac.RenderText(HINT, 25, 25, 0.6, 0.9, 0.6, 1)
     else
-        Isaac.RenderText("F1: run repro", 25, 25, 0.5, 0.5, 0.5, 1)
+        Isaac.RenderText("F1: run repro    F2: dump", 25, 25, 0.5, 0.5, 0.5, 1)
     end
 end
 

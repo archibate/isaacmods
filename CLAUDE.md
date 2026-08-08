@@ -75,6 +75,9 @@ local HINT = "walk into the boss room and fire once"
 - One press is one whole run. Never ask for a command to be typed by hand partway
   through — everything the run needs belongs in the list. Comparing two characters, or
   two active items, is two runs: rewrite the list and ask for a second press.
+- **F1 always plays the script.** To read something out of the game instead — an enum,
+  the item table, any state — rewrite the driver's `dump()` and ask for **F2**. Never
+  repurpose F1 for that.
 - Start with `luamod <modname>` (bare folder name, no `_workshopid` suffix) so the mod
   under test picks up its latest Lua.
 - `restart <PlayerType>` picks the character; `giveitem cNNN` gives items (`tNNN` for

@@ -286,6 +286,18 @@ local function logSwing(player, what)
     Isaac.DebugString(line)
 end
 
+-- Development aid, to be dropped before release: a hit whose shape nothing knows
+local seenShape = {}
+
+local function logShape(source, flags)
+    local line = "[DMVP] unknown shape src=" .. tostring(source.Type) .. "."
+        .. tostring(source.Variant) .. " spawner=" .. tostring(source.SpawnerType) .. "."
+        .. tostring(source.SpawnerVariant) .. " flags=" .. string.format("0x%X", flags)
+    if seenShape[line] then return end
+    seenShape[line] = true
+    Isaac.DebugString(line)
+end
+
 -- Whichever of the player's familiars could have thrown a blow that names no
 -- weapon. Nil when none is out, or when several different ones are and the swing
 -- could have been any of them.
@@ -386,6 +398,9 @@ local function weaponOf(source, flags, amount)
         logPlainTear(source)
         return "Tears"
     end
+    -- nothing above knew this shape at all; the probe is how it stops being a
+    -- surprise on the board and becomes a case to name
+    logShape(source, flags)
     return "Other"
 end
 
