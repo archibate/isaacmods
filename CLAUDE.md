@@ -75,9 +75,6 @@ local HINT = "walk into the boss room and fire once"
 - One press is one whole run. Never ask for a command to be typed by hand partway
   through — everything the run needs belongs in the list. Comparing two characters, or
   two active items, is two runs: rewrite the list and ask for a second press.
-- **F1 always plays the script.** To read something out of the game instead — an enum,
-  the item table, any state — rewrite the driver's `dump()` and ask for **F2**. Never
-  repurpose F1 for that.
 - Start with `luamod <modname>` (bare folder name, no `_workshopid` suffix) so the mod
   under test picks up its latest Lua.
 - `restart <PlayerType>` picks the character; `giveitem cNNN` gives items (`tNNN` for
@@ -94,6 +91,8 @@ local HINT = "walk into the boss room and fire once"
   first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
   EntityType, CardType, TrinketType...).
 - `restart` and `stage` takes time to take effect, so a `10` frame delay is required.
+- To read something out of the game instead — an enum, the item table, any state — rewrite
+  the driver's `dump()` and ask for **F2**.
 
 Read the outcome yourself instead of asking the user to describe it. Instrument the mod
 under test with `Isaac.DebugString("[TAG] ...")` — state it prints, the board it draws,

@@ -12,15 +12,21 @@
 
 local STEPS = {
     "luamod damagemvp",
-    "restart 0", 60,
+    "restart 0", 10,
     "debug 3",
-    "debug 8",
-    "stage 1", 60,
-    "giveitem c728",
-    "spawn 408.0.0",
+    "debug 9",
+    "stage 1", 10,
+    "giveitem c494",
+    "giveitem c308",
+    "giveitem c495",
+    "giveitem c399",
+    "giveitem c172",
+    "giveitem c410",
+    "giveitem c533",
+    "spawn 36.0.0",
 }
 
-local HINT = "let Gello whip the skinless Hush -- expect a Gello row"
+local HINT = "shoot Gurdy and its flies, walk your trail over them, hold to charge the void ring"
 
 local mod = RegisterMod("devrepro", 1)
 
