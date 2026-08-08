@@ -132,9 +132,9 @@ local function logPlainTear(variant)
     Isaac.DebugString("[DMVP] plain tear variant=" .. variant)
 end
 
--- Development aid, to be dropped before release: every colour of creep shares one
--- row today. This reports the variant and who laid it, so whether they can be told
--- apart at all is a measurement rather than a hope.
+-- Development aid, to be dropped before release: every colour of creep laid by the
+-- player shares one row. This reports the variant and who laid it, so whether they
+-- can be told apart at all stays a measurement rather than a hope.
 local seenCreep = {}
 
 local function logCreep(source)
@@ -196,6 +196,64 @@ local function ownerOf(entity)
     return nil
 end
 
+-- Development aid, to be dropped before release: a bare "Laser" row means a beam
+-- nothing could name. Report which beams are alive and whose they are, since the
+-- entity is the only thing left that still knows what fired.
+local seenLaser = {}
+
+local function logPlainLaser(source, flags, player)
+    local alive = {}
+    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
+        local owner = ownerOf(laser)
+        local mine = player ~= nil and owner ~= nil
+            and GetPtrHash(owner) == GetPtrHash(player)
+        alive[#alive + 1] = laser.Variant .. (mine and "mine" or "other")
+    end
+    local line = string.format("[DMVP] plain laser src=%d.%d flags=0x%X alive=%s",
+        source.Type, source.Variant, flags, table.concat(alive, ","))
+    if seenLaser[line] then return end
+    seenLaser[line] = true
+    Isaac.DebugString(line)
+end
+
+-- A beam that reports the player names no weapon, but the beam itself is still in
+-- the room and its variant does know. Two kinds alive at once, or one nothing can
+-- name, and the answer is honestly nothing rather than a pick between them.
+local function liveBeam(player)
+    local found = nil
+    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
+        local owner = ownerOf(laser)
+        if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
+            local label = LASER_LABELS[laser.Variant]
+            if label == nil then return nil end
+            if found ~= nil and found ~= label then return nil end
+            found = label
+        end
+    end
+    return found
+end
+
+-- Development aid, to be dropped before release: a crushing blow names no weapon.
+-- Report what of the player's is in the room when one lands, in case something
+-- there can name it -- the alternative is guessing from what he happens to own.
+local seenCrush = {}
+
+local function logCrush(player)
+    local alive = {}
+    for _, kind in ipairs({ EntityType.ENTITY_KNIFE, EntityType.ENTITY_EFFECT }) do
+        for _, entity in ipairs(Isaac.FindByType(kind, -1, -1, false, false)) do
+            local owner = ownerOf(entity)
+            if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
+                alive[#alive + 1] = entity.Type .. "." .. entity.Variant
+            end
+        end
+    end
+    local line = "[DMVP] crush alive=" .. table.concat(alive, ",")
+    if seenCrush[line] then return end
+    seenCrush[line] = true
+    Isaac.DebugString(line)
+end
+
 -- The bare name of the weapon behind a hit, or nil when it was not ours.
 -- Modifiers such as "(explosion)" are the caller's business.
 local function weaponOf(source, flags)
@@ -206,18 +264,21 @@ local function weaponOf(source, flags)
         local player = entity ~= nil and entity:ToPlayer() or nil
         if player == nil then return nil end
         if flags & DamageFlag.DAMAGE_LASER ~= 0 then
-            -- a beam still in flight after an item swap no longer matches the
-            -- weapon held, so it stays a plain laser rather than a wrong name
-            return heldWeapon(player, LASER_WEAPONS) or "Laser"
+            -- the beam in the room is the better witness; the weapon held is only
+            -- a fallback, and can lag behind an item swap
+            local beam = liveBeam(player) or heldWeapon(player, LASER_WEAPONS)
+            if beam ~= nil then return beam end
+            logPlainLaser(source, flags, player)
+            return "Laser"
         end
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
         -- character's melee, and the cooldown flag is what tells them apart
         if flags & DamageFlag.DAMAGE_COUNTDOWN ~= 0 then return "Contact" end
-        -- the axe's swing claims no weapon at all, only a crushing blow, so the
-        -- item in hand is the only thing left that names it
-        if flags & DamageFlag.DAMAGE_CRUSH ~= 0
-            and player:HasCollectible(CollectibleType.COLLECTIBLE_NOTCHED_AXE) then
-            return "Notched Axe"
+        -- a crushing blow claims no weapon at all, and nothing in the room says
+        -- which one landed it, so it stays a crush rather than a guess
+        if flags & DamageFlag.DAMAGE_CRUSH ~= 0 then
+            logCrush(player)
+            return "Crush"
         end
         return heldWeapon(player, MELEE_WEAPONS)
             or CHARACTER_MELEE[player:GetPlayerType()]
@@ -256,7 +317,10 @@ local function weaponOf(source, flags)
         return bombLabel(entity, source.Variant)
     end
     if source.Type == EntityType.ENTITY_LASER then
-        return LASER_LABELS[source.Variant] or "Laser"
+        local beam = LASER_LABELS[source.Variant]
+        if beam ~= nil then return beam end
+        logPlainLaser(source, flags, owner)
+        return "Laser"
     end
     if source.Type == EntityType.ENTITY_KNIFE then
         return heldWeapon(owner, MELEE_WEAPONS) or "Melee"

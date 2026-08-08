@@ -16,17 +16,12 @@ local STEPS = {
     "debug 3",
     "debug 8",
     "stage 1", 60,
-    "giveitem c308",
-    "giveitem c269",
-    "spawn 16.0.0",
-    "spawn 16.0.0",
-    "spawn 16.0.0",
-    "spawn 16.0.0",
-    "spawn 16.0.0",
-    "spawn 16.0.0",
+    "giveitem c49",
+    "giveitem c152",
+    "spawn 36.0.0",
 }
 
-local HINT = "walk about and let the Mulligans chase you through your Aquarius creep and the baby's"
+local HINT = "shoot Gurdy for the Tech 2 beam, then fire Shoop -- expect two separate rows now"
 
 local mod = RegisterMod("devrepro", 1)
 
