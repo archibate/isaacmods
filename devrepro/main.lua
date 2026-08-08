@@ -23,7 +23,7 @@ local STEPS = {
     "spawn 36.0.0",
 }
 
-local HINT = "Shoop and Technology 2 into Gurdy's flies -- hold shoot and press space"
+local HINT = "stand so rocks block Tech 2 but Shoop still reaches the flies -- then fire both"
 
 local mod = RegisterMod("devrepro", 1)
 

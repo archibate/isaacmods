@@ -250,81 +250,33 @@ local function logPlainLaser(player, amount, verdict, flags, victim)
     Isaac.DebugString(line)
 end
 
--- A hit never names the beam behind it -- the source is the player. But every beam
--- of yours that reaches an enemy lands its own hit on it, in the order the room
--- lists the beams: two beams in flight give two hits that frame, first hit to first
--- beam. Measured over consecutive frames with Brimstone and Maw's ring, which are
--- otherwise identical in every field the game exposes.
---
--- Better than that: the game works through one beam's victims before starting the
--- next, so a frame's hits arrive in runs, one run per beam. Measured -- two enemies
--- and two beams gave A, B, A rather than A, A, B, which only beam-by-beam ordering
--- produces. A victim appearing twice therefore opens the next run, and the run's
--- number picks the beam. This is what lets an enemy only the second beam reaches be
--- credited to it, rather than to whichever beam the room happens to list first.
-local groups = {}
 
-local function runThisFrame(kind, victim)
-    local frame = Game():GetFrameCount()
-    local group = groups[kind]
-    if group == nil or group.frame ~= frame then
-        group = { frame = frame, index = 1, seen = {} }
-        groups[kind] = group
-    end
-
-    local key = victim ~= nil and GetPtrHash(victim) or 0
-    if group.seen[key] then
-        group.index = group.index + 1
-        group.seen = {}
-    end
-    group.seen[key] = true
-    return group.index
+-- Development aid, to be dropped before release: one line per event in a frame --
+-- each of your beams updating, each collision, each laser hit -- so the order they
+-- arrive in can be read. A beam that hits nothing still updates, which is what the
+-- run grouping had no way to see.
+local function logTimeline(what)
+    Isaac.DebugString("[DMVP] tl f=" .. Game():GetFrameCount() .. " " .. what)
 end
 
--- Walks the room's entities of one type that belong to the player and could have
--- landed such a hit, and names the nth of them. Nil when there are fewer of them
--- than hits to explain -- better silent than handing the extra to whichever came
--- first.
-local function nthCulprit(entityType, player, nth, nameOf)
-    local seen = 0
-    for _, entity in ipairs(Isaac.FindByType(entityType, -1, -1, false, false)) do
-        local owner = ownerOf(entity)
-        if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-            local label = nameOf(entity)
-            if label ~= nil then
-                seen = seen + 1
-                if seen == nth then return label end
+-- Whichever of the player's familiars could have thrown a blow that names no
+-- weapon. Nil when none is out, or when two different ones are and the swing could
+-- have been either.
+local function swingBehind(player)
+    local kinds, count, any = {}, 0, nil
+    for _, familiar in ipairs(Isaac.FindByType(EntityType.ENTITY_FAMILIAR, -1, -1, false, false)) do
+        local label = SWINGING_FAMILIARS[familiar.Variant]
+        if label ~= nil and not kinds[label] then
+            local owner = ownerOf(familiar)
+            if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
+                kinds[label] = true
+                count = count + 1
+                any = label
             end
         end
     end
+    if count == 1 then return any end
     return nil
-end
-
--- Development aid, to be dropped before release: which run a hit was placed in,
--- against the beams alive, so a mis-grouping shows up rather than passing quietly.
-local function logRun(player, victim, run)
-    local beams = 0
-    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
-        local owner = ownerOf(laser)
-        if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then beams = beams + 1 end
-    end
-    if beams < 2 then return end
-    Isaac.DebugString("[DMVP] run f=" .. Game():GetFrameCount()
-        .. " victim=" .. tostring(victim ~= nil and GetPtrHash(victim) or "?")
-        .. " run=" .. run .. " beams=" .. beams)
-end
-
-local function beamBehind(player, victim)
-    local run = runThisFrame("beam", victim)
-    pcall(logRun, player, victim, run)
-    return nthCulprit(EntityType.ENTITY_LASER, player, run,
-        function(laser) return beamName(laser.Variant, laser.SubType) or "Laser" end)
-end
-
-local function swingBehind(player, victim)
-    return nthCulprit(EntityType.ENTITY_FAMILIAR, player,
-        runThisFrame("swing", victim),
-        function(familiar) return SWINGING_FAMILIARS[familiar.Variant] end)
 end
 
 -- Development aid, to be dropped before release: a crushing blow names no weapon.
@@ -370,12 +322,10 @@ local function weaponOf(source, flags, amount, victim)
     if source.Type == EntityType.ENTITY_PLAYER then
         local player = entity ~= nil and entity:ToPlayer() or nil
         if player == nil then return nil end
+        -- a beam's hit is queued and named when that beam closes its update, so it
+        -- never reaches here; this answers only a beam already gone from the room
         if flags & DamageFlag.DAMAGE_LASER ~= 0 then
-            -- the beam that landed this particular hit is the best witness; the
-            -- weapon wielded answers only when no beam of yours is in the room
-            local beam = beamBehind(player, victim) or heldWeapon(player, LASER_WEAPONS)
-            if beam ~= nil then return beam end
-            return "Laser"
+            return heldWeapon(player, LASER_WEAPONS) or "Laser"
         end
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
         -- character's melee, and the cooldown flag is what tells them apart
@@ -386,7 +336,7 @@ local function weaponOf(source, flags, amount, victim)
             logSwing(player, "crush")
             return "Crush"
         end
-        local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player, victim)
+        local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player)
         if swing ~= nil then return swing end
         logSwing(player, "melee")
         return "Melee"
@@ -475,6 +425,34 @@ local function credit(label, damage)
     changed = true
 end
 
+-- A hit never names the beam behind it -- the source is the player. But a beam
+-- deals its damage during its own update, and the game closes every update with a
+-- callback, so a hit belongs to the next beam that reports in. Crediting therefore
+-- waits: hits queue, and the beam finishing next takes the queue. A beam that
+-- reached nothing simply finds it empty, which is what defeats every attempt to
+-- count or order hits alone -- an absent beam is invisible to those.
+--
+-- Measured: three hits landed between Technology 2's update and Shoop's, and Shoop
+-- was the beam that had actually reached those enemies past the rocks.
+local queuedHits = {}
+
+local function queueBeamHit(player, victim, dealt, exploded)
+    queuedHits[#queuedHits + 1] =
+        { player = player, victim = victim, dealt = dealt, exploded = exploded }
+end
+
+local function awardQueuedHits(label)
+    local frame = Game():GetFrameCount()
+    for _, hit in ipairs(queuedHits) do
+        -- remembered bare, so a status this hit applies reads as the weapon
+        local data = hit.victim:GetData()
+        data.dmvpHitLabel = label
+        data.dmvpHitFrame = frame
+        credit(hit.exploded and (label .. " (explosion)") or label, hit.dealt)
+    end
+    queuedHits = {}
+end
+
 -- Whoever hurt an enemy last is not always whoever set it alight. A status is
 -- pinned to an owner the moment it appears and is never re-pinned while it lasts,
 -- so a later weapon can never inherit someone else's burn.
@@ -533,6 +511,17 @@ function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
         return nil
     end
 
+    -- a beam's hit cannot be named yet: the beam that dealt it is the one that
+    -- closes its update next, so this waits in the queue until then
+    if source.Type == EntityType.ENTITY_PLAYER and flags & DamageFlag.DAMAGE_LASER ~= 0 then
+        local shooter = source.Entity ~= nil and source.Entity:ToPlayer() or nil
+        if shooter ~= nil then
+            queueBeamHit(shooter, victim, dealt,
+                flags & DamageFlag.DAMAGE_EXPLOSION ~= 0)
+            return nil
+        end
+    end
+
     local weapon = weaponOf(source, flags, amount, victim)
     if weapon == nil then
         -- something not ours touched this enemy last, so a status appearing now
@@ -562,6 +551,13 @@ end
 -- catches a status applied by the last hit of a frame, which no later hit can see
 function mod:onUpdate()
     local frame = Game():GetFrameCount()
+
+    -- a hit still waiting at the end of a frame came from a beam that never closed
+    -- an update -- one already gone from the room -- so the weapon wielded answers
+    if #queuedHits > 0 then
+        awardQueuedHits(heldWeapon(queuedHits[1].player, LASER_WEAPONS) or "Laser")
+    end
+
     for _, entity in ipairs(Isaac.GetRoomEntities()) do
         if entity:IsEnemy() then syncStatus(entity, frame) end
     end
@@ -610,3 +606,23 @@ mod:AddPriorityCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, CallbackPriority.LATE, 
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
+
+-- the beam closing its update takes whatever hits have queued since the last one
+function mod:onLaserUpdate(laser)
+    if ownerOf(laser) == nil then return end
+    logTimeline("beam " .. tostring(laser.Variant) .. "." .. tostring(laser.SubType))
+    if #queuedHits == 0 then return end
+    awardQueuedHits(beamName(laser.Variant, laser.SubType) or "Laser")
+end
+
+function mod:onNpcCollision(npc, collider, low)
+    -- only a laser answers the question; everything else touching an enemy would
+    -- bury the log
+    if collider == nil or collider.Type ~= EntityType.ENTITY_LASER then return nil end
+    logTimeline("coll npc=" .. GetPtrHash(npc)
+        .. " with=" .. tostring(collider.Variant) .. "." .. tostring(collider.SubType))
+    return nil
+end
+
+mod:AddCallback(ModCallbacks.MC_POST_LASER_UPDATE, mod.onLaserUpdate)
+mod:AddCallback(ModCallbacks.MC_PRE_NPC_COLLISION, mod.onNpcCollision)
