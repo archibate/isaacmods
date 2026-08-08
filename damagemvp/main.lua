@@ -561,8 +561,9 @@ function mod:onUpdate()
 
     -- a hit still waiting at the end of a frame came from a beam that never closed
     -- an update -- one already gone from the room -- so the weapon wielded answers
-    if #queuedHits > 0 then
-        awardQueuedHits(heldWeapon(queuedHits[1].player, LASER_WEAPONS) or "Laser")
+    while #queuedHits > 0 do
+        local shooter = queuedHits[1].player
+        awardQueuedHits(heldWeapon(shooter, LASER_WEAPONS) or "Laser", shooter)
     end
 
     for _, entity in ipairs(Isaac.GetRoomEntities()) do
