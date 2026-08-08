@@ -220,13 +220,14 @@ local function logPlainLaser(player, amount, verdict)
         if owner ~= nil then
             whose = GetPtrHash(owner) == GetPtrHash(player) and "mine" or "other"
         end
-        local sprite = laser:GetSprite()
         alive[#alive + 1] = tostring(laser.Variant) .. "." .. tostring(laser.SubType)
             .. "/" .. whose
             .. "/dmg" .. tostring(laser.CollisionDamage)
-            .. "/t" .. tostring(laser.Timeout)
-            .. "/" .. tostring(sprite ~= nil and sprite:GetFilename() or "?")
-            .. "/" .. tostring(sprite ~= nil and sprite:GetAnimation() or "?")
+            .. "/len" .. tostring(laser.LaserLength)
+            .. "/max" .. tostring(laser.MaxDistance)
+            .. "/flags" .. tostring(laser.TearFlags)
+            .. "/age" .. tostring(laser.FrameCount)
+            .. "/angle" .. tostring(laser.AngleDegrees)
     end
     local line = "[DMVP] beam -> " .. tostring(verdict)
         .. "  amount=" .. tostring(amount)
@@ -570,6 +571,21 @@ function mod:onNewRoom()
     tally = {}
     total = 0
 end
+
+-- The stubs promise fields and methods the game does not always have -- Radius,
+-- Timeout and IsSampleLaser each came back missing -- and reaching for one inside
+-- the damage callback took the whole mod down with it. A development aid may cost
+-- its own output when it is wrong; it may not cost the run.
+local function guarded(fn)
+    return function(...) pcall(fn, ...) end
+end
+
+logPlainTear = guarded(logPlainTear)
+logCreep = guarded(logCreep)
+logPlainLaser = guarded(logPlainLaser)
+logSwing = guarded(logSwing)
+logShape = guarded(logShape)
+logBoard = guarded(logBoard)
 
 mod:AddPriorityCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, CallbackPriority.LATE, mod.onEntityTakeDamage)
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
