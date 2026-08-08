@@ -17,11 +17,11 @@ local STEPS = {
     "debug 8",
     "stage 1", 60,
     "giveitem c623",
-    "giveitem c190",
+    "giveitem c17",
     "spawn 36.0.0",
 }
 
-local HINT = "throw keys at Gurdy with the bomb button -- expect a Sharp Key row"
+local HINT = "throw keys at Gurdy (Sharp Key spends keys, not bombs) -- expect a Sharp Key row"
 
 local mod = RegisterMod("devrepro", 1)
 
