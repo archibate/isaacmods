@@ -456,25 +456,26 @@ local function syncStatus(victim, frame)
     data.dmvpPoisoned = poisoned
 end
 
+-- One shape for every tick -- "<who> (<what>)" -- so the rows read alike instead of
+-- in the several forms these used to take. Nothing set the status that we saw, and
+-- it says Unknown rather than inventing a culprit or dropping the damage.
 local function statusLabel(data, burning, poisoned)
-    local burnFrom = data.dmvpBurnFrom
-    local poisonFrom = data.dmvpPoisonFrom
+    if burning and not poisoned then
+        return (data.dmvpBurnFrom or "Unknown") .. " (burn)"
+    end
+    if poisoned and not burning then
+        return (data.dmvpPoisonFrom or "Unknown") .. " (poison)"
+    end
 
-    if burning and poisoned then
-        -- the tick names neither status and both run on the same schedule, so it
-        -- is only nameable when one weapon is behind both
-        if burnFrom and burnFrom == poisonFrom then
-            return burnFrom .. " (burn + poison)"
-        end
-        return "Burn + poison"
+    -- both at once, or a tick arriving with neither flag still set: the tick names
+    -- no status of its own and the two run on the same schedule, so it belongs to
+    -- whoever set them -- one name when that is the same for both
+    local fromBurn = data.dmvpBurnFrom or "Unknown"
+    local fromPoison = data.dmvpPoisonFrom or "Unknown"
+    if fromBurn == fromPoison then
+        return fromBurn .. " (burn + poison)"
     end
-    if burning then
-        return burnFrom and burnFrom .. " (burn)" or "Burn"
-    end
-    if poisoned then
-        return poisonFrom and poisonFrom .. " (poison)" or "Poison"
-    end
-    return "Burn/poison"
+    return fromBurn .. " / " .. fromPoison .. " (burn + poison)"
 end
 
 function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
