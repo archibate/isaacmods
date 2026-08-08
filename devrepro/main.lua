@@ -18,10 +18,11 @@ local STEPS = {
     "stage 1", 60,
     "giveitem c49",
     "giveitem c152",
+    "giveitem c561",
     "spawn 36.0.0",
 }
 
-local HINT = "shoot Gurdy for the Tech 2 beam, then fire Shoop -- expect two separate rows now"
+local HINT = "with Almond Milk on: hold the shoot key on Gurdy and press space at the same time"
 
 local mod = RegisterMod("devrepro", 1)
 

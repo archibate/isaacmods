@@ -201,37 +201,62 @@ end
 -- entity is the only thing left that still knows what fired.
 local seenLaser = {}
 
-local function logPlainLaser(source, flags, player)
+-- everything is stringified rather than formatted as a number: a field the stubs
+-- promise can still come back nil, and a probe must never be what crashes a run
+local function logPlainLaser(player, amount, verdict)
     local alive = {}
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
         local owner = ownerOf(laser)
-        local mine = player ~= nil and owner ~= nil
-            and GetPtrHash(owner) == GetPtrHash(player)
-        alive[#alive + 1] = laser.Variant .. (mine and "mine" or "other")
+        local whose = "orphan"
+        if owner ~= nil then
+            whose = GetPtrHash(owner) == GetPtrHash(player) and "mine" or "other"
+        end
+        alive[#alive + 1] = tostring(laser.Variant) .. "/" .. whose
+            .. "/dmg" .. tostring(laser.CollisionDamage)
     end
-    local line = string.format("[DMVP] plain laser src=%d.%d flags=0x%X alive=%s",
-        source.Type, source.Variant, flags, table.concat(alive, ","))
+    local line = "[DMVP] beam -> " .. tostring(verdict)
+        .. "  amount=" .. tostring(amount)
+        .. "  alive=" .. table.concat(alive, " ")
     if seenLaser[line] then return end
     seenLaser[line] = true
     Isaac.DebugString(line)
 end
 
 -- A beam that reports the player names no weapon, but the beam itself is still in
--- the room and its variant does know. Returns the name, or false when more than one
--- kind of ours is in flight and the hit could have come from either, or nil when
--- there is no beam of ours to ask.
-local function liveBeam(player)
-    local found = nil
+-- the room and its variant does know. Returns the name, or false when the beams
+-- cannot answer -- several kinds of ours in flight, or one whose variant is unknown
+-- -- or nil when there is no beam of ours to ask at all.
+local function liveBeam(player, amount)
+    local kinds, kindCount = {}, 0
+    local exact, exactCount = {}, 0
+    local anyKind, anyExact = nil, nil
+
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
         local owner = ownerOf(laser)
         if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
             local label = LASER_LABELS[laser.Variant]
             if label == nil then return false end
-            if found ~= nil and found ~= label then return false end
-            found = label
+            if not kinds[label] then
+                kinds[label] = true
+                kindCount = kindCount + 1
+                anyKind = label
+            end
+            -- each beam declares the damage it deals, so a hit of exactly that much
+            -- came from that beam. Read off the entity, so a damage up or an Almond
+            -- Milk moves the hit and the beam's own figure together.
+            local dealt = laser.CollisionDamage
+            if dealt ~= nil and math.abs(dealt - amount) < 0.01 and not exact[label] then
+                exact[label] = true
+                exactCount = exactCount + 1
+                anyExact = label
+            end
         end
     end
-    return found
+
+    if kindCount == 0 then return nil end
+    if kindCount == 1 then return anyKind end
+    if exactCount == 1 then return anyExact end
+    return false
 end
 
 -- Development aid, to be dropped before release: a crushing blow names no weapon.
@@ -257,7 +282,7 @@ end
 
 -- The bare name of the weapon behind a hit, or nil when it was not ours.
 -- Modifiers such as "(explosion)" are the caller's business.
-local function weaponOf(source, flags)
+local function weaponOf(source, flags, amount)
     local entity = source.Entity
 
     -- the player's own beams and swings carry no weapon of their own
@@ -268,10 +293,10 @@ local function weaponOf(source, flags)
             -- the beam in the room is the best witness. Only when there is none to
             -- ask does the weapon wielded answer; when there are several, no name
             -- can be picked between them without guessing
-            local beam = liveBeam(player)
+            local beam = liveBeam(player, amount)
             if beam == nil then beam = heldWeapon(player, LASER_WEAPONS) end
+            logPlainLaser(player, amount, beam)
             if beam then return beam end
-            logPlainLaser(source, flags, player)
             return "Laser"
         end
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
@@ -322,7 +347,7 @@ local function weaponOf(source, flags)
     if source.Type == EntityType.ENTITY_LASER then
         local beam = LASER_LABELS[source.Variant]
         if beam ~= nil then return beam end
-        logPlainLaser(source, flags, owner)
+        logPlainLaser(owner, amount, "unknown variant " .. source.Variant)
         return "Laser"
     end
     if source.Type == EntityType.ENTITY_KNIFE then
@@ -426,7 +451,7 @@ function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
         return nil
     end
 
-    local weapon = weaponOf(source, flags)
+    local weapon = weaponOf(source, flags, amount)
     if weapon == nil then
         -- something not ours touched this enemy last, so a status appearing now
         -- belongs to nobody rather than to whatever we hit it with earlier
