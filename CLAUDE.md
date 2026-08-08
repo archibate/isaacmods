@@ -72,6 +72,9 @@ local HINT = "walk into the boss room and fire once"
 
 - A string is a console command; a number is that many frames to wait. `restart` and
   `stage` only take effect on a later frame, so each needs a wait behind it.
+- One press is one whole run. Never ask for a command to be typed by hand partway
+  through — everything the run needs belongs in the list. Comparing two characters, or
+  two active items, is two runs: rewrite the list and ask for a second press.
 - Start with `luamod <modname>` (bare folder name, no `_workshopid` suffix) so the mod
   under test picks up its latest Lua.
 - `restart <PlayerType>` picks the character; `giveitem cNNN` gives items (`tNNN` for
