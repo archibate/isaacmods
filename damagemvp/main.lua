@@ -217,16 +217,17 @@ local function logPlainLaser(source, flags, player)
 end
 
 -- A beam that reports the player names no weapon, but the beam itself is still in
--- the room and its variant does know. Two kinds alive at once, or one nothing can
--- name, and the answer is honestly nothing rather than a pick between them.
+-- the room and its variant does know. Returns the name, or false when more than one
+-- kind of ours is in flight and the hit could have come from either, or nil when
+-- there is no beam of ours to ask.
 local function liveBeam(player)
     local found = nil
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
         local owner = ownerOf(laser)
         if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
             local label = LASER_LABELS[laser.Variant]
-            if label == nil then return nil end
-            if found ~= nil and found ~= label then return nil end
+            if label == nil then return false end
+            if found ~= nil and found ~= label then return false end
             found = label
         end
     end
@@ -264,10 +265,12 @@ local function weaponOf(source, flags)
         local player = entity ~= nil and entity:ToPlayer() or nil
         if player == nil then return nil end
         if flags & DamageFlag.DAMAGE_LASER ~= 0 then
-            -- the beam in the room is the better witness; the weapon held is only
-            -- a fallback, and can lag behind an item swap
-            local beam = liveBeam(player) or heldWeapon(player, LASER_WEAPONS)
-            if beam ~= nil then return beam end
+            -- the beam in the room is the best witness. Only when there is none to
+            -- ask does the weapon wielded answer; when there are several, no name
+            -- can be picked between them without guessing
+            local beam = liveBeam(player)
+            if beam == nil then beam = heldWeapon(player, LASER_WEAPONS) end
+            if beam then return beam end
             logPlainLaser(source, flags, player)
             return "Laser"
         end
