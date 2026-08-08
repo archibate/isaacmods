@@ -132,6 +132,19 @@ local function logPlainTear(variant)
     Isaac.DebugString("[DMVP] plain tear variant=" .. variant)
 end
 
+-- Development aid, to be dropped before release: every colour of creep shares one
+-- row today. This reports the variant and who laid it, so whether they can be told
+-- apart at all is a measurement rather than a hope.
+local seenCreep = {}
+
+local function logCreep(source)
+    local line = string.format("[DMVP] creep variant=%d spawner=%d.%d",
+        source.Variant, source.SpawnerType, source.SpawnerVariant)
+    if seenCreep[line] then return end
+    seenCreep[line] = true
+    Isaac.DebugString(line)
+end
+
 -- a shot leaves hazards behind that outlive it -- creep, gas, fire -- and each is
 -- named from the game's own effect table so none of them lands on an "Other" row.
 -- Creep is the exception: every colour of it is one hazard to a damage board.
@@ -214,21 +227,9 @@ local function weaponOf(source, flags)
     local owner = ownerOf(entity)
     if owner == nil then return nil end
 
-    -- a lingering fire is its own hazard: the candle's is dropped by the player,
-    -- the one an exploding shot leaves behind is dropped by that shot
-    if source.Type == EntityType.ENTITY_EFFECT then
-        if source.Variant == EffectVariant.RED_CANDLE_FLAME then
-            if source.SpawnerType == EntityType.ENTITY_PLAYER then return "Red Candle" end
-            return "Fire"
-        end
-        local label = EFFECT_LABELS[source.Variant]
-        if label ~= nil then return label end
-        local name = EFFECT_NAMES[source.Variant]
-        if name ~= nil then return prettify(name) end
-    end
     -- a familiar's doing belongs to the familiar whatever shape it arrives in -- a
-    -- tear, a beam, a blast -- so this comes before naming the shape itself. The
-    -- hazards above are the exception: a fire is a fire whoever lit it.
+    -- tear, a beam, a blast, a trail of creep. This comes first because a familiar
+    -- that only lays creep would otherwise never appear on the board at all.
     if source.Type == EntityType.ENTITY_FAMILIAR then
         return familiarLabel(source.Variant)
     end
@@ -236,6 +237,21 @@ local function weaponOf(source, flags)
         return familiarLabel(source.SpawnerVariant)
     end
 
+    -- what a shot leaves behind outlives the shot and is its own hazard: the fire
+    -- from a blast, the gas from it, the creep you walk out yourself
+    if source.Type == EntityType.ENTITY_EFFECT then
+        if source.Variant == EffectVariant.RED_CANDLE_FLAME then
+            if source.SpawnerType == EntityType.ENTITY_PLAYER then return "Red Candle" end
+            return "Fire"
+        end
+        local label = EFFECT_LABELS[source.Variant]
+        if label ~= nil then
+            logCreep(source)
+            return label
+        end
+        local name = EFFECT_NAMES[source.Variant]
+        if name ~= nil then return prettify(name) end
+    end
     if source.Type == EntityType.ENTITY_BOMB then
         return bombLabel(entity, source.Variant)
     end

@@ -16,12 +16,17 @@ local STEPS = {
     "debug 3",
     "debug 8",
     "stage 1", 60,
-    "giveitem c623",
-    "giveitem c17",
-    "spawn 36.0.0",
+    "giveitem c308",
+    "giveitem c269",
+    "spawn 16.0.0",
+    "spawn 16.0.0",
+    "spawn 16.0.0",
+    "spawn 16.0.0",
+    "spawn 16.0.0",
+    "spawn 16.0.0",
 }
 
-local HINT = "throw keys at Gurdy (Sharp Key spends keys, not bombs) -- expect a Sharp Key row"
+local HINT = "walk about and let the Mulligans chase you through your Aquarius creep and the baby's"
 
 local mod = RegisterMod("devrepro", 1)
 
