@@ -186,6 +186,11 @@ for name, variant in pairs(EffectVariant) do
     if name:match("^PLAYER_CREEP") then EFFECT_LABELS[variant] = "Creep" end
 end
 
+-- Holy Light drops this where a tear landed and Crack the Sky calls the same light
+-- down itself, so one row covers both -- the enum's own name would credit the item
+-- you may not even have.
+EFFECT_LABELS[EffectVariant.CRACK_THE_SKY] = "Holy Light"
+
 local function familiarLabel(variant)
     local name = FAMILIAR_NAMES[variant]
     if name == nil then return "Familiar" end
@@ -306,6 +311,18 @@ local function beamInFlight(player)
     return nil
 end
 
+-- Holy Light's damage arrives as the player carrying no flag at all, so the only
+-- witness is the light itself standing in the room. Nothing but your own items
+-- makes one, so an owner chain is not required of it -- half of them have no
+-- spawner to walk.
+local function holyLightInRoom()
+    for _, light in ipairs(Isaac.FindByType(EntityType.ENTITY_EFFECT,
+        EffectVariant.CRACK_THE_SKY, -1, false, false)) do
+        if light ~= nil then return "Holy Light" end
+    end
+    return nil
+end
+
 -- Whichever of the player's familiars could have thrown a blow that names no
 -- weapon. Nil when none is out, or when two different ones are and the swing could
 -- have been either.
@@ -420,7 +437,9 @@ local function weaponOf(source, flags, amount, victim)
         -- nothing of yours swinging is not melee at all. Holy Light's beam arrives
         -- exactly so -- no laser flag, and usually no beam left in the room to ask
         -- -- and there is nothing in the hit that names it.
-        local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player)
+        local swing = heldWeapon(player, MELEE_WEAPONS)
+            or swingBehind(player)
+            or holyLightInRoom()
         if swing ~= nil then return swing end
         logSwing(player, "melee", flags, amount)
         return "Unknown"
