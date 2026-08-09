@@ -276,20 +276,6 @@ local function beamInFlight(player)
     return nil
 end
 
--- Holy Light's beam alone was measured to deal damage with no laser flag, so this
--- reaches no further than that beam. Any other beam of yours in the room stays out
--- of it, and an unflagged hit while one is up is not handed to it.
-local function lightBeamInFlight(player)
-    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER,
-        LaserVariant.LIGHT_BEAM, -1, false, false)) do
-        local owner = ownerOf(laser)
-        if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-            return beamName(laser.Variant, laser.SubType)
-        end
-    end
-    return nil
-end
-
 -- Whichever of the player's familiars could have thrown a blow that names no
 -- weapon. Nil when none is out, or when two different ones are and the swing could
 -- have been either.
@@ -323,6 +309,7 @@ local function logSwing(player, what, flags, amount)
             local owner = ownerOf(entity)
             if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
                 alive[#alive + 1] = tostring(entity.Type) .. "." .. tostring(entity.Variant)
+                    .. "." .. tostring(entity.SubType)
             end
         end
     end
@@ -399,15 +386,14 @@ local function weaponOf(source, flags, amount, victim)
             return "TNT"
         end
 
-        -- Holy Light's beam lands where a tear did and deals its damage with no
-        -- laser flag at all, so it arrives looking exactly like a swing. Nothing
-        -- of yours swinging, but a beam of yours in the room, and it is the beam
-        local swing = heldWeapon(player, MELEE_WEAPONS)
-            or swingBehind(player)
-            or lightBeamInFlight(player)
+        -- Nothing in Isaac swings bare-handed, so a hit with no weapon wielded and
+        -- nothing of yours swinging is not melee at all. Holy Light's beam arrives
+        -- exactly so -- no laser flag, and usually no beam left in the room to ask
+        -- -- and there is nothing in the hit that names it.
+        local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player)
         if swing ~= nil then return swing end
         logSwing(player, "melee", flags, amount)
-        return "Melee"
+        return "Unknown"
     end
 
     local owner = ownerOf(entity)
