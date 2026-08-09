@@ -205,9 +205,17 @@ local TEAR_LABELS = {
 -- judged from what actually turns up rather than guessed off the enum.
 local seenTear = {}
 
+local function kin(entity, name)
+    local relative = entity ~= nil and entity[name] or nil
+    if relative == nil then return name .. "=nil" end
+    return name .. "=" .. tostring(relative.Type) .. "." .. tostring(relative.Variant)
+end
+
 local function logPlainTear(source)
+    local tear = source.Entity
     local line = "[DMVP] plain tear variant=" .. tostring(source.Variant)
         .. " spawner=" .. tostring(source.SpawnerType) .. "." .. tostring(source.SpawnerVariant)
+        .. " " .. kin(tear, "SpawnerEntity") .. " " .. kin(tear, "Parent")
     if seenTear[line] then return end
     seenTear[line] = true
     Isaac.DebugString(line)
@@ -557,6 +565,13 @@ local function weaponOf(source, flags, amount, victim)
     end
     if source.SpawnerType == EntityType.ENTITY_FAMILIAR then
         return familiarLabel(source.SpawnerVariant)
+    end
+    -- and where the hit's own reference names you instead -- which is what Incubus
+    -- and Twisted Baby do, their whole damage arriving as your tears -- the shot
+    -- still remembers what fired it
+    if entity ~= nil and entity.SpawnerEntity ~= nil
+        and entity.SpawnerEntity.Type == EntityType.ENTITY_FAMILIAR then
+        return familiarLabel(entity.SpawnerEntity.Variant)
     end
 
     -- what a shot leaves behind outlives the shot and is its own hazard: the fire

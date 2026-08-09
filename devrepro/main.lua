@@ -12,14 +12,16 @@
 
 local STEPS = {
     "luamod damagemvp",
-    "restart 24", 10,
+    "restart 0", 10,
     "debug 3",
-    "debug 8",
     "stage 1", 10,
+    "giveitem c360",
+    "giveitem c698",
+    "giveitem c319",
     "spawn 36.0.1", 10,
 }
 
-local HINT = "Tainted Judas: hold space for Dark Arts and dash through the flies"
+local HINT = "The three tear-copying familiars: shoot the flies and let all of them fire alongside you"
 
 local mod = RegisterMod("devrepro", 1)
 
