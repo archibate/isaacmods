@@ -15,12 +15,12 @@ local STEPS = {
     "restart 0", 10,
     "debug 3",
     "stage 1", 10,
-    "giveitem c395",
-    "giveitem c118",
-    "spawn 36.0.1", 10,
+    "giveitem c73",
+    "giveitem c331",
+    "spawn 408.0.0", 10,
 }
 
-local HINT = "Tech X + Brimstone: fire charged shots into the flies -- what does the beam look like?"
+local HINT = "Cube of Meat + Godhead: grind the target with the cube, then shoot it from range"
 
 local mod = RegisterMod("devrepro", 1)
 

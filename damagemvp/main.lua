@@ -41,10 +41,15 @@ local WORD_FIXUPS = {
     SAMSONS = "Samson's",
 }
 
+-- a name reads as shouted when every word of it is capitalised: Halo Of Flies
+local SMALL_WORDS = { OF = "of", THE = "the", AND = "and" }
+
 local function prettify(enumName)
     local words = {}
     for word in enumName:gmatch("[^_]+") do
-        words[#words + 1] = WORD_FIXUPS[word] or (word:sub(1, 1) .. word:sub(2):lower())
+        local small = #words > 0 and SMALL_WORDS[word] or nil
+        words[#words + 1] = WORD_FIXUPS[word] or small
+            or (word:sub(1, 1) .. word:sub(2):lower())
     end
     return table.concat(words, " ")
 end
@@ -214,9 +219,19 @@ end
 -- you may not even have.
 EFFECT_LABELS[EffectVariant.CRACK_THE_SKY] = "Holy Light"
 
+-- these two grow through four variants as they eat, and each stage would take a row
+-- of its own -- "Cube Of Meat 1" beside "Cube Of Meat 2" for the one familiar. The
+-- other numbered names are separate items and keep their numbers
+local GROWING_FAMILIARS = {
+    CUBE_OF_MEAT = true,
+    BALL_OF_BANDAGES = true,
+}
+
 local function familiarLabel(variant)
     local name = FAMILIAR_NAMES[variant]
     if name == nil then return "Familiar" end
+    local stem = name:match("^(.*)_%d$")
+    if stem ~= nil and GROWING_FAMILIARS[stem] then name = stem end
     return prettify(name)
 end
 
