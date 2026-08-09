@@ -94,6 +94,15 @@ local SWINGING_FAMILIARS = {
     [FamiliarVariant.UMBILICAL_BABY] = "Gello",
 }
 
+-- A laser's SubType is the shape it takes rather than the item that fired it, and
+-- where a shape has only one maker it names the weapon better than the variant can.
+-- Tech X's ring is a Technology beam in colour, girth and everything else the game
+-- exposes; measured, its shape is the only thing that says otherwise, and without
+-- this its damage was landing quietly on Technology's row.
+local LASER_SHAPES = {
+    [LaserSubType.LASER_SUBTYPE_RING_PROJECTILE] = "Tech X",
+}
+
 -- A laser entity's variant is the only trace left of which item fired it, and only
 -- where that variant is one item's own signature. Two below were measured to be
 -- shared by two items each and are named accordingly; the rest are inherited from
@@ -111,7 +120,9 @@ local LASER_LABELS = {
     -- a charged shot, so it is named for the beam; Revelation's damage was reading
     -- as Holy Light's
     [LaserVariant.LIGHT_BEAM] = "Light Beam",
-    [LaserVariant.LIGHT_RING] = "Tech X",
+    -- Tech X's ring was measured to be none of this -- it is a Technology beam by
+    -- variant -- so whatever fires this one is unknown and it is named for itself
+    [LaserVariant.LIGHT_RING] = "Light Ring",
     -- these are what Brimstone and Technology make together -- measured, with no
     -- Tech X held at all, which is what the old table called them
     [LaserVariant.BRIM_TECH] = "Brim Tech",
@@ -131,6 +142,9 @@ local LASER_SUBTYPES = {
 }
 
 local function beamName(variant, subtype)
+    local byShape = subtype ~= nil and LASER_SHAPES[subtype] or nil
+    if byShape ~= nil then return byShape end
+
     local bySubtype = LASER_SUBTYPES[variant]
     if bySubtype ~= nil and subtype ~= nil then
         local named = bySubtype[subtype]

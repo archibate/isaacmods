@@ -13,14 +13,13 @@
 local STEPS = {
     "luamod damagemvp",
     "restart 0", 10,
-    "debug 9",
-    "debug 6",
+    "debug 3",
     "stage 1", 10,
-    "giveitem c374",
-    "spawn 36.0.1",
+    "giveitem c395",
+    "spawn 408.0.0", 10,
 }
 
-local HINT = "Holy Light alone: shoot the flies until several beams drop -- is any laser in the room?"
+local HINT = "Tech X again: fire a few rings -- the row should now read Tech X, not Technology"
 
 local mod = RegisterMod("devrepro", 1)
 
