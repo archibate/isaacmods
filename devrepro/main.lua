@@ -14,14 +14,16 @@ local STEPS = {
     "luamod damagemvp",
     "restart 0", 10,
     "debug 3",
+    "debug 8",
     "stage 1", 10,
-    "giveitem c360",
-    "giveitem c698",
-    "giveitem c319",
+    "giveitem c495",
+    "giveitem c616",
+    "giveitem c256",
+    "giveitem c190",
     "spawn 36.0.1", 10,
 }
 
-local HINT = "The three tear-copying familiars: shoot the flies and let all of them fire alongside you"
+local HINT = "Three flames: shoot until blue and red ones drop, and bomb the flies for the bomb's fire"
 
 local mod = RegisterMod("devrepro", 1)
 

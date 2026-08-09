@@ -577,10 +577,16 @@ local function weaponOf(source, flags, amount, victim)
     -- what a shot leaves behind outlives the shot and is its own hazard: the fire
     -- from a blast, the gas from it, the creep you walk out yourself
     if source.Type == EntityType.ENTITY_EFFECT then
+        -- a flame outlives what lit it and is its own hazard, kept off the blast's
+        -- row: Hot Bombs leaves one burning where the bomb went off, and it was
+        -- reading as scenery. Only a flame nothing of ours owns stays plain Fire
         if source.Variant == EffectVariant.RED_CANDLE_FLAME then
+            if source.SpawnerType == EntityType.ENTITY_BOMB then return "Bomb Fire" end
             if source.SpawnerType == EntityType.ENTITY_PLAYER then return "Red Candle" end
             return "Fire"
         end
+        -- Ghost Pepper and The Candle throw the same blue one
+        if source.Variant == EffectVariant.BLUE_FLAME then return "Blue Candle" end
         local label = EFFECT_LABELS[source.Variant]
         if label ~= nil then
             logCreep(source)
