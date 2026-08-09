@@ -112,9 +112,11 @@ local LASER_LABELS = {
     -- as Holy Light's
     [LaserVariant.LIGHT_BEAM] = "Light Beam",
     [LaserVariant.LIGHT_RING] = "Tech X",
-    [LaserVariant.BRIM_TECH] = "Tech X",
-    [LaserVariant.THICKER_BRIM_TECH] = "Tech X",
-    [LaserVariant.GIANT_BRIM_TECH] = "Tech X",
+    -- these are what Brimstone and Technology make together -- measured, with no
+    -- Tech X held at all, which is what the old table called them
+    [LaserVariant.BRIM_TECH] = "Brim Tech",
+    [LaserVariant.THICKER_BRIM_TECH] = "Brim Tech",
+    [LaserVariant.GIANT_BRIM_TECH] = "Brim Tech",
     [LaserVariant.TRACTOR_BEAM] = "Tractor Beam",
     -- Technology Zero and Jacob's Ladder both fire this one, so it is named for the
     -- beam; either item's name here would be wrong half the time
@@ -253,6 +255,18 @@ local function logPlainLaser(player, amount, verdict, flags, victim)
     Isaac.DebugString(line)
 end
 
+
+-- Development aid, to be dropped before release: every kind of beam of yours seen,
+-- variant and subtype both. Two items sharing a variant may still differ here --
+-- that is what told Maw's ring from Brimstone -- and only this says so.
+local seenBeamKind = {}
+
+local function logBeamKind(laser)
+    local line = "[DMVP] beamkind " .. tostring(laser.Variant) .. "." .. tostring(laser.SubType)
+    if seenBeamKind[line] then return end
+    seenBeamKind[line] = true
+    Isaac.DebugString(line)
+end
 
 -- The hit names only the player, but the beam that landed it is still in the room
 -- at that moment -- measured -- so what is in flight names it. Nil when two
@@ -580,6 +594,11 @@ function mod:onUpdate()
 
     for _, entity in ipairs(Isaac.GetRoomEntities()) do
         if entity:IsEnemy() then syncStatus(entity, frame) end
+        -- development aid: sweep here rather than on a hit, so a beam whose damage
+        -- never takes the laser path -- Holy Light's -- is still seen
+        if entity.Type == EntityType.ENTITY_LASER and ownerOf(entity) ~= nil then
+            pcall(logBeamKind, entity)
+        end
     end
 
     -- once a second catches the board settling without burying the log
