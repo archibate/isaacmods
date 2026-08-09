@@ -16,11 +16,12 @@ local STEPS = {
     "debug 9",
     "debug 6",
     "stage 1", 10,
-    "giveitem c427",
-    "spawn 36.0.0",
+    "giveitem c374",
+    "giveitem c643",
+    "spawn 36.0.1",
 }
 
-local HINT = "Mine Crafter again: drop TNT by the flies and set it off -- expect a TNT row"
+local HINT = "Holy Light + Revelation: shoot Gurdy, and hold the shot for Revelation's beam"
 
 local mod = RegisterMod("devrepro", 1)
 

@@ -377,6 +377,9 @@ local function weaponOf(source, flags, amount, victim)
         -- a blast credited to you with no shot behind it -- setting off your own
         -- TNT does this. Not a swing, so the weapon wielded must not take it
         if flags == DamageFlag.DAMAGE_EXPLOSION then return "Explosion" end
+        if flags == (DamageFlag.DAMAGE_EXPLOSION | DamageFlag.DAMAGE_TNT) then
+            return "TNT"
+        end
 
         local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player)
         if swing ~= nil then return swing end
