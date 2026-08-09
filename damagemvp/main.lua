@@ -312,9 +312,10 @@ local function beamInFlight(player)
 end
 
 -- Holy Light's damage arrives as the player carrying no flag at all, so the only
--- witness is the light itself standing in the room. Nothing but your own items
--- makes one, so an owner chain is not required of it -- half of them have no
--- spawner to walk.
+-- witness is the light itself standing in the room. No owner chain is required of
+-- it, because half of them carry no spawner to walk -- which assumes nothing but
+-- your own items makes one. That is untested; an enemy able to call the same light
+-- down would be credited to you.
 local function holyLightInRoom()
     for _, light in ipairs(Isaac.FindByType(EntityType.ENTITY_EFFECT,
         EffectVariant.CRACK_THE_SKY, -1, false, false)) do
