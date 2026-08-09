@@ -276,6 +276,20 @@ local function beamInFlight(player)
     return nil
 end
 
+-- Holy Light's beam alone was measured to deal damage with no laser flag, so this
+-- reaches no further than that beam. Any other beam of yours in the room stays out
+-- of it, and an unflagged hit while one is up is not handed to it.
+local function lightBeamInFlight(player)
+    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER,
+        LaserVariant.LIGHT_BEAM, -1, false, false)) do
+        local owner = ownerOf(laser)
+        if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
+            return beamName(laser.Variant, laser.SubType)
+        end
+    end
+    return nil
+end
+
 -- Whichever of the player's familiars could have thrown a blow that names no
 -- weapon. Nil when none is out, or when two different ones are and the swing could
 -- have been either.
@@ -390,7 +404,7 @@ local function weaponOf(source, flags, amount, victim)
         -- of yours swinging, but a beam of yours in the room, and it is the beam
         local swing = heldWeapon(player, MELEE_WEAPONS)
             or swingBehind(player)
-            or beamInFlight(player)
+            or lightBeamInFlight(player)
         if swing ~= nil then return swing end
         logSwing(player, "melee", flags, amount)
         return "Melee"
