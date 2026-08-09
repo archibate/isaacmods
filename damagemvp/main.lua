@@ -107,7 +107,10 @@ local LASER_LABELS = {
     -- apart -- variant, subtype, sprite and animation all match, and every measure
     -- of shape reads nil. Merged under the better known of the pair, by choice
     [LaserVariant.SHOOP] = "Shoop",
-    [LaserVariant.LIGHT_BEAM] = "Holy Light",
+    -- Holy Light drops one of these where a tear lands and Revelation fires one on
+    -- a charged shot, so it is named for the beam; Revelation's damage was reading
+    -- as Holy Light's
+    [LaserVariant.LIGHT_BEAM] = "Light Beam",
     [LaserVariant.LIGHT_RING] = "Tech X",
     [LaserVariant.BRIM_TECH] = "Tech X",
     [LaserVariant.THICKER_BRIM_TECH] = "Tech X",
@@ -300,7 +303,8 @@ local seenCrush = {}
 
 local function logSwing(player, what, flags, amount)
     local alive = {}
-    for _, kind in ipairs({ EntityType.ENTITY_FAMILIAR, EntityType.ENTITY_KNIFE }) do
+    for _, kind in ipairs({ EntityType.ENTITY_FAMILIAR, EntityType.ENTITY_KNIFE,
+        EntityType.ENTITY_LASER }) do
         for _, entity in ipairs(Isaac.FindByType(kind, -1, -1, false, false)) do
             local owner = ownerOf(entity)
             if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
@@ -381,7 +385,12 @@ local function weaponOf(source, flags, amount, victim)
             return "TNT"
         end
 
-        local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player)
+        -- Holy Light's beam lands where a tear did and deals its damage with no
+        -- laser flag at all, so it arrives looking exactly like a swing. Nothing
+        -- of yours swinging, but a beam of yours in the room, and it is the beam
+        local swing = heldWeapon(player, MELEE_WEAPONS)
+            or swingBehind(player)
+            or beamInFlight(player)
         if swing ~= nil then return swing end
         logSwing(player, "melee", flags, amount)
         return "Melee"
