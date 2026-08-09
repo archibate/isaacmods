@@ -404,6 +404,15 @@ local function knifeInHand(player)
     end))
 end
 
+-- A dash that hurts whatever it passes through arrives as you carrying no flag at
+-- all, the same shape as a swing, and leaves nothing in the room to point at. What
+-- names it is the state the game puts you in to dash: Tainted Judas' own Dark Arts
+-- and the item that grants it are one and the same state, so one row covers both.
+local function dashing(player)
+    if player:GetEffects():HasNullEffect(NullItemID.ID_DARK_ARTS) then return "Dark Arts" end
+    return nil
+end
+
 -- Holy Light's damage arrives as the player carrying no flag at all, so the only
 -- witness is the light itself standing in the room. No owner chain is required of
 -- it, because half of them carry no spawner to walk -- which assumes nothing but
@@ -528,6 +537,7 @@ local function weaponOf(source, flags, amount, victim)
         -- exactly so -- no laser flag, and usually no beam left in the room to ask
         -- -- and there is nothing in the hit that names it.
         local swing = knifeInHand(player)
+            or dashing(player)
             or heldWeapon(player, MELEE_WEAPONS)
             or swingBehind(player)
             or holyLightInRoom()

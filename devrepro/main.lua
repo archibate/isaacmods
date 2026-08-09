@@ -12,15 +12,14 @@
 
 local STEPS = {
     "luamod damagemvp",
-    "restart 0", 10,
+    "restart 24", 10,
     "debug 3",
     "debug 8",
     "stage 1", 10,
-    "giveitem c704",
     "spawn 36.0.1", 10,
 }
 
-local HINT = "Berserk!: press space and spin through the flies"
+local HINT = "Tainted Judas: hold space for Dark Arts and dash through the flies"
 
 local mod = RegisterMod("devrepro", 1)
 
