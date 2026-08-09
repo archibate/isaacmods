@@ -356,8 +356,9 @@ local function weaponOf(source, flags, amount, victim)
         -- Rights, The Negative, a black heart -- arrives as you carrying only the
         -- armour-piercing flag, with nothing in the room and a flat amount. A real
         -- swing carries no flag at all, so this is not one, and the weapon wielded
-        -- must not take it. Which of those items it was, the hit does not say.
-        if flags == DamageFlag.DAMAGE_IGNORE_ARMOR then return "Unknown" end
+        -- must not take it. Which of those items it was, the hit does not say, so
+        -- the row is named for what they all are rather than guessed between them.
+        if flags == DamageFlag.DAMAGE_IGNORE_ARMOR then return "Screen Damage" end
 
         local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player)
         if swing ~= nil then return swing end
