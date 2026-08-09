@@ -89,9 +89,9 @@ local HINT = "walk into the boss room and fire once"
 - Bombs, keys or coins needed? `giveitem c190` (Pyro) fills bombs, `c17` (Skeleton Key)
   keys, `c18` (A Dollar) coins — each fills the counter, so nobody scrounges mid-test.
 - Target dummy: `spawn 408.0.0` (Hush, skinless) by default — a cut enemy that stands
-  still and has no attack beyond contact. `spawn 36.0.0` (Gurdy) when the test wants a
+  still and has no attack beyond contact. `spawn 36.0.1` (Gurdy) when the test wants a
   crowd, since it keeps spawning flies — chaining and group-hitting weapons need one.
-  `spawn 20.0.0` (Monstro) when it wants a target that moves and jumps.
+  `spawn 20.0.2` (Monstro) when it wants a target that moves and jumps.
 - **Never quote an ID from memory** — models hallucinate them. Grep the ground truth
   first: `rg "ALMOND_MILK" isaac-lua-api/vanilla/enums.lua` (CollectibleType, PlayerType,
   EntityType, CardType, TrinketType...).

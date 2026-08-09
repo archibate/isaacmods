@@ -16,13 +16,11 @@ local STEPS = {
     "debug 9",
     "debug 6",
     "stage 1", 10,
-    "debug 8",
-    "giveitem c328",
-    "giveitem c126",
+    "giveitem c427",
     "spawn 36.0.0",
 }
 
-local HINT = "The Negative + Razor Blade: cut down to under half a red heart so the Negative fires"
+local HINT = "Mine Crafter again: drop TNT by the flies and set it off -- expect a TNT row"
 
 local mod = RegisterMod("devrepro", 1)
 

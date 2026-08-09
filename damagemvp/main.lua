@@ -317,6 +317,20 @@ local function logSwing(player, what, flags, amount)
     Isaac.DebugString(line)
 end
 
+-- Development aid, to be dropped before release: a hit the board throws away for
+-- tracing back to nobody. Absence of a row proves nothing on its own -- this is
+-- what tells a hit correctly ignored from one that never happened.
+local seenDropped = {}
+
+local function logDropped(source, flags)
+    local line = "[DMVP] dropped src=" .. tostring(source.Type) .. "."
+        .. tostring(source.Variant) .. " spawner=" .. tostring(source.SpawnerType) .. "."
+        .. tostring(source.SpawnerVariant) .. " flags=" .. string.format("0x%X", flags)
+    if seenDropped[line] then return end
+    seenDropped[line] = true
+    Isaac.DebugString(line)
+end
+
 -- Development aid, to be dropped before release: a hit whose shape nothing knows
 local seenShape = {}
 
@@ -360,6 +374,10 @@ local function weaponOf(source, flags, amount, victim)
         -- the row is named for what they all are rather than guessed between them.
         if flags == DamageFlag.DAMAGE_IGNORE_ARMOR then return "Screen Damage" end
 
+        -- a blast credited to you with no shot behind it -- setting off your own
+        -- TNT does this. Not a swing, so the weapon wielded must not take it
+        if flags == DamageFlag.DAMAGE_EXPLOSION then return "Explosion" end
+
         local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player)
         if swing ~= nil then return swing end
         logSwing(player, "melee", flags, amount)
@@ -396,6 +414,11 @@ local function weaponOf(source, flags, amount, victim)
     end
     if source.Type == EntityType.ENTITY_BOMB then
         return bombLabel(entity, source.Variant)
+    end
+    -- a barrel you put there yourself: the one the room came with has no spawner
+    -- and is dropped before reaching here, the same as any other scenery
+    if source.Type == EntityType.ENTITY_MOVABLE_TNT then
+        return "TNT"
     end
     if source.Type == EntityType.ENTITY_LASER then
         local beam = beamName(source.Variant, entity ~= nil and entity.SubType or nil)
@@ -510,6 +533,7 @@ function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
 
     local weapon = weaponOf(source, flags, amount, victim)
     if weapon == nil then
+        pcall(logDropped, source, flags)
         -- something not ours touched this enemy last, so a status appearing now
         -- belongs to nobody rather than to whatever we hit it with earlier
         data.dmvpHitLabel = nil
@@ -522,9 +546,13 @@ function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
     data.dmvpHitLabel = weapon
     data.dmvpHitFrame = frame
 
-    -- a shot that explodes still arrives as the shot, so its blast has to say so;
-    -- bombs already name themselves and need no marking
-    if flags & DamageFlag.DAMAGE_EXPLOSION ~= 0 and source.Type ~= EntityType.ENTITY_BOMB then
+    -- a shot that explodes still arrives as the shot, so its blast has to say so.
+    -- Things that are an explosion to begin with -- a bomb, a barrel, a blast that
+    -- names no shot at all -- would only be saying it twice.
+    if flags & DamageFlag.DAMAGE_EXPLOSION ~= 0
+        and source.Type ~= EntityType.ENTITY_BOMB
+        and source.Type ~= EntityType.ENTITY_MOVABLE_TNT
+        and source.Type ~= EntityType.ENTITY_PLAYER then
         weapon = weapon .. " (explosion)"
     end
 
