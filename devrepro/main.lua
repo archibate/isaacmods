@@ -14,16 +14,16 @@ local STEPS = {
     "luamod damagemvp",
     "restart 0", 10,
     "debug 3",
-    "debug 8",
     "stage 1", 10,
-    "giveitem c495",
-    "giveitem c616",
-    "giveitem c256",
+    "giveitem c139",
+    "giveitem t71",
+    "giveitem t106",
+    "giveitem c125",
     "giveitem c190",
-    "spawn 36.0.1", 10,
+    "spawn 20.0.2", 10,
 }
 
-local HINT = "Three flames: shoot until blue and red ones drop, and bomb the flies for the bomb's fire"
+local HINT = "Bob's Bladder + Lost Cork + Bobby Bomb: drop bombs, they chase Monstro into the pool"
 
 local mod = RegisterMod("devrepro", 1)
 

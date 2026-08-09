@@ -587,6 +587,10 @@ local function weaponOf(source, flags, amount, victim)
         end
         -- Ghost Pepper and The Candle throw the same blue one
         if source.Variant == EffectVariant.BLUE_FLAME then return "Blue Candle" end
+        -- every colour of creep is one hazard on a damage board, and whose it is
+        -- cannot be narrowed further: the pool Bob's Bladder leaves where a bomb
+        -- went off names the player in every slot it has, bomb nowhere in the
+        -- chain -- measured -- so it cannot stand apart the way the fire does
         local label = EFFECT_LABELS[source.Variant]
         if label ~= nil then
             logCreep(source)
