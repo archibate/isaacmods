@@ -83,6 +83,22 @@ local LASER_WEAPONS = {
     WeaponType.WEAPON_TECH_X,
 }
 
+-- Every melee weapon swings a knife entity of its own, and the variant is finer than
+-- the wielded weapon type: bone club and Berserk!'s club both answer to the same bone
+-- weapon, and Berserk!'s damage was reading as the Forgotten's. Vanilla names none of
+-- these numbers -- the enum for them came with REPENTOGON -- so they are written out.
+local KNIFE_LABELS = {
+    [0] = "Mom's Knife",
+    [1] = "Bone Club",
+    [2] = "Bone Scythe",
+    [3] = "Berserk!",
+    [4] = "Bag of Crafting",
+    [5] = "Sumptorium",
+    [9] = "Notched Axe",
+    [10] = "Spirit Sword",
+    [11] = "Tech Sword",
+}
+
 local MELEE_WEAPONS = {
     WeaponType.WEAPON_KNIFE,
     WeaponType.WEAPON_SPIRIT_SWORD,
@@ -354,13 +370,15 @@ end
 -- measured up to 20px clear of the path that dealt it while a ring that dealt
 -- nothing passed within 42px, so no reach test tells them apart without sometimes
 -- naming the wrong one, which is worse than naming neither.
-local function beamInFlight(player)
+-- The one thing of yours of a kind that could have dealt a blow naming no weapon,
+-- and how many kinds of it were out. Nil for the name when that is not exactly one.
+local function soleOwned(player, entityType, nameOf)
     local kinds, count, any = {}, 0, nil
-    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
-        local owner = ownerOf(laser)
-        if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-            local label = beamName(laser.Variant, laser.SubType)
-            if label ~= nil and not kinds[label] then
+    for _, entity in ipairs(Isaac.FindByType(entityType, -1, -1, false, false)) do
+        local label = nameOf(entity)
+        if label ~= nil and not kinds[label] then
+            local owner = ownerOf(entity)
+            if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
                 kinds[label] = true
                 count = count + 1
                 any = label
@@ -369,6 +387,21 @@ local function beamInFlight(player)
     end
     if count == 1 then return any, count end
     return nil, count
+end
+
+local function beamInFlight(player)
+    return soleOwned(player, EntityType.ENTITY_LASER, function(laser)
+        return beamName(laser.Variant, laser.SubType)
+    end)
+end
+
+-- Which blade of yours is out. The wielded weapon type cannot tell the Forgotten's
+-- bone club from the one Berserk! hands you -- both answer to the same bone weapon --
+-- but the game gives each its own knife entity, and the variant parts them.
+local function knifeInHand(player)
+    return (soleOwned(player, EntityType.ENTITY_KNIFE, function(knife)
+        return KNIFE_LABELS[knife.Variant]
+    end))
 end
 
 -- Holy Light's damage arrives as the player carrying no flag at all, so the only
@@ -388,20 +421,9 @@ end
 -- weapon. Nil when none is out, or when two different ones are and the swing could
 -- have been either.
 local function swingBehind(player)
-    local kinds, count, any = {}, 0, nil
-    for _, familiar in ipairs(Isaac.FindByType(EntityType.ENTITY_FAMILIAR, -1, -1, false, false)) do
-        local label = SWINGING_FAMILIARS[familiar.Variant]
-        if label ~= nil and not kinds[label] then
-            local owner = ownerOf(familiar)
-            if owner ~= nil and GetPtrHash(owner) == GetPtrHash(player) then
-                kinds[label] = true
-                count = count + 1
-                any = label
-            end
-        end
-    end
-    if count == 1 then return any end
-    return nil
+    return (soleOwned(player, EntityType.ENTITY_FAMILIAR, function(familiar)
+        return SWINGING_FAMILIARS[familiar.Variant]
+    end))
 end
 
 -- Development aid, to be dropped before release: a crushing blow names no weapon.
@@ -505,7 +527,8 @@ local function weaponOf(source, flags, amount, victim)
         -- nothing of yours swinging is not melee at all. Holy Light's beam arrives
         -- exactly so -- no laser flag, and usually no beam left in the room to ask
         -- -- and there is nothing in the hit that names it.
-        local swing = heldWeapon(player, MELEE_WEAPONS)
+        local swing = knifeInHand(player)
+            or heldWeapon(player, MELEE_WEAPONS)
             or swingBehind(player)
             or holyLightInRoom()
         if swing ~= nil then return swing end
@@ -558,7 +581,7 @@ local function weaponOf(source, flags, amount, victim)
         return "Laser"
     end
     if source.Type == EntityType.ENTITY_KNIFE then
-        return heldWeapon(owner, MELEE_WEAPONS) or "Melee"
+        return KNIFE_LABELS[source.Variant] or heldWeapon(owner, MELEE_WEAPONS) or "Melee"
     end
     if source.Type == EntityType.ENTITY_TEAR then
         local label = TEAR_LABELS[source.Variant]

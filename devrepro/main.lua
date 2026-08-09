@@ -14,13 +14,13 @@ local STEPS = {
     "luamod damagemvp",
     "restart 0", 10,
     "debug 3",
-    "debug 9",
+    "debug 8",
     "stage 1", 10,
-    "giveitem c408",
+    "giveitem c704",
     "spawn 36.0.1", 10,
 }
 
-local HINT = "Athame with high luck: kill the flies one after another so the black rings keep dropping"
+local HINT = "Berserk!: press space and spin through the flies"
 
 local mod = RegisterMod("devrepro", 1)
 
