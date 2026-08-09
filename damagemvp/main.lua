@@ -129,8 +129,8 @@ local LASER_LABELS = {
     [LaserVariant.THICKER_BRIM_TECH] = "Brim Tech",
     [LaserVariant.GIANT_BRIM_TECH] = "Brim Tech",
     [LaserVariant.TRACTOR_BEAM] = "Tractor Beam",
-    -- Technology Zero and Jacob's Ladder both fire this one, so it is named for the
-    -- beam; either item's name here would be wrong half the time
+    -- Technology Zero and Jacob's Ladder both fire this one; they part on shape
+    -- below, and anything else electric keeps the beam's own name
     [LaserVariant.ELECTRIC] = "Electric",
 }
 
@@ -138,7 +138,16 @@ local LASER_LABELS = {
 -- the Void's ring is a Brimstone beam in every respect but that, and without this
 -- its damage is quietly swallowed by the Brimstone row.
 local LASER_SUBTYPES = {
-    [LaserVariant.THICK_RED] = { [3] = "Maw of the Void" },
+    [LaserVariant.THICK_RED] = {
+        [LaserSubType.LASER_SUBTYPE_RING_FOLLOW_PARENT] = "Maw of the Void",
+    },
+    -- the two electric items were sharing one row until each was measured alone:
+    -- the spark that leaves no impact is Technology Zero's, the plain one the
+    -- ladder's. A third electric shape, if there is one, still reads as the beam
+    [LaserVariant.ELECTRIC] = {
+        [LaserSubType.LASER_SUBTYPE_NO_IMPACT] = "Technology Zero",
+        [LaserSubType.LASER_SUBTYPE_LINEAR] = "Jacob's Ladder",
+    },
 }
 
 local function beamName(variant, subtype)
@@ -304,10 +313,11 @@ local function logBeamKind(laser)
 end
 
 -- The hit names only the player, but the beam that landed it is still in the room
--- at that moment -- measured -- so what is in flight names it. Nil when two
--- different kinds are, because nothing the game exposes ties a hit to one beam:
--- not the damage, which matches; not the geometry, which reads nil; and not the
--- order they arrive in, since a beam can hit before it ever reports an update.
+-- at that moment -- measured -- so what is in flight names it. Two returns: the one
+-- kind of beam of yours up there, and how many kinds there were. A second kind is
+-- the end of it, because nothing the game exposes ties a hit to one beam: not the
+-- damage, which matches; not the geometry, which reads nil; and not the order they
+-- arrive in, since a beam can hit before it ever reports an update.
 local function beamInFlight(player)
     local kinds, count, any = {}, 0, nil
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
@@ -321,8 +331,8 @@ local function beamInFlight(player)
             end
         end
     end
-    if count == 1 then return any end
-    return nil
+    if count == 1 then return any, count end
+    return nil, count
 end
 
 -- Holy Light's damage arrives as the player carrying no flag at all, so the only
@@ -420,9 +430,13 @@ local function weaponOf(source, flags, amount, victim)
         local player = entity ~= nil and entity:ToPlayer() or nil
         if player == nil then return nil end
         -- the beam is in the room at the instant it lands its hit, so what is in
-        -- flight names it; the weapon wielded answers only when none is
+        -- flight names it. The weapon wielded answers only where nothing of yours
+        -- is up there at all: with two beams flying it would name one of them for
+        -- certain and be wrong about half the hits, which is worse than saying so.
         if flags & DamageFlag.DAMAGE_LASER ~= 0 then
-            return beamInFlight(player) or heldWeapon(player, LASER_WEAPONS) or "Laser"
+            local beam, kinds = beamInFlight(player)
+            if kinds > 0 then return beam or "Laser" end
+            return heldWeapon(player, LASER_WEAPONS) or "Laser"
         end
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
         -- character's melee, and the cooldown flag is what tells them apart
