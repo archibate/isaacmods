@@ -16,12 +16,11 @@ local STEPS = {
     "debug 9",
     "debug 6",
     "stage 1", 10,
-    "giveitem c395",
-    "giveitem c118",
+    "giveitem c374",
     "spawn 36.0.1",
 }
 
-local HINT = "Tech X + Brimstone: fire at Gurdy -- does this make the same beam as Brimstone+Technology?"
+local HINT = "Holy Light alone: shoot the flies until several beams drop -- is any laser in the room?"
 
 local mod = RegisterMod("devrepro", 1)
 

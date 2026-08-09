@@ -262,7 +262,23 @@ end
 local seenBeamKind = {}
 
 local function logBeamKind(laser)
-    local line = "[DMVP] beamkind " .. tostring(laser.Variant) .. "." .. tostring(laser.SubType)
+    -- where a beam begins is the difference the entity type hides: Holy Light drops
+    -- one where a tear landed, Revelation fires one out of the player
+    local owner = ownerOf(laser)
+    local away = "?"
+    if owner ~= nil and laser.Position ~= nil and owner.Position ~= nil then
+        local dx = laser.Position.X - owner.Position.X
+        local dy = laser.Position.Y - owner.Position.Y
+        -- bucketed, or every beam at its own distance would be a fresh line
+        away = math.sqrt(dx * dx + dy * dy) < 1 and "onYou" or "elsewhere"
+    end
+    local spawner = laser.SpawnerEntity
+    local line = "[DMVP] beamkind " .. tostring(laser.Type) .. ":"
+        .. tostring(laser.Variant) .. "." .. tostring(laser.SubType)
+        .. " spawner=" .. (spawner == nil and "nil"
+            or (tostring(spawner.Type) .. "." .. tostring(spawner.Variant)))
+        .. " refspawner=" .. tostring(laser.SpawnerType) .. "." .. tostring(laser.SpawnerVariant)
+        .. " away=" .. away
     if seenBeamKind[line] then return end
     seenBeamKind[line] = true
     Isaac.DebugString(line)
@@ -596,7 +612,10 @@ function mod:onUpdate()
         if entity:IsEnemy() then syncStatus(entity, frame) end
         -- development aid: sweep here rather than on a hit, so a beam whose damage
         -- never takes the laser path -- Holy Light's -- is still seen
-        if entity.Type == EntityType.ENTITY_LASER and ownerOf(entity) ~= nil then
+        -- every beam, not only ones whose chain reaches a player: a beam with no
+        -- owner is exactly what would stay invisible here and go unattributed.
+        -- Effects too: Holy Light's light is one of those rather than a beam
+        if entity.Type == EntityType.ENTITY_LASER or entity.Type == EntityType.ENTITY_EFFECT then
             pcall(logBeamKind, entity)
         end
     end
