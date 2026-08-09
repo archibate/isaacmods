@@ -14,13 +14,13 @@ local STEPS = {
     "luamod damagemvp",
     "restart 0", 10,
     "debug 3",
+    "debug 9",
     "stage 1", 10,
-    "giveitem c73",
-    "giveitem c331",
-    "spawn 408.0.0", 10,
+    "giveitem c408",
+    "spawn 36.0.1", 10,
 }
 
-local HINT = "Cube of Meat + Godhead: grind the target with the cube, then shoot it from range"
+local HINT = "Athame with high luck: kill the flies one after another so the black rings keep dropping"
 
 local mod = RegisterMod("devrepro", 1)
 

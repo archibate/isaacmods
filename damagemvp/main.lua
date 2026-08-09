@@ -116,6 +116,9 @@ local LASER_LABELS = {
     [LaserVariant.THICK_RED] = "Brimstone",
     [LaserVariant.THICKER_RED] = "Brimstone",
     [LaserVariant.GIANT_RED] = "Brimstone",
+    -- the whole tech family fires this one: Technology's constant beam, and the
+    -- stray beams Tech.5 throws between tears, both measured. Named for the family
+    -- rather than for whichever of them the player happens to be holding
     [LaserVariant.THIN_RED] = "Technology",
     -- Trisagion fires this one too, and nothing the game exposes tells the two
     -- apart -- variant, subtype, sprite and animation all match, and every measure
@@ -139,12 +142,14 @@ local LASER_LABELS = {
     [LaserVariant.ELECTRIC] = "Electric",
 }
 
--- An item riding another's beam variant is told apart only by its subtype: Maw of
--- the Void's ring is a Brimstone beam in every respect but that, and without this
--- its damage is quietly swallowed by the Brimstone row.
+-- An item riding another's beam variant is told apart only by its subtype: the black
+-- ring is a Brimstone beam in every respect but that, and without this its damage is
+-- quietly swallowed by the Brimstone row. Maw of the Void and Athame both drop one
+-- and the two are identical to everything the game exposes, so the ring is named
+-- rather than either item -- Athame's damage had been reading as Maw's.
 local LASER_SUBTYPES = {
     [LaserVariant.THICK_RED] = {
-        [LaserSubType.LASER_SUBTYPE_RING_FOLLOW_PARENT] = "Maw of the Void",
+        [LaserSubType.LASER_SUBTYPE_RING_FOLLOW_PARENT] = "Black Ring",
     },
     -- the two electric items were sharing one row until each was measured alone:
     -- the spark that leaves no impact is Technology Zero's, the plain one the
