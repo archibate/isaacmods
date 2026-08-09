@@ -16,10 +16,11 @@ local STEPS = {
     "debug 3",
     "stage 1", 10,
     "giveitem c395",
-    "spawn 408.0.0", 10,
+    "giveitem c118",
+    "spawn 36.0.1", 10,
 }
 
-local HINT = "Tech X again: fire a few rings -- the row should now read Tech X, not Technology"
+local HINT = "Tech X + Brimstone: fire charged shots into the flies -- what does the beam look like?"
 
 local mod = RegisterMod("devrepro", 1)
 

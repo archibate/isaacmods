@@ -261,28 +261,37 @@ end
 -- entity is the only thing left that still knows what fired.
 local seenLaser = {}
 
--- everything is stringified rather than formatted as a number: a field the stubs
--- promise can still come back nil, and a probe must never be what crashes a run
 local function logPlainLaser(player, amount, verdict, flags, victim)
     local alive = {}
-    for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
-        local owner = ownerOf(laser)
+    for _, entity in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
+        local owner = ownerOf(entity)
         local whose = "orphan"
         if owner ~= nil then
             whose = GetPtrHash(owner) == GetPtrHash(player) and "mine" or "other"
         end
-        alive[#alive + 1] = tostring(laser.Variant) .. "." .. tostring(laser.SubType)
-            .. "/" .. whose .. "/dmg" .. tostring(laser.CollisionDamage)
+        alive[#alive + 1] = tostring(entity.Variant) .. "." .. tostring(entity.SubType)
+            .. "/" .. whose .. "/dmg" .. tostring(entity.CollisionDamage)
     end
     local line = "[DMVP] beam -> " .. tostring(verdict)
         .. "  flags=" .. string.format("0x%X", flags or 0)
         .. "  amount=" .. tostring(amount)
-        .. "  alive=" .. table.concat(alive, " ")
+        .. "  alive=" .. table.concat(alive, " | ")
     if seenLaser[line] then return end
     seenLaser[line] = true
     Isaac.DebugString(line)
 end
 
+
+-- Development aid, to be dropped before release: which beams the game names for us
+-- in the hit itself. A kind that always names itself can never be the one behind a
+-- hit that names only the player, which would narrow what an ambiguous hit can be.
+local seenPath = {}
+
+local function logBeamPath(kind)
+    if seenPath[kind] then return end
+    seenPath[kind] = true
+    Isaac.DebugString("[DMVP] hit names its own beam: " .. kind)
+end
 
 -- Development aid, to be dropped before release: every kind of beam of yours seen,
 -- variant and subtype both. Two items sharing a variant may still differ here --
@@ -312,12 +321,19 @@ local function logBeamKind(laser)
     Isaac.DebugString(line)
 end
 
--- The hit names only the player, but the beam that landed it is still in the room
--- at that moment -- measured -- so what is in flight names it. Two returns: the one
--- kind of beam of yours up there, and how many kinds there were. A second kind is
--- the end of it, because nothing the game exposes ties a hit to one beam: not the
--- damage, which matches; not the geometry, which reads nil; and not the order they
--- arrive in, since a beam can hit before it ever reports an update.
+-- The hit names only the player -- no laser hit was ever seen naming its own beam --
+-- but the beam that landed it is still in the room at that moment, so what is in
+-- flight names it. Two returns: the one kind of beam of yours up there, and how many
+-- kinds there were. A second kind is the end of it, and every way out of that was
+-- tried and measured: the damage matches to the decimal, the order they arrive in
+-- cannot be anchored since a beam can hit before it ever reports an update, and
+-- there is no collision callback for lasers as there is for tears and knives.
+--
+-- Their geometry does read -- through :ToLaser(), which is what an earlier attempt
+-- was missing -- and the game will even sample a beam's whole path. But a hit was
+-- measured up to 20px clear of the path that dealt it while a ring that dealt
+-- nothing passed within 42px, so no reach test tells them apart without sometimes
+-- naming the wrong one, which is worse than naming neither.
 local function beamInFlight(player)
     local kinds, count, any = {}, 0, nil
     for _, laser in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
@@ -435,7 +451,10 @@ local function weaponOf(source, flags, amount, victim)
         -- certain and be wrong about half the hits, which is worse than saying so.
         if flags & DamageFlag.DAMAGE_LASER ~= 0 then
             local beam, kinds = beamInFlight(player)
-            if kinds > 0 then return beam or "Laser" end
+            if kinds > 0 then
+                logPlainLaser(player, amount, beam or "ambiguous", flags, victim)
+                return beam or "Laser"
+            end
             return heldWeapon(player, LASER_WEAPONS) or "Laser"
         end
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
@@ -511,9 +530,11 @@ local function weaponOf(source, flags, amount, victim)
         return "TNT"
     end
     if source.Type == EntityType.ENTITY_LASER then
-        local beam = beamName(source.Variant, entity ~= nil and entity.SubType or nil)
+        local subtype = entity ~= nil and entity.SubType or nil
+        logBeamPath(tostring(source.Variant) .. "." .. tostring(subtype))
+        local beam = beamName(source.Variant, subtype)
         if beam ~= nil then return beam end
-        logPlainLaser(owner, amount, "unknown variant " .. source.Variant)
+        logPlainLaser(owner, amount, "unknown variant " .. source.Variant, flags, victim)
         return "Laser"
     end
     if source.Type == EntityType.ENTITY_KNIFE then
@@ -704,6 +725,7 @@ end
 logPlainTear = guarded(logPlainTear)
 logCreep = guarded(logCreep)
 logPlainLaser = guarded(logPlainLaser)
+logBeamPath = guarded(logBeamPath)
 logSwing = guarded(logSwing)
 logShape = guarded(logShape)
 logBoard = guarded(logBoard)
