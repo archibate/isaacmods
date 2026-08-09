@@ -13,17 +13,16 @@
 local STEPS = {
     "luamod damagemvp",
     "restart 0", 10,
-    "debug 3",
     "debug 9",
     "debug 6",
     "stage 1", 10,
     "debug 8",
-    "giveitem c49",
-    "giveitem c152",
+    "giveitem c328",
+    "giveitem c126",
     "spawn 36.0.0",
 }
 
-local HINT = "stand so rocks block Tech 2 but Shoop still reaches the flies -- then fire both"
+local HINT = "The Negative + Razor Blade: cut down to under half a red heart so the Negative fires"
 
 local mod = RegisterMod("devrepro", 1)
 

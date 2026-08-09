@@ -298,7 +298,7 @@ end
 -- there can name it -- the alternative is guessing from what he happens to own.
 local seenCrush = {}
 
-local function logSwing(player, what)
+local function logSwing(player, what, flags, amount)
     local alive = {}
     for _, kind in ipairs({ EntityType.ENTITY_FAMILIAR, EntityType.ENTITY_KNIFE }) do
         for _, entity in ipairs(Isaac.FindByType(kind, -1, -1, false, false)) do
@@ -309,6 +309,8 @@ local function logSwing(player, what)
         end
     end
     local line = "[DMVP] " .. what .. " char=" .. tostring(player:GetPlayerType())
+        .. " flags=" .. string.format("0x%X", flags or 0)
+        .. " amount=" .. tostring(amount)
         .. " alive=" .. table.concat(alive, ",")
     if seenCrush[line] then return end
     seenCrush[line] = true
@@ -347,12 +349,19 @@ local function weaponOf(source, flags, amount, victim)
         -- a crushing blow claims no weapon at all, and nothing in the room says
         -- which one landed it, so it stays a crush rather than a guess
         if flags & DamageFlag.DAMAGE_CRUSH ~= 0 then
-            logSwing(player, "crush")
+            logSwing(player, "crush", flags, amount)
             return "Crush"
         end
+        -- Damage dealt to the whole room for spending or losing health -- Blood
+        -- Rights, The Negative, a black heart -- arrives as you carrying only the
+        -- armour-piercing flag, with nothing in the room and a flat amount. A real
+        -- swing carries no flag at all, so this is not one, and the weapon wielded
+        -- must not take it. Which of those items it was, the hit does not say.
+        if flags == DamageFlag.DAMAGE_IGNORE_ARMOR then return "Unknown" end
+
         local swing = heldWeapon(player, MELEE_WEAPONS) or swingBehind(player)
         if swing ~= nil then return swing end
-        logSwing(player, "melee")
+        logSwing(player, "melee", flags, amount)
         return "Melee"
     end
 
