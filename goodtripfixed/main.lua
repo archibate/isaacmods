@@ -154,6 +154,7 @@ local gtconfig = {
     --for users with MCM that want their overlay key to always be the map key
     OverlayKey = nil,  --The key to open the overlay on keyboard
     OverlayKeyController = nil, --The button to open the overlay on controller
+    SwapAnalogSticks = false, --Swap the left and right analog sticks
     GameMapCursor = false, --draw the keyboard cursor on the game's own map instead of the aux widget
     --self-service calibration for corner-map clicks, in pixels: if clicks land
     --one room LEFT of where you aim, increase; RIGHT of aim, decrease
@@ -187,6 +188,17 @@ local function cycle_mmscale() --zoom button: x1.0 -> x1.5 -> x2.0 -> x1.0
     update_mmscale()
     prep_alarm = true
 end
+
+local function update_analog_mappings()
+    if gtconfig.SwapAnalogSticks then
+        key = {ButtonAction.ACTION_UP, ButtonAction.ACTION_LEFT, ButtonAction.ACTION_RIGHT, ButtonAction.ACTION_DOWN}
+        movkey = {ButtonAction.ACTION_SHOOTUP, ButtonAction.ACTION_SHOOTLEFT, ButtonAction.ACTION_SHOOTRIGHT, ButtonAction.ACTION_SHOOTDOWN}
+    else
+        key = {ButtonAction.ACTION_SHOOTUP, ButtonAction.ACTION_SHOOTLEFT, ButtonAction.ACTION_SHOOTRIGHT, ButtonAction.ACTION_SHOOTDOWN}
+        movkey = {ButtonAction.ACTION_UP, ButtonAction.ACTION_LEFT, ButtonAction.ACTION_RIGHT, ButtonAction.ACTION_DOWN}
+    end
+end
+update_analog_mappings() --the other calls live in the MCM block, so hand-edited configs would never take effect
 ----
 local hudoffset = Options.HUDOffset * 10  --need your real hudoffset of game [0,10]
 local debug = false
@@ -208,6 +220,7 @@ if ModConfigMenu then
         { "AllowNeighborRoom", "Allow moving into uncleaned neighbor room" },
         { "AllowBookmarking", "Allow adding bookmarks for rooms via TAB + 1~9" },
         { "LastRoomShortcut", "Allow teleport back to last room via TAB + Z" },
+        { "FastRestartEnable", "Allow restarting the run quickly via TAB + R" },
         { "NoShootWhenClick", "Disable shoot when teleporting via TAB + Click" },
         { "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
         { "GameMapCursor", "Draw the keyboard/controller cursor on the game's own map (top-right corner map or MinimapAPI) instead of the mod's draggable widget" },
@@ -321,6 +334,23 @@ if ModConfigMenu then
           }
         )
     end
+    ModConfigMenu.AddSetting(
+      "GoodTrip [Fixed]", "General",
+      {
+        Type = ModConfigMenu.OptionType.BOOLEAN,
+        CurrentSetting = function()
+          return gtconfig["SwapAnalogSticks"]
+        end,
+        Display = function()
+          return "SwapAnalogSticks" .. ": " .. (gtconfig["SwapAnalogSticks"] and "on" or "off")
+        end,
+        OnChange = function(b)
+          gtconfig["SwapAnalogSticks"] = b
+          update_analog_mappings()
+        end,
+        Info = { "Swap the left and right analog sticks" },
+      }
+    )
     ModConfigMenu.AddSetting(
       "GoodTrip [Fixed]",  "Keybinds",
       {
@@ -448,6 +478,7 @@ if ModConfigMenu then
             end
             mmp_ltpos = Vector(gtconfig.TopLeftX or 100, gtconfig.TopLeftY or 100)
             update_mmscale()
+            update_analog_mappings()
             -- mmp_pos0 = mmp_ltpos - mmp_ltpos_
             -- mmp_rbpos = mmp_pos0 + mmp_rbpos_
         end
@@ -1527,8 +1558,9 @@ function _gt:tab_action()
     scpos = cp + cp
     hudoffset = Options.HUDOffset * 10 --live: the map moves the moment the slider moves, so must our anchor (refreshing only on new_level lagged until the next floor)
     --
-    if gtconfig.FastRestartEnable and Input.IsButtonTriggered(Keyboard.KEY_R, player.ControllerIndex)
-        or (gtconfig.ControllerAlternateR and Input.IsButtonTriggered(gtconfig.ControllerAlternateR, player.ControllerIndex)) then
+    if gtconfig.FastRestartEnable
+        and (Input.IsButtonTriggered(Keyboard.KEY_R, player.ControllerIndex)
+            or (gtconfig.ControllerAlternateR and Input.IsButtonTriggered(gtconfig.ControllerAlternateR, player.ControllerIndex))) then
       print('GoodTrip [Fixed] !!!FAST RESTARTING!!!')
       Isaac.ExecuteCommand("restart")
     end
@@ -1537,11 +1569,14 @@ function _gt:tab_action()
     end
     --
     if (gtconfig.KeyboardMapEnable and _gt:check_teleble(false)) or debug then -------return when gtconfig.KeyboardMapEnable & debug disable
-      if not (Input.IsActionPressed(ButtonAction.ACTION_UP,player.ControllerIndex)
-          or Input.IsActionPressed(ButtonAction.ACTION_LEFT,player.ControllerIndex)
-          or Input.IsActionPressed(ButtonAction.ACTION_RIGHT,player.ControllerIndex)
-          or Input.IsActionPressed(ButtonAction.ACTION_DOWN,player.ControllerIndex)) or gtconfig.QuicklyOneRoomMove or gtconfig.IgnoreMovementKeys
-      then
+      local movement_pressed = false
+      for i = 1, 4 do
+        if Input.IsActionPressed(movkey[i], player.ControllerIndex) then
+          movement_pressed = true
+          break
+        end
+      end
+      if not movement_pressed or gtconfig.QuicklyOneRoomMove or gtconfig.IgnoreMovementKeys then
         local arrowdown = Input.IsActionPressed(key[1],player.ControllerIndex)
             or Input.IsActionPressed(key[2],player.ControllerIndex)
             or Input.IsActionPressed(key[3],player.ControllerIndex)

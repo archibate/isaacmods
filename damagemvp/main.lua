@@ -1,15 +1,18 @@
--- Damage MVP -- shows what dealt your damage to enemies.
+-- Damage MVP -- ranks what dealt your damage in the current room.
 --
--- What the game actually tells us (measured in-game, not guessed):
---   * tears, knives, bombs and familiar shots all name themselves as the source,
---     and their spawner chain walks back to the player who owns them;
---   * LASERS DO NOT. A Brimstone / Technology / Tech X hit reports the player as
---     its source with only a DAMAGE_LASER flag, so the weapon has to be recovered
---     by looking at which lasers the player currently has alive;
---   * burn and poison ticks carry NO source at all -- empty entity, empty spawner --
---     so each enemy remembers who last hurt it, and its ticks are credited back;
---   * enemies damage each other (a boss's own eye laser hits it); those hits must
---     not be credited to the player.
+-- Everything below follows from what the game was measured to report, not from
+-- what the API suggests it should:
+--   * tears, knives, bombs and lasers fired by a familiar name their familiar in
+--     the source's spawner slot, and a familiar's own beam names the familiar;
+--   * the player's OWN lasers and melee swings report the player himself and
+--     nothing else, so the weapon is recovered from what he wields;
+--   * the Spirit Sword's beam arrives as a tear variant, its stab as the player;
+--   * burn and poison ticks arrive with an entirely empty source, tick on the same
+--     20-frame schedule and deal the same damage, so they are told apart only by
+--     which status the victim is carrying;
+--   * a status always lands on the same frame as the hit that applied it;
+--   * enemies hurt each other and themselves, and troll bombs hurt everyone --
+--     none of those chains reach a player, which is how they are excluded.
 
 local mod = RegisterMod("damagemvp", 1)
 
@@ -17,6 +20,10 @@ local ROW_LIMIT = 8
 local TEXT_X = 25
 local TEXT_Y = 55
 local LINE_HEIGHT = 11
+
+-- pinned when a status appears with nothing of ours behind it; such a tick is
+-- reported bare rather than handed to whatever weapon happens to fire next
+local UNATTRIBUTED = false
 
 local function prettify(enumName)
     local words = {}
@@ -28,17 +35,43 @@ end
 
 local function invert(enum)
     local names = {}
-    if enum == nil then return names end
     for name, value in pairs(enum) do
         names[value] = name
     end
     return names
 end
 
-local FAMILIAR_VARIANT_NAMES = invert(FamiliarVariant)
-local BOMB_VARIANT_NAMES = invert(BombVariant)
+local FAMILIAR_NAMES = invert(FamiliarVariant)
+local BOMB_NAMES = invert(BombVariant)
 
--- a laser's variant is the only trace left of which item fired it
+local WEAPON_LABELS = {
+    [WeaponType.WEAPON_BRIMSTONE] = "Brimstone",
+    [WeaponType.WEAPON_LASER] = "Technology",
+    [WeaponType.WEAPON_TECH_X] = "Tech X",
+    [WeaponType.WEAPON_KNIFE] = "Mom's Knife",
+    [WeaponType.WEAPON_BONE] = "Bone Club",
+    [WeaponType.WEAPON_NOTCHED_AXE] = "Notched Axe",
+    [WeaponType.WEAPON_URN_OF_SOULS] = "Urn of Souls",
+    [WeaponType.WEAPON_SPIRIT_SWORD] = "Spirit Sword",
+    [WeaponType.WEAPON_UMBILICAL_WHIP] = "Umbilical Whip",
+}
+
+local LASER_WEAPONS = {
+    WeaponType.WEAPON_BRIMSTONE,
+    WeaponType.WEAPON_LASER,
+    WeaponType.WEAPON_TECH_X,
+}
+
+local MELEE_WEAPONS = {
+    WeaponType.WEAPON_KNIFE,
+    WeaponType.WEAPON_SPIRIT_SWORD,
+    WeaponType.WEAPON_BONE,
+    WeaponType.WEAPON_NOTCHED_AXE,
+    WeaponType.WEAPON_URN_OF_SOULS,
+    WeaponType.WEAPON_UMBILICAL_WHIP,
+}
+
+-- a laser entity's variant is the only trace left of which item fired it
 local LASER_LABELS = {
     [LaserVariant.THICK_RED] = "Brimstone",
     [LaserVariant.THICKER_RED] = "Brimstone",
@@ -54,14 +87,48 @@ local LASER_LABELS = {
     [LaserVariant.ELECTRIC] = "Jacob's Ladder",
 }
 
--- melee weapons all arrive as a knife entity, so ask the player which one it is
-local MELEE_LABELS = {
-    { weapon = WeaponType.WEAPON_KNIFE, label = "Mom's Knife" },
-    { weapon = WeaponType.WEAPON_SPIRIT_SWORD, label = "Spirit Sword" },
-    { weapon = WeaponType.WEAPON_BONE, label = "Bone Club" },
+-- the swords throw a beam that is a tear, so it must not fall through to "Tears"
+local TEAR_LABELS = {
+    [TearVariant.SWORD_BEAM] = "Spirit Sword",
+    [TearVariant.TECH_SWORD_BEAM] = "Tech Sword",
 }
 
-local function ownerPlayerOf(entity)
+-- a shot leaves hazards behind that outlive it -- creep, gas, fire -- and each is
+-- named from the game's own effect table so none of them lands on an "Other" row.
+-- Creep is the exception: every colour of it is one hazard to a damage board.
+local EFFECT_NAMES = invert(EffectVariant)
+local EFFECT_LABELS = {}
+for name, variant in pairs(EffectVariant) do
+    if name:match("^PLAYER_CREEP") then EFFECT_LABELS[variant] = "Creep" end
+end
+
+local function familiarLabel(variant)
+    local name = FAMILIAR_NAMES[variant]
+    if name == nil then return "Familiar" end
+    return prettify(name)
+end
+
+local function bombLabel(entity, variant)
+    if entity ~= nil then
+        local bomb = entity:ToBomb()
+        if bomb ~= nil and bomb.IsFetus then return "Dr. Fetus" end
+    end
+    if variant == BombVariant.BOMB_NORMAL then return "Bombs" end
+    local name = BOMB_NAMES[variant]
+    if name == nil then return "Bombs" end
+    return prettify(name:gsub("^BOMB_", "")) .. " Bomb"
+end
+
+local function heldWeapon(player, candidates)
+    for _, weapon in ipairs(candidates) do
+        if player:HasWeaponType(weapon) then return WEAPON_LABELS[weapon] end
+    end
+    return nil
+end
+
+-- a hit's chain back to a player; nil means nobody of ours dealt it, which is the
+-- whole of "enemies never damage you on my behalf"
+local function ownerOf(entity)
     local current = entity
     for _ = 1, 4 do
         if current == nil then return nil end
@@ -77,134 +144,61 @@ local function ownerPlayerOf(entity)
     return nil
 end
 
--- the familiar that fired this shot, if any (it is the shot's spawner, one hop up)
-local function familiarBehind(entity)
-    if entity == nil then return nil end
-    local familiar = entity:ToFamiliar()
-    if familiar ~= nil then return familiar end
-    local spawner = entity.SpawnerEntity
-    if spawner ~= nil then return spawner:ToFamiliar() end
-    return nil
-end
-
-local function familiarLabel(familiar)
-    local name = FAMILIAR_VARIANT_NAMES[familiar.Variant]
-    if name == nil then return "Familiar" end
-    return prettify(name)
-end
-
--- lasers name the player as their source, so recover the weapon from the lasers
--- the player still has alive this frame
-local function laserLabel(player)
-    for _, entity in ipairs(Isaac.FindByType(EntityType.ENTITY_LASER, -1, -1, false, false)) do
-        local owner = ownerPlayerOf(entity)
-        if owner ~= nil and (player == nil or GetPtrHash(owner) == GetPtrHash(player)) then
-            local label = LASER_LABELS[entity.Variant]
-            if label ~= nil then
-                local familiar = familiarBehind(entity)
-                if familiar ~= nil then
-                    return familiarLabel(familiar) .. " (" .. label .. ")"
-                end
-                return label
-            end
-        end
-    end
-    if player ~= nil then
-        if player:HasWeaponType(WeaponType.WEAPON_BRIMSTONE) then return "Brimstone" end
-        if player:HasWeaponType(WeaponType.WEAPON_TECH_X) then return "Tech X" end
-        if player:HasWeaponType(WeaponType.WEAPON_LASER) then return "Technology" end
-    end
-    return "Laser"
-end
-
-local function meleeLabel(player)
-    for _, melee in ipairs(MELEE_LABELS) do
-        if player:HasWeaponType(melee.weapon) then return melee.label end
-    end
-    return "Melee"
-end
-
-local function bombLabel(entity)
-    local bomb = entity ~= nil and entity:ToBomb() or nil
-    if bomb == nil then return "Bombs" end
-    if bomb.IsFetus then return "Dr. Fetus" end
-    local name = BOMB_VARIANT_NAMES[bomb.Variant]
-    if name ~= nil and bomb.Variant ~= BombVariant.BOMB_NORMAL then
-        return prettify(name)
-    end
-    return "Bombs"
-end
-
--- Returns the label to credit, or nil when this hit was not the player's doing.
-local function resolveSource(source, flags)
+-- The bare name of the weapon behind a hit, or nil when it was not ours.
+-- Modifiers such as "(explosion)" are the caller's business.
+local function weaponOf(source, flags)
     local entity = source.Entity
 
-    -- a laser reports the player himself as the source, with nothing else attached
-    if source.Type == EntityType.ENTITY_PLAYER and flags & DamageFlag.DAMAGE_LASER ~= 0 then
-        return laserLabel(entity ~= nil and entity:ToPlayer() or nil)
+    -- the player's own beams and swings carry no weapon of their own
+    if source.Type == EntityType.ENTITY_PLAYER then
+        local player = entity ~= nil and entity:ToPlayer() or nil
+        if player == nil then return nil end
+        if flags & DamageFlag.DAMAGE_LASER ~= 0 then
+            -- a beam still in flight after an item swap no longer matches the
+            -- weapon held, so it stays a plain laser rather than a wrong name
+            return heldWeapon(player, LASER_WEAPONS) or "Laser"
+        end
+        return heldWeapon(player, MELEE_WEAPONS) or "Melee"
     end
 
-    local player = ownerPlayerOf(entity)
-    if player == nil then return nil end
+    if ownerOf(entity) == nil then return nil end
 
-    if source.Type == EntityType.ENTITY_KNIFE then
-        return meleeLabel(player)
+    -- a lingering fire is its own hazard: the candle's is dropped by the player,
+    -- the one an exploding shot leaves behind is dropped by that shot
+    if source.Type == EntityType.ENTITY_EFFECT then
+        if source.Variant == EffectVariant.RED_CANDLE_FLAME then
+            if source.SpawnerType == EntityType.ENTITY_PLAYER then return "Red Candle" end
+            return "Fire"
+        end
+        local label = EFFECT_LABELS[source.Variant]
+        if label ~= nil then return label end
+        local name = EFFECT_NAMES[source.Variant]
+        if name ~= nil then return prettify(name) end
+    end
+    if source.Type == EntityType.ENTITY_FAMILIAR then
+        return familiarLabel(source.Variant)
     end
     if source.Type == EntityType.ENTITY_BOMB then
-        return bombLabel(entity)
+        return bombLabel(entity, source.Variant)
     end
-
-    local familiar = familiarBehind(entity)
     if source.Type == EntityType.ENTITY_LASER then
-        local label = LASER_LABELS[source.Variant] or "Laser"
-        if familiar ~= nil then
-            return familiarLabel(familiar) .. " (" .. label .. ")"
+        return LASER_LABELS[source.Variant] or "Laser"
+    end
+    if source.Type == EntityType.ENTITY_KNIFE then
+        local player = ownerOf(entity)
+        return heldWeapon(player, MELEE_WEAPONS) or "Melee"
+    end
+    if source.Type == EntityType.ENTITY_TEAR then
+        if source.SpawnerType == EntityType.ENTITY_FAMILIAR then
+            return familiarLabel(source.SpawnerVariant)
         end
-        return label
+        return TEAR_LABELS[source.Variant] or "Tears"
     end
-    if familiar ~= nil then
-        return familiarLabel(familiar)
-    end
-
-    if source.Type == EntityType.ENTITY_TEAR then return "Tears" end
-    if source.Type == EntityType.ENTITY_EFFECT then return "Creep" end
-    if source.Type == EntityType.ENTITY_PLAYER then return "Contact" end
     return "Other"
 end
 
 local tally = {}
 local total = 0
-
-local function credit(label, damage)
-    tally[label] = (tally[label] or 0) + damage
-    total = total + damage
-end
-
-function mod:onEntityTakeDamage(entity, amount, flags, source, countdownFrames)
-    if entity:ToPlayer() ~= nil then return end
-    if not entity:IsActiveEnemy(false) then return end
-
-    -- overkill would otherwise credit damage the enemy never had left to lose
-    local dealt = math.min(amount, entity.HitPoints)
-
-    -- burn and poison ticks arrive sourceless, so credit whoever last hurt the enemy
-    if source.Entity == nil and flags & DamageFlag.DAMAGE_POISON_BURN ~= 0 then
-        local culprit = entity:GetData().dmvpLastSource
-        if culprit ~= nil then
-            credit(culprit .. " (burn)", dealt)
-        end
-        return
-    end
-
-    local label = resolveSource(source, flags)
-    if label == nil then return end
-
-    credit(label, dealt)
-    entity:GetData().dmvpLastSource = label
-
-    -- observer only: returning non-nil would stop other mods' damage callbacks
-    return nil
-end
 
 local function sortedRows()
     local rows = {}
@@ -213,6 +207,104 @@ local function sortedRows()
     end
     table.sort(rows, function(a, b) return a.damage > b.damage end)
     return rows
+end
+
+local function credit(label, damage)
+    if damage <= 0 then return end
+    tally[label] = (tally[label] or 0) + damage
+    total = total + damage
+end
+
+-- Whoever hurt an enemy last is not always whoever set it alight. A status is
+-- pinned to an owner the moment it appears and is never re-pinned while it lasts,
+-- so a later weapon can never inherit someone else's burn.
+local function syncStatus(victim, frame)
+    local data = victim:GetData()
+    local burning = victim:HasEntityFlags(EntityFlag.FLAG_BURN)
+    local poisoned = victim:HasEntityFlags(EntityFlag.FLAG_POISON)
+
+    local fresh = data.dmvpHitFrame ~= nil and frame - data.dmvpHitFrame <= 1
+    local applier = fresh and data.dmvpHitLabel or UNATTRIBUTED
+
+    if burning and not data.dmvpBurning then data.dmvpBurnFrom = applier end
+    if poisoned and not data.dmvpPoisoned then data.dmvpPoisonFrom = applier end
+    data.dmvpBurning = burning
+    data.dmvpPoisoned = poisoned
+end
+
+local function statusLabel(data, burning, poisoned)
+    local burnFrom = data.dmvpBurnFrom
+    local poisonFrom = data.dmvpPoisonFrom
+
+    if burning and poisoned then
+        -- the tick names neither status and both run on the same schedule, so it
+        -- is only nameable when one weapon is behind both
+        if burnFrom and burnFrom == poisonFrom then
+            return burnFrom .. " (burn + poison)"
+        end
+        return "Burn + poison"
+    end
+    if burning then
+        return burnFrom and burnFrom .. " (burn)" or "Burn"
+    end
+    if poisoned then
+        return poisonFrom and poisonFrom .. " (poison)" or "Poison"
+    end
+    return "Burn/poison"
+end
+
+function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
+    if victim:ToPlayer() ~= nil then return nil end
+    if not victim:IsEnemy() then return nil end
+
+    local frame = Game():GetFrameCount()
+
+    -- a status set by an earlier hit this frame is already visible here, which is
+    -- what keeps its owner from being stolen by a shot that landed alongside it
+    syncStatus(victim, frame)
+
+    -- overkill would otherwise credit damage the enemy never had left to lose, and
+    -- a corpse still ticking has negative health that would count against us
+    local dealt = math.max(0, math.min(amount, victim.HitPoints))
+    local data = victim:GetData()
+
+    if flags & DamageFlag.DAMAGE_POISON_BURN ~= 0 then
+        credit(statusLabel(data, data.dmvpBurning, data.dmvpPoisoned), dealt)
+        return nil
+    end
+
+    local weapon = weaponOf(source, flags)
+    if weapon == nil then
+        -- something not ours touched this enemy last, so a status appearing now
+        -- belongs to nobody rather than to whatever we hit it with earlier
+        data.dmvpHitLabel = nil
+        data.dmvpHitFrame = nil
+        return nil
+    end
+
+    -- remembered bare, so a status this hit is about to apply reads as the weapon
+    -- rather than as the blast or the fire it leaves behind
+    data.dmvpHitLabel = weapon
+    data.dmvpHitFrame = frame
+
+    -- a shot that explodes still arrives as the shot, so its blast has to say so;
+    -- bombs already name themselves and need no marking
+    if flags & DamageFlag.DAMAGE_EXPLOSION ~= 0 and source.Type ~= EntityType.ENTITY_BOMB then
+        weapon = weapon .. " (explosion)"
+    end
+
+    credit(weapon, dealt)
+
+    -- observer only: returning non-nil would stop other mods' damage callbacks
+    return nil
+end
+
+-- catches a status applied by the last hit of a frame, which no later hit can see
+function mod:onUpdate()
+    local frame = Game():GetFrameCount()
+    for _, entity in ipairs(Isaac.GetRoomEntities()) do
+        if entity:IsEnemy() then syncStatus(entity, frame) end
+    end
 end
 
 function mod:onRender()
@@ -234,5 +326,6 @@ function mod:onNewRoom()
 end
 
 mod:AddPriorityCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, CallbackPriority.LATE, mod.onEntityTakeDamage)
+mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
