@@ -685,21 +685,21 @@ function _gt:check_teleble(gid)
       --only cleared rooms are looked up in reach, where the flood's plain 4-dir
       --adjacency and check_neigh_connected's shape table agree
       local reach = gtconfig.FairTripPath and _gt:get_reachable_rooms() or nil
-      if not gtconfig.AllowNeighborRoom then
-        if trd.VisitedCount == 0 or not trd.Clear then --notvisited/notcleaned
-          return false
-        end
-        return not reach or reach[trd.SafeGridIndex] == true
-      else
-        -- print(stage, Game():IsGreedMode(), trd.Data.Type)
-        if _gt:check_neigh_connected(trd, function(rd)
-            return (rd.DisplayFlags & 1 ~= 0) and rd.VisitedCount > 0 and rd.Clear
-              and (not reach or reach[rd.SafeGridIndex])
-        end) then
-            return true
-        end
+      if trd.VisitedCount > 0 and trd.Clear
+          and (not reach or reach[trd.SafeGridIndex] == true) then
+        --the original rule, and still the common one: a room you have already
+        --walked and emptied is a valid target on its own. AllowNeighborRoom only
+        --ever widens this, so it must not be able to take it away -- a start room
+        --left behind by an Emperor card has no cleared neighbor of its own
+        return true
+      elseif not gtconfig.AllowNeighborRoom then
+        return false
       end
-      return false
+      -- print(stage, Game():IsGreedMode(), trd.Data.Type)
+      return _gt:check_neigh_connected(trd, function(rd)
+          return (rd.DisplayFlags & 1 ~= 0) and rd.VisitedCount > 0 and rd.Clear
+            and (not reach or reach[rd.SafeGridIndex])
+      end)
     end
     --[[
     if (crd.Data.Type == 7 and grid_room[secret_pre_room_id[crid] ].VisitedCount == 0)

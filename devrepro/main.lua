@@ -13,9 +13,12 @@
 local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
+    "debug 3",
+    "debug 10",
+    "giveitem k5",
 }
 
-local HINT = "hold TAB: drag the map to a NEW spot, click its zoom button once, press F1 again"
+local HINT = "Emperor to the boss, kill it, TAB, try to trip back to the start room. Run once with FairTripPath OFF, once ON"
 
 local mod = RegisterMod("devrepro", 1)
 
