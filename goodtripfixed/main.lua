@@ -169,6 +169,36 @@ local gtconfig = {
     CalibMirrorY = 0,
 }
 ----
+--config persistence lives here, not in the MCM block below: dragging the map and
+--clicking the zoom button work without Mod Config Menu, so their results have to
+--survive a relaunch for those players too
+local cfgdata_written = nil
+local cfgdata_loaded = false
+local function save_config()
+    --never write before the first read of the run: a `luamod` reload throws the
+    --locals back to their defaults, and the exit save of the next restart would
+    --otherwise bury the real config under them
+    if not cfgdata_loaded then return end
+    local json = require('json')
+    gtconfig.TopLeftX = mmp_ltpos.X
+    gtconfig.TopLeftY = mmp_ltpos.Y
+    local payload = gtconfig
+    if not ModConfigMenu then
+        --the trash can turns the map off and only MCM (or the console line in the
+        --FAQ) turns it back on, so without MCM that stays a per-session mistake
+        payload = {}
+        for k, v in pairs(gtconfig) do
+            payload[k] = v
+        end
+        payload.KeyboardMapEnable = nil
+    end
+    local dat = json.encode(payload)
+    if not cfgdata_written or dat ~= cfgdata_written then
+        cfgdata_written = dat
+        _gt:SaveData(dat)
+    end
+end
+----
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
 local function update_mmscale()
     mmsc = (gtconfig.MinimapScale or 10) / 10
@@ -190,6 +220,7 @@ local function cycle_mmscale() --zoom button: x1.0 -> x1.5 -> x2.0 -> x1.0
     end
     update_mmscale()
     prep_alarm = true
+    save_config()
 end
 
 local function update_analog_mappings()
@@ -210,7 +241,6 @@ local bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99} -- press TAB+1~9
 -------------------------------
 ---configs---
 if ModConfigMenu then
-    local oldcfgdatas = nil
     if ModConfigMenu.GetCategoryIDByName("GoodTrip [Fixed]") ~= nil then
         print('GoodTrip [Fixed] is reloading ModConfigMenu options')
         ModConfigMenu.RemoveCategory("GoodTrip [Fixed]")
@@ -458,44 +488,40 @@ if ModConfigMenu then
         Info = { "Controller button to open the overlay" },
       }
     )
-    _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
-        if _gt:HasData() then
-            local dat = _gt:LoadData()
-            oldcfgdatas = dat
-            local json = require('json')
-            local cfg = json.decode(dat)
-            for k, v in pairs(cfg) do
+end
+_gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
+    if _gt:HasData() then
+        local dat = _gt:LoadData()
+        cfgdata_written = dat
+        local json = require('json')
+        local cfg = json.decode(dat)
+        for k, v in pairs(cfg) do
+            if k ~= "KeyboardMapEnable" or ModConfigMenu then
                 gtconfig[k] = v
             end
-            --one-shot migration: FairTripTime used to be inert unless the (now
-            --retired) MinimapAPICompat switch was on, yet every old save stores
-            --FairTripTime=true (the old default). Now that fair trip works
-            --standalone, only users who had actually opted into the compat
-            --switch keep it enabled; everyone else starts off as before.
-            if not cfg.FairTripMigrated then
-                gtconfig.FairTripMigrated = true
-                if not cfg.MinimapAPICompat then
-                    gtconfig.FairTripTime = false
-                end
+        end
+        --one-shot migration: FairTripTime used to be inert unless the (now
+        --retired) MinimapAPICompat switch was on, yet every old save stores
+        --FairTripTime=true (the old default). Now that fair trip works
+        --standalone, only users who had actually opted into the compat
+        --switch keep it enabled; everyone else starts off as before.
+        if not cfg.FairTripMigrated then
+            gtconfig.FairTripMigrated = true
+            if not cfg.MinimapAPICompat then
+                gtconfig.FairTripTime = false
             end
-            mmp_ltpos = Vector(gtconfig.TopLeftX or 100, gtconfig.TopLeftY or 100)
-            update_mmscale()
-            update_analog_mappings()
-            -- mmp_pos0 = mmp_ltpos - mmp_ltpos_
-            -- mmp_rbpos = mmp_pos0 + mmp_rbpos_
         end
-    end)
-    _gt:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, function(_, shouldSave)
-        local json = require('json')
-        gtconfig.TopLeftX = mmp_ltpos.X
-        gtconfig.TopLeftY = mmp_ltpos.Y
-        local dat = json.encode(gtconfig)
-        if not oldcfgdatas or dat ~= oldcfgdatas then
-            oldcfgdatas = dat
-            _gt:SaveData(dat)
-        end
-    end)
-end
+        mmp_ltpos = Vector(gtconfig.TopLeftX or 100, gtconfig.TopLeftY or 100)
+        update_mmscale()
+        update_analog_mappings()
+        -- mmp_pos0 = mmp_ltpos - mmp_ltpos_
+        -- mmp_rbpos = mmp_pos0 + mmp_rbpos_
+    end
+    cfgdata_loaded = true --a first-time player has nothing on disk, yet still gets saved
+end)
+_gt:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, function(_, shouldSave)
+    save_config()
+end)
 ---functions---
 --debug function for recursive print
 function _gt.dump(o)
@@ -1725,6 +1751,7 @@ function _gt:mouse_action()
         --
       end
     else
+      local drag_ended = mouse_magnet --the position is only final once the edge clamps below have run
       if mouse_magnet then
         mouse_magnet = false
         if _gt:check_pos_en_box(mpos, cp + Vector(-16, -16), cp + Vector(16, 16)) then
@@ -1755,6 +1782,9 @@ function _gt:mouse_action()
         _gt:prep_minimap()
       end
       --
+      if drag_ended then --don't wait for a clean quit: alt-F4 and TAB+R never reach MC_PRE_GAME_EXIT
+        save_config()
+      end
     end
     ---
 end

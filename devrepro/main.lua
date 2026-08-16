@@ -11,19 +11,11 @@
 -- it or whatever follows is swallowed.
 
 local STEPS = {
-    "luamod damagemvp",
+    "luamod goodtripfixed",
     "restart 0", 10,
-    "debug 3",
-    "stage 1", 10,
-    "giveitem c139",
-    "giveitem t71",
-    "giveitem t106",
-    "giveitem c125",
-    "giveitem c190",
-    "spawn 20.0.2", 10,
 }
 
-local HINT = "Bob's Bladder + Lost Cork + Bobby Bomb: drop bombs, they chase Monstro into the pool"
+local HINT = "hold TAB: drag the map to a NEW spot, click its zoom button once, press F1 again"
 
 local mod = RegisterMod("devrepro", 1)
 

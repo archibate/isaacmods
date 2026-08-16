@@ -1,1 +1,1 @@
-- Withdrew the experimental GameMapCursor mode, which drew its cursor behind the game's map and left the draggable teleport map hidden — anyone who had switched it on gets their map back (thanks @白纸 and @未宇Fln for the reports!)
+- Fixed the teleport map forgetting where you dragged it when Mod Config Menu is not installed: every setting was saved from inside the menu's own code, so without it nothing ever reached the disk — the map position and the zoom level are now written the moment you set them, and no longer wait for a clean quit (thanks @空崎ヒナ for the report!)
