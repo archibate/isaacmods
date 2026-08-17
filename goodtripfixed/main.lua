@@ -169,9 +169,10 @@ local gtconfig = {
     CalibMirrorY = 0,
 }
 ----
---config persistence lives here, not in the MCM block below: dragging the map and
---clicking the zoom button work without Mod Config Menu, so their results have to
---survive a relaunch for those players too
+--config persistence lives here, not in the MCM block below: dragging the map,
+--clicking the zoom button and dropping the map in the trash all work without Mod
+--Config Menu, so their results have to survive a relaunch for those players too
+--(the trash is one-way without MCM -- the console line in the FAQ brings it back)
 local cfgdata_written = nil
 local cfgdata_loaded = false
 local function save_config()
@@ -182,22 +183,13 @@ local function save_config()
     local json = require('json')
     gtconfig.TopLeftX = mmp_ltpos.X
     gtconfig.TopLeftY = mmp_ltpos.Y
-    local payload = gtconfig
-    if not ModConfigMenu then
-        --the trash can turns the map off and only MCM (or the console line in the
-        --FAQ) turns it back on, so without MCM that stays a per-session mistake
-        payload = {}
-        for k, v in pairs(gtconfig) do
-            payload[k] = v
-        end
-        payload.KeyboardMapEnable = nil
-    end
-    local dat = json.encode(payload)
+    local dat = json.encode(gtconfig)
     if not cfgdata_written or dat ~= cfgdata_written then
         cfgdata_written = dat
         _gt:SaveData(dat)
     end
 end
+_gt.save_config = save_config --so the console can make a hand-edited config stick
 ----
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
 local function update_mmscale()
@@ -496,9 +488,7 @@ _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
         local json = require('json')
         local cfg = json.decode(dat)
         for k, v in pairs(cfg) do
-            if k ~= "KeyboardMapEnable" or ModConfigMenu then
-                gtconfig[k] = v
-            end
+            gtconfig[k] = v
         end
         --one-shot migration: FairTripTime used to be inert unless the (now
         --retired) MinimapAPICompat switch was on, yet every old save stores

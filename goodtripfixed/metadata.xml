@@ -47,7 +47,7 @@ Configure these features with [url=https://steamcommunity.com/sharedfiles/filede
 FAQ
 
 Accidentally dragged the teleport map into the trash? Restore it from MCM, or enter this command in the in-game console:
-lua gt:get_config().KeyboardMapEnable=true
+lua gt:get_config().KeyboardMapEnable=true gt.save_config()
 
 Original [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831]GoodTrip[/url] by @tarako
 Co-authored with @Porp
