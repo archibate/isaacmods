@@ -13,12 +13,11 @@
 local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
-    "lua gt:get_config().KeyboardMapEnable=true gt.save_config()",
-    "luamod goodtripfixed",
-    "restart 0", 10,
+    "debug 3",
+    "debug 10",
 }
 
-local HINT = "the map is back, and stayed back through a reload -- the FAQ's restore line sticks"
+local HINT = "TAB, aim 2 rooms out with arrows, tap W, release W, release TAB -> trips where you aimed"
 
 local mod = RegisterMod("devrepro", 1)
 

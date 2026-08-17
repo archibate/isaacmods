@@ -159,10 +159,10 @@ local gtconfig = {
     OverlayKey = nil,  --The key to open the overlay on keyboard
     OverlayKeyController = nil, --The button to open the overlay on controller
     SwapAnalogSticks = false, --Swap the left and right analog sticks
+    IgnoreMovementKeys = false, --keep aiming while you walk, instead of pausing the cursor
     --self-service calibration for corner-map clicks, in pixels: if clicks land
     --one room LEFT of where you aim, increase; RIGHT of aim, decrease
     --(Y likewise: land ABOVE your aim, increase; BELOW, decrease)
-    IgnoreMovementKeys = false, --ignore movement keys when overlay is open so it doesn't reset the cursor position
     CalibMainX = 0,
     CalibMirrorX = 0,
     CalibMainY = 0,
@@ -254,7 +254,7 @@ if ModConfigMenu then
         { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
         { "FastTransition", "Even faster transition without animation" },
-        {"IgnoreMovementKeys", "Ignore movement keys when overlay is open so it doesn't reset the cursor position"},
+        { "IgnoreMovementKeys", "Keep moving the map cursor while you walk, instead of pausing it until you let go" },
     }) do
         ModConfigMenu.AddSetting(
           "GoodTrip [Fixed]", "General",
@@ -1603,7 +1603,7 @@ function _gt:tab_action()
         --to hover, so the keyboard always owns the cursor
         local in_ui = not _gt.enableGMC
             and _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
-        if arrowdown or gtconfig.IgnoreMovementKeys then --keyboard used: it becomes the active device
+        if arrowdown then --keyboard used: it becomes the active device
           kb_active = true
         elseif mouse_moved and in_ui then --mouse physically moved over the minimap: it takes over
           kb_active = false
@@ -1628,7 +1628,9 @@ function _gt:tab_action()
         end
         _gt:draw_minimap_ui()
       else
-        mmp_ctrl = false
+        --a movement key only pauses the cursor. dropping mmp_ctrl here used to
+        --rebuild it at the current room the moment the key came back up, so an
+        --accidental tap threw away whatever room the player had lined up
         if mmp_pin == 1 or _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) then --ui zone
           _gt:draw_minimap_ui()
         else
