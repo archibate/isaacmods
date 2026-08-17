@@ -162,6 +162,7 @@ local gtconfig = {
     --self-service calibration for corner-map clicks, in pixels: if clicks land
     --one room LEFT of where you aim, increase; RIGHT of aim, decrease
     --(Y likewise: land ABOVE your aim, increase; BELOW, decrease)
+    IgnoreMovementKeys = false, --ignore movement keys when overlay is open so it doesn't reset the cursor position
     CalibMainX = 0,
     CalibMirrorX = 0,
     CalibMainY = 0,
@@ -231,6 +232,7 @@ if ModConfigMenu then
         { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
         { "FastTransition", "Even faster transition without animation" },
+        {"IgnoreMovementKeys", "Ignore movement keys when overlay is open so it doesn't reset the cursor position"},
     }) do
         ModConfigMenu.AddSetting(
           "GoodTrip [Fixed]", "General",
@@ -1576,7 +1578,7 @@ function _gt:tab_action()
           break
         end
       end
-      if not movement_pressed or gtconfig.QuicklyOneRoomMove then
+      if not movement_pressed or gtconfig.QuicklyOneRoomMove or gtconfig.IgnoreMovementKeys then
         local arrowdown = Input.IsActionPressed(key[1],player.ControllerIndex)
             or Input.IsActionPressed(key[2],player.ControllerIndex)
             or Input.IsActionPressed(key[3],player.ControllerIndex)
@@ -1585,7 +1587,7 @@ function _gt:tab_action()
         --to hover, so the keyboard always owns the cursor
         local in_ui = not _gt.enableGMC
             and _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
-        if arrowdown then --keyboard used: it becomes the active device
+        if arrowdown or gtconfig.IgnoreMovementKeys then --keyboard used: it becomes the active device
           kb_active = true
         elseif mouse_moved and in_ui then --mouse physically moved over the minimap: it takes over
           kb_active = false
