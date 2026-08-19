@@ -149,7 +149,7 @@ local gtconfig = {
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
     FairTripTime = false,  --weather to incur fair time according to distance; off by default so the apiless rework doesn't spring time penalties on existing players
     FairTripPath = true,  --true = enable / false = disable. only trip to rooms linked to the current one by cleared rooms
-    ShowSpecialIcons = true,  --show icons on room that have mirror, white fireplace, minecart, mine button, or tinted skull
+    ShowSpecialIcons = true,  --show icons on visited rooms that have mirror, white fireplace, minecart, mine button, or tinted skull
     -- ShowDoorsAllowed = false,  --show doors allowed for secret rooms
     -- DebugMod = false,  --testonly.
     ControllerAlternateZ = nil,  --replacement for Z in the TAB+Z last room shortcut
@@ -278,7 +278,7 @@ if ModConfigMenu then
         { "NoShootWhenClick", "Disable shoot when teleporting via TAB + Click" },
         { "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
 
-        { "ShowSpecialIcons", "Show an icon on room that have mirror, white fireplace, minecart, mine button, or tinted skull" },
+        { "ShowSpecialIcons", "Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
         { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
@@ -1493,7 +1493,9 @@ function _gt:draw_minimap()
             mic:SetFrame(icon_flag[rd.Data.Type], 0)
           end
           mic:Render(draw_room_pos[i] + draw_icon_pos[draw_room_shape[i]] * mmsc, Vector(0, 0), Vector(0, 0))
-        elseif gtconfig.ShowSpecialIcons and rd.Data.Type == 1 then
+        --visited only: these icons are read out of the room's spawn list, which
+        --the game has not shown you yet, so drawing them early spoils the floor
+        elseif gtconfig.ShowSpecialIcons and rd.Data.Type == 1 and rd.VisitedCount > 0 then
           local iid = 0
           local spawns = rd.Data.Spawns
           if stageeffect == 1 then -- downpour

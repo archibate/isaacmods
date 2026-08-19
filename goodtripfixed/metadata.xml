@@ -31,7 +31,7 @@ Configure these features with [url=https://steamcommunity.com/sharedfiles/filede
 - Return to the previously visited room with TAB + Z; press it again to return (MCM: LastRoomShortcut).
 - Restart quickly with TAB + R (MCM: FastRestartEnable).
 - Controller users can assign alternate buttons for the Z and R shortcuts.
-- Show special-room icons: the mirror room and white fireplace in Downpour II, minecart and buttons in Mines II, and tinted skull in Depths II (MCM: ShowSpecialIcons).
+- Show special-room icons on rooms you have already visited: the mirror room and white fireplace in Downpour II, minecart and buttons in Mines II, and tinted skull in Depths II (MCM: ShowSpecialIcons).
 - Teleport into an uncleared room when it has a cleared neighbor (MCM: AllowNeighborRoom).
 - Require a path of cleared rooms between you and the target, so an isolated island is no free ride (MCM: FairTripPath). Thanks @Kattack!
 - Optionally ignore Curse of the Lost (MCM: FollowCurseOfLost).

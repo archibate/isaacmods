@@ -15,12 +15,10 @@ local STEPS = {
     "restart 0", 10,
     "debug 3",
     "debug 10",
-    "stage 2", 10,
-    "giveitem c333",
-    "giveitem k19",
+    "stage 6", 12,
 }
 
-local HINT = "use The Moon to land in the secret room, walk out, then TAB and trip back in"
+local HINT = "walk a few rooms, then compare our map against the corner map -- any icon we show that it does not?"
 
 local mod = RegisterMod("devrepro", 1)
 

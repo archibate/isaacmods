@@ -28,7 +28,7 @@ return {
     -- DangerCautionCompat = true, -- colour dangerous rooms with Dangerous room! Caution
     -- FairTripTime = false,       -- charge game time for the distance travelled
     -- FairTripPath = true,        -- only trip to rooms reachable through cleared rooms
-    -- ShowSpecialIcons = true,    -- mirror, white fire, minecart, mine button, tinted skull
+    -- ShowSpecialIcons = true,    -- mirror, white fire, minecart, mine button, tinted skull (visited rooms)
     -- IgnoreMovementKeys = false, -- keep aiming while you walk
     -- SwapAnalogSticks = false,   -- aim the cursor with the movement stick
     -- MinimapScale = 10,          -- 5 = 0.5x, 10 = 1.0x, up to 25 = 2.5x
