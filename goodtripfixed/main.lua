@@ -810,40 +810,38 @@ function _gt:teleport_to_grid_index(gid) ----core
       end
     end
 
-    if crd.Data.Type == 7 and secret_pre_room_id[crid] then -- from secret room (skip if antechamber never recorded)
-      if grid_room[secret_pre_room_id[crid]].ListIndex == grid_room[gid].ListIndex then
-        gid = secret_pre_room_id[crid]
-      else
-        --check_curse_room
-        if grid_room[gid].Data.Type == 10 and secret_pre_room_id[gid] and secret_pre_room_id[gid] == crid then
-          --do notheing-- not hurt, not change
-        else
-          if grid_room[secret_pre_room_id[crid]].Data.Type == 10 and not flat then
-            _gt:hurt(1)
-          end
-          Game():ChangeRoom(secret_pre_room_id[crid],-1)
+    --the antechamber is looked up by grid index, and an L-shaped room's anchor
+    --cell is not part of the room, so grid_room has no key for it: bind the
+    --descriptor once and skip the hop when there is none, rather than index nil
+    local from_pre = crd.Data.Type == 7 and secret_pre_room_id[crid] or nil
+    local from_prd = from_pre and grid_room[from_pre] or nil
+    if from_prd then -- from secret room (skip if antechamber never recorded)
+      if from_prd.ListIndex == grid_room[gid].ListIndex then
+        gid = from_pre
+      --check_curse_room
+      elseif not (grid_room[gid].Data.Type == 10 and secret_pre_room_id[gid] and secret_pre_room_id[gid] == crid) then
+        if from_prd.Data.Type == 10 and not flat then
+          _gt:hurt(1)
         end
+        Game():ChangeRoom(from_pre,-1)
       end
     end
     if grid_room[gid].Data.Type == 7 then --target to secret room
-      if secret_pre_room_id[gid] then
-        if grid_room[secret_pre_room_id[gid]].ListIndex == grid_room[crid].ListIndex then
-          if grid_room[crid].Data.Shape > 3 then
-            Game():ChangeRoom(secret_pre_room_id[gid],-1)
+      local to_pre = secret_pre_room_id[gid]
+      local to_prd = to_pre and grid_room[to_pre] or nil
+      if to_prd then
+        --crd is the room we stand in; grid_room[crid] would be nil in an L room
+        if to_prd.ListIndex == crd.ListIndex then
+          if crd.Data.Shape > 3 then
+            Game():ChangeRoom(to_pre,-1)
           end
-        else
-          --check_curse_room
-          if crd.Data.Type == 10 and secret_pre_room_id[crid] and secret_pre_room_id[crid] == gid then
-            --do notheing-- not hurt, not change
-          else
-            if grid_room[secret_pre_room_id[gid]].Data.Type == 10 and not player:IsFlying() and not flat then
-              _gt:hurt(1)
-            end
-            Game():ChangeRoom(secret_pre_room_id[gid],-1)
+        --check_curse_room
+        elseif not (crd.Data.Type == 10 and secret_pre_room_id[crid] and secret_pre_room_id[crid] == gid) then
+          if to_prd.Data.Type == 10 and not player:IsFlying() and not flat then
+            _gt:hurt(1)
           end
+          Game():ChangeRoom(to_pre,-1)
         end
-      else
-        --do nothing
       end
     end
     --

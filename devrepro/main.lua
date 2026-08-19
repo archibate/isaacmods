@@ -13,9 +13,14 @@
 local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
+    "debug 3",
+    "debug 10",
+    "stage 2", 10,
+    "giveitem c333",
+    "giveitem k19",
 }
 
-local HINT = "hold TAB: the map must sit top-centre, where gtconfig.lua pins it"
+local HINT = "use The Moon to land in the secret room, walk out, then TAB and trip back in"
 
 local mod = RegisterMod("devrepro", 1)
 
