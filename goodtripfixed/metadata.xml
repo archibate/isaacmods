@@ -46,6 +46,8 @@ Configure these features with [url=https://steamcommunity.com/sharedfiles/filede
 
 FAQ
 
+No Mod Config Menu? Open gtconfig.lua in the mod folder and uncomment the settings you want. Anything set there is applied last, so it wins over the saved config and stays put. Steam replaces the file when the mod updates, so keep a copy of your edits.
+
 Accidentally dragged the teleport map into the trash? Restore it from MCM, or enter this command in the in-game console:
 lua gt:get_config().KeyboardMapEnable=true gt.save_config()
 

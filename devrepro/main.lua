@@ -13,11 +13,9 @@
 local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
-    "debug 3",
-    "debug 10",
 }
 
-local HINT = "TAB, aim 2 rooms out with arrows, tap W, release W, release TAB -> trips where you aimed"
+local HINT = "hold TAB: the map must sit top-centre, where gtconfig.lua pins it"
 
 local mod = RegisterMod("devrepro", 1)
 

@@ -1,0 +1,39 @@
+-- GoodTrip [Fixed] -- hand-edited config, for players without Mod Config Menu.
+--
+-- Uncomment a line to pin that setting. Whatever you set here is applied last,
+-- after the menu and after your saved config, so it wins on every launch and the
+-- mod stops saving over it: pin TopLeftX/TopLeftY and dragging the map still
+-- works for the session, but it comes back here next time.
+--
+-- Steam replaces this file when the mod updates, so keep a copy of your edits.
+
+return {
+    -- KeyboardMapEnable = true,   -- the extra minimap for keyboard and controller
+    -- FastRestartEnable = true,   -- TAB + R restarts the run
+    -- FollowCurseOfLost = true,   -- no teleporting under Curse of the Lost
+    -- TeleportAnimation = false,  -- white flash on arrival
+    -- QuicklyOneRoomMove = false, -- TAB + WASD steps one room
+    -- AllowNeighborRoom = true,   -- trip into an uncleared room next to a cleared one
+    -- AllowBookmarking = true,    -- TAB + 1~9 marks and returns
+    -- LastRoomShortcut = true,    -- TAB + Z returns to the last room
+    -- FastTransition = false,     -- skip the room-change animation
+    -- NoShootWhenClick = true,    -- clicking the map does not fire a tear
+    -- FasterCursorMove = false,   -- cursor jumps a room per press instead of sliding
+    -- DangerCautionCompat = true, -- colour dangerous rooms with Dangerous room! Caution
+    -- FairTripTime = false,       -- charge game time for the distance travelled
+    -- FairTripPath = true,        -- only trip to rooms reachable through cleared rooms
+    -- ShowSpecialIcons = true,    -- mirror, white fire, minecart, mine button, tinted skull
+    -- IgnoreMovementKeys = false, -- keep aiming while you walk
+    -- SwapAnalogSticks = false,   -- aim the cursor with the movement stick
+    -- MinimapScale = 10,          -- 5 = 0.5x, 10 = 1.0x, up to 25 = 2.5x
+    -- TopLeftX = 100,             -- where the teleport map sits on screen
+    -- TopLeftY = 100,
+    -- CalibMainX = 0,             -- corner-map click calibration, in pixels
+    -- CalibMirrorX = 0,
+    -- CalibMainY = 0,
+    -- CalibMirrorY = 0,
+    -- OverlayKey = nil,           -- Keyboard.KEY_* number to open the map with
+    -- OverlayKeyController = nil, -- Controller button number to open the map with
+    -- ControllerAlternateZ = nil, -- controller button standing in for Z
+    -- ControllerAlternateR = nil, -- controller button standing in for R
+}

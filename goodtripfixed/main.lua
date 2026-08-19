@@ -169,6 +169,26 @@ local gtconfig = {
     CalibMirrorY = 0,
 }
 ----
+--gtconfig.lua is the config surface for players without Mod Config Menu: it is
+--applied after the saved config, so a hand-edited setting wins on every launch,
+--and the keys it names are left out of the save so nothing writes over them
+local overrides = {}
+local function apply_overrides()
+    local ok, over = pcall(function()
+        if package and package.loaded then package.loaded["gtconfig"] = nil end
+        return require("gtconfig")
+    end)
+    overrides = {}
+    if not ok or type(over) ~= "table" then
+        return
+    end
+    for k, v in pairs(over) do
+        overrides[k] = true
+        gtconfig[k] = v
+    end
+end
+apply_overrides()
+----
 --config persistence lives here, not in the MCM block below: dragging the map,
 --clicking the zoom button and dropping the map in the trash all work without Mod
 --Config Menu, so their results have to survive a relaunch for those players too
@@ -183,7 +203,16 @@ local function save_config()
     local json = require('json')
     gtconfig.TopLeftX = mmp_ltpos.X
     gtconfig.TopLeftY = mmp_ltpos.Y
-    local dat = json.encode(gtconfig)
+    local payload = gtconfig
+    if next(overrides) then --a pinned key belongs to gtconfig.lua, so never bank it
+        payload = {}
+        for k, v in pairs(gtconfig) do
+            if not overrides[k] then
+                payload[k] = v
+            end
+        end
+    end
+    local dat = json.encode(payload)
     if not cfgdata_written or dat ~= cfgdata_written then
         cfgdata_written = dat
         _gt:SaveData(dat)
@@ -501,12 +530,14 @@ _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
                 gtconfig.FairTripTime = false
             end
         end
-        mmp_ltpos = Vector(gtconfig.TopLeftX or 100, gtconfig.TopLeftY or 100)
-        update_mmscale()
-        update_analog_mappings()
-        -- mmp_pos0 = mmp_ltpos - mmp_ltpos_
-        -- mmp_rbpos = mmp_pos0 + mmp_rbpos_
     end
+    --last word goes to the hand-edited file, whether or not a save exists
+    apply_overrides()
+    mmp_ltpos = Vector(gtconfig.TopLeftX or 100, gtconfig.TopLeftY or 100)
+    update_mmscale()
+    update_analog_mappings()
+    -- mmp_pos0 = mmp_ltpos - mmp_ltpos_
+    -- mmp_rbpos = mmp_pos0 + mmp_rbpos_
     cfgdata_loaded = true --a first-time player has nothing on disk, yet still gets saved
 end)
 _gt:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, function(_, shouldSave)
