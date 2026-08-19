@@ -1,9 +1,11 @@
 Note for GoodTrip [Fixed]: the text below is tarako's original readme, kept for
 reference. Settings live in gtconfig.lua next to this file -- uncomment the lines
-you want and they win over everything else. HUD offset is read from the game now,
-so there is no HudOffset setting to fill in any more.
-不使用 Mod Config Menu 的玩家请编辑同目录的 gtconfig.lua，取消注释即可生效；
-HUD 偏移已改为自动读取，无需再手动填写。
+you want. Strongest first: gtconfig.lua, then your saved config (what Mod Config
+Menu writes), then the defaults in main.lua, which editing no longer affects.
+HUD offset is read from the game now, so there is no HudOffset setting to fill in.
+不使用 Mod Config Menu 的玩家请编辑同目录的 gtconfig.lua，取消注释即可生效。
+优先级从高到低：gtconfig.lua > 存档配置（MCM 写入的） > main.lua 默认值，
+所以改 main.lua 已经没有效果了。HUD 偏移已改为自动读取，无需再手动填写。
 
 ----------------------
 ----GoodTrip1.2.8---

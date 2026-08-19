@@ -1,9 +1,15 @@
 -- GoodTrip [Fixed] -- hand-edited config, for players without Mod Config Menu.
 --
--- Uncomment a line to pin that setting. Whatever you set here is applied last,
--- after the menu and after your saved config, so it wins on every launch and the
--- mod stops saving over it: pin TopLeftX/TopLeftY and dragging the map still
--- works for the session, but it comes back here next time.
+-- Uncomment a line to pin that setting. Which value wins, strongest first:
+--
+--   1. this file          -- applied last on every launch, and never saved over
+--   2. your saved config  -- what Mod Config Menu and in-game changes write
+--   3. main.lua defaults  -- the base; editing these no longer has any effect,
+--                            because your saved config is loaded on top of them
+--
+-- So a line here beats the menu: the menu can still change it while you play,
+-- but it is not kept, and next launch this file decides again. Same for the map
+-- position -- pin TopLeftX/TopLeftY and you can still drag it for the session.
 --
 -- Steam replaces this file when the mod updates, so keep a copy of your edits.
 
