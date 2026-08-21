@@ -6,41 +6,38 @@ _gt.isgtfixed = true
 --land above the map, so it sits behind it for everyone else: kept out of MCM and
 --off until that is solved, flip it from the console to work on it
 _gt.enableGMC = false
---warnings are queued rather than drawn on a timer of their own: render callbacks
---run on the menus too, so the old budget quietly burned out at the title screen
---and nothing was left by the time anyone was in a room
-local warn_queue = {}
-local warn_frames = 0
+--these are conditions, not events: they stay on screen until the player fixes
+--them. the old code faded out after five seconds counted from load, and since
+--render callbacks run on the menus too, those seconds were spent at the title
+--screen and nobody ever saw the text.
+--the old GoodTrip claims the same `gt` global and either mod can load first, so
+--one check cannot cover it: `hasoldgoodtrip` catches it loading before us, and
+--the global no longer pointing at us catches it loading after and taking it back
 local warn_in_run = false
-local function show_warn(warnmsg)
-    for _, queued in ipairs(warn_queue) do
-        if queued == warnmsg then --already saying it
-            return
-        end
-    end
-    print(warnmsg)
-    warn_queue[#warn_queue + 1] = warnmsg
-    warn_frames = 300
-end
+local warned = false
 local function draw_warns()
-    if not warn_in_run or warn_frames <= 0 then
+    local warnings = {}
+    if hasoldgoodtrip or gt ~= _gt then
+        warnings[#warnings + 1] = 'WARNING: You must disable the old GoodTrip before using GoodTrip [Fixed]!'
+    end
+    if not REPENTANCE then
+        warnings[#warnings + 1] = 'WARNING: This mod only works for Repentance!'
+    end
+    if #warnings == 0 then
         return
     end
-    warn_frames = warn_frames - 1
-    local alpha = math.min(60, warn_frames) / 60
-    for i, warnmsg in ipairs(warn_queue) do
-        Isaac.RenderScaledText(warnmsg, 40, 50 + (i - 1) * 12, 0.5, 0.5, 1, 1, 0, alpha)
+    if not warned then --once into the console and the log, however long they play
+        warned = true
+        for _, warnmsg in ipairs(warnings) do
+            print(warnmsg)
+        end
     end
-end
---the old GoodTrip claims the same `gt` global and either mod can load first, so
---neither check alone is enough: this one catches it loading before us, and
---new_room catches it loading after and taking the global back off us
-local OLD_GOODTRIP_WARN = 'WARNING: You must disable the old GoodTrip before using GoodTrip [Fixed]!'
-if hasoldgoodtrip then
-    show_warn(OLD_GOODTRIP_WARN)
-end
-if not REPENTANCE then
-    show_warn('WARNING: This mod only works for Repentance!')
+    if not warn_in_run then --a menu is no place to tell someone anything
+        return
+    end
+    for i, warnmsg in ipairs(warnings) do
+        Isaac.RenderScaledText(warnmsg, 40, 50 + (i - 1) * 12, 0.5, 0.5, 1, 1, 0, 1)
+    end
 end
 -------------------------------------------
 --local test1 = -1
@@ -2006,10 +2003,7 @@ function _gt:step2()
 end
 --
 function _gt:new_room()
-    warn_in_run = true
-    if gt ~= _gt then --the old GoodTrip loaded after us and took the global
-        show_warn(OLD_GOODTRIP_WARN)
-    end
+    warn_in_run = true --a room is on screen, so a warning would actually be read
     local last_crd = crd
     --
     _gt:get_grid_room()

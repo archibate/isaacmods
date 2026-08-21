@@ -11,10 +11,11 @@
 -- it or whatever follows is swallowed.
 
 local STEPS = {
-    "luamod goodtrip_1630477831", 10,
+    "lua gt = {}",
+    "luamod goodtripfixed", 10,
 }
 
-local HINT = "now walk into another room -- the warning must appear again"
+local HINT = "we loaded while another mod held the name -- warning must appear and stay"
 
 local mod = RegisterMod("devrepro", 1)
 
