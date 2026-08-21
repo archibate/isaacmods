@@ -11,14 +11,10 @@
 -- it or whatever follows is swallowed.
 
 local STEPS = {
-    "luamod goodtripfixed",
-    "restart 0", 10,
-    "debug 3",
-    "debug 10",
-    "stage 6", 12,
+    "luamod goodtrip_1630477831", 10,
 }
 
-local HINT = "walk a few rooms, then compare our map against the corner map -- any icon we show that it does not?"
+local HINT = "now walk into another room -- the warning must appear again"
 
 local mod = RegisterMod("devrepro", 1)
 

@@ -6,22 +6,38 @@ _gt.isgtfixed = true
 --land above the map, so it sits behind it for everyone else: kept out of MCM and
 --off until that is solved, flip it from the console to work on it
 _gt.enableGMC = false
+--warnings are queued rather than drawn on a timer of their own: render callbacks
+--run on the menus too, so the old budget quietly burned out at the title screen
+--and nothing was left by the time anyone was in a room
+local warn_queue = {}
+local warn_frames = 0
+local warn_in_run = false
 local function show_warn(warnmsg)
-    local warncounter = 300
-    print(warnmsg)
-    _gt:AddCallback(ModCallbacks.MC_POST_RENDER, function (_)
-        if warncounter >= 0 then
-            local alpha = math.min(60, math.max(0, warncounter)) / 60
-            local player = Isaac.GetPlayer(0)
-            local pos = Isaac.WorldToScreen(player.Position - Vector(0, player.Size * 5))
-            pos.X = pos.X - Isaac.GetTextWidth(warnmsg) * 0.25
-            Isaac.RenderScaledText(warnmsg, pos.X, pos.Y, 0.5, 0.5, 1, 1, 0, alpha)
-            warncounter = warncounter - 1
+    for _, queued in ipairs(warn_queue) do
+        if queued == warnmsg then --already saying it
+            return
         end
-    end)
+    end
+    print(warnmsg)
+    warn_queue[#warn_queue + 1] = warnmsg
+    warn_frames = 300
 end
+local function draw_warns()
+    if not warn_in_run or warn_frames <= 0 then
+        return
+    end
+    warn_frames = warn_frames - 1
+    local alpha = math.min(60, warn_frames) / 60
+    for i, warnmsg in ipairs(warn_queue) do
+        Isaac.RenderScaledText(warnmsg, 40, 50 + (i - 1) * 12, 0.5, 0.5, 1, 1, 0, alpha)
+    end
+end
+--the old GoodTrip claims the same `gt` global and either mod can load first, so
+--neither check alone is enough: this one catches it loading before us, and
+--new_room catches it loading after and taking the global back off us
+local OLD_GOODTRIP_WARN = 'WARNING: You must disable the old GoodTrip before using GoodTrip [Fixed]!'
 if hasoldgoodtrip then
-    show_warn('WARNING: You must disable the old GoodTrip before using GoodTrip [Fixed]!')
+    show_warn(OLD_GOODTRIP_WARN)
 end
 if not REPENTANCE then
     show_warn('WARNING: This mod only works for Repentance!')
@@ -1835,6 +1851,7 @@ function _gt:check_and_tele_room(tgid)
     end
 end
 function _gt:step()
+    draw_warns()
     if n_room_num == 0 then
         print('GoodTrip [Fixed] luamod reload detected')
         _gt:prep()
@@ -1989,6 +2006,10 @@ function _gt:step2()
 end
 --
 function _gt:new_room()
+    warn_in_run = true
+    if gt ~= _gt then --the old GoodTrip loaded after us and took the global
+        show_warn(OLD_GOODTRIP_WARN)
+    end
     local last_crd = crd
     --
     _gt:get_grid_room()
