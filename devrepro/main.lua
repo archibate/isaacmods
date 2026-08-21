@@ -11,11 +11,13 @@
 -- it or whatever follows is swallowed.
 
 local STEPS = {
-    "lua gt = {}",
-    "luamod goodtripfixed", 10,
+    "luamod goodtripfixed",
+    "restart 0", 10,
+    "lua local c=gt:get_config() c.TopLeftX=100 c.TopLeftY=100 c.MinimapScale=0 gt.save_config()",
+    "restart 0", 10,
 }
 
-local HINT = "we loaded while another mod held the name -- warning must appear and stay"
+local HINT = "scale is now 0 (position restored). hold TAB: anything visible at all?"
 
 local mod = RegisterMod("devrepro", 1)
 

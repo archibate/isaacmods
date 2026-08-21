@@ -235,7 +235,17 @@ _gt.save_config = save_config --so the console can make a hand-edited config sti
 ----
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
 local function update_mmscale()
-    mmsc = (gtconfig.MinimapScale or 10) / 10
+    --hand-edited in gtconfig.lua, so it can arrive as anything: a scale of 0
+    --draws every sprite at no size at all, which looks exactly like the mod
+    --being broken, with every setting still reading correct
+    local scale = gtconfig.MinimapScale
+    if type(scale) ~= "number" or scale < 5 then
+        scale = 5
+    elseif scale > 25 then
+        scale = 25
+    end
+    gtconfig.MinimapScale = scale
+    mmsc = scale / 10
     mmp.Scale = Vector(mmsc, mmsc)
     mic.Scale = Vector(mmsc, mmsc)
     gtui.Scale = Vector(mmsc, mmsc)
