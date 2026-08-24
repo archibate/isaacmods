@@ -12,11 +12,15 @@
 
 local STEPS = {
     "luamod goodtripfixed",
-    "restart 0", 10,
+    "restart 10", 10,
     "debug 3",
+    "debug 10",
+    "stage 2c", 12,
+    "giveitem c333",
+    "lua gt.enableGMC=true gt:get_config().FasterCursorMove=false",
 }
 
-local HINT = "park the mouse in a far corner, then: TAB alone, then TAB+W"
+local HINT = "check BOTH: cursor centered, and TAB+click lands right. F1 for fresh floors, 3-4x"
 
 local mod = RegisterMod("devrepro", 1)
 

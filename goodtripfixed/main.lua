@@ -116,6 +116,8 @@ local mpos = Vector(0, 0)
 local ui_timer = 0
 local mmp_ctrl = false
 local mmp_ctrl_pos = Vector(0, 0)
+local fast_move_cd = {0, 0, 0, 0} --FasterCursorMove: per-direction hold-to-repeat cooldown
+local FAST_MOVE_REPEAT_FRAMES = 6 --frames between room-jumps while a key stays held
 local last_mpos = Vector(0, 0)
 local mouse_moved = false --physical mouse motion this frame (tracked every frame in step)
 local kb_active = false --keyboard is the active map-cursor device (persists across TAB sessions)
@@ -1012,9 +1014,15 @@ end
 --on the game's own map (MinimapAPI's if present, else the vanilla corner map),
 --plus the map's cell scale relative to the aux-map cell; nil when the map
 --geometry is unavailable (e.g. mid mirror-flip animation)
-function _gt:cell_to_screen(mgid)
+--fcol/frow, if given, are the continuous (fractional) column/row to place the
+--point at instead of mgid's own -- both branches below are affine in col/row,
+--so this traces a pixel-exact position anywhere between cells, not just their
+--centers; grid_room/reference-room lookups still key off the whole cell (mgid)
+function _gt:cell_to_screen(mgid, fcol, frow)
     local col = mgid % 13
     local row = (mgid - col) / 13
+    fcol = fcol or col
+    frow = frow or row
     if MinimapAPI then
       local sx = MinimapAPI.GlobalScaleX or 1
       if sx ~= 1 and sx ~= -1 then
@@ -1056,19 +1064,22 @@ function _gt:cell_to_screen(mgid)
       local gi = ref.Descriptor.GridIndex
       local gcol = gi % 13
       local grow = (gi - gcol) / 13
-      local x0 = ox + (col - gcol) * pw * sx
-      local y0 = oy + (row - grow) * ph
+      local x0 = ox + (fcol - gcol) * pw * sx
+      local y0 = oy + (frow - grow) * ph
       return Vector(x0 + pw * sx / 2, y0 + ph / 2), (large and 2 or 1)
     end
     local ltx, lty, mirrorsum = vanilla_map_anchors()
     local mir = room:IsMirrorWorld()
     local calibx = mir and (gtconfig.CalibMirrorX or 0) or (gtconfig.CalibMainX or 0)
     local caliby = mir and (gtconfig.CalibMirrorY or 0) or (gtconfig.CalibMainY or 0)
-    local px = ltx + col * 17 + 8.5
+    local px = ltx + fcol * 17 + 8.5
     if mirrorsum then
       px = mirrorsum - px
     end
-    return Vector(px - calibx, lty + row * 15 + 7.5 - caliby), 2
+    --2 was oversized: the cursor's native 16x32 footprint at 2x already
+    --exceeds a single 17x15 room cell on its own; 1x (native size) is a
+    --closer starting point and still needs eyes on it to call it right
+    return Vector(px - calibx, lty + frow * 15 + 7.5 - caliby), 1
 end
 --
 function _gt:get_pos_grid_index_mmp(pos)
@@ -1427,14 +1438,31 @@ end
 --game-map cursor mode: the aux window stays hidden, the keyboard cursor is
 --drawn on the game's own map instead; selection & teleport logic untouched
 function _gt:draw_gamemap_cursor()
-    if not mmp_ctrl then
+    --checked here, not just at the draw_minimap call site: under REPENTOGON
+    --this also runs unconditionally from MC_POST_HUD_RENDER every frame, so
+    --GMC off must not leak a cursor through that second path
+    if not _gt.enableGMC or not mmp_ctrl then
+      return
+    end
+    --the widget appearing at all is its own signal that a cursor is in play;
+    --the game's map is always on screen, so drawing on it the instant TAB is
+    --held puts a cursor (red, since it starts on the room you are standing in
+    --and you cannot trip to yourself) in front of someone who only wanted to
+    --read the map. wait until the keyboard has actually been used to aim
+    if not kb_active then
       return
     end
     local mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
     if mgid < 0 then
       return
     end
-    local center, scale = _gt:cell_to_screen(mgid)
+    --same as get_pos_grid_index_mmp's cx/cy, minus the floor: how far mmp_ctrl_pos
+    --sits inside its cell, so the sprite can glide instead of snapping cell to
+    --cell -- mmp_ctrl_pos moves in real pixels, cell_to_screen's math is affine
+    --in col/row, so this traces the true position rather than a rounded one
+    local fcol = (mmp_ctrl_pos.X - mmp_pos0.X - 2 * mmsc) / (8 * mmsc)
+    local frow = (mmp_ctrl_pos.Y - mmp_pos0.Y - 2 * mmsc) / (7 * mmsc)
+    local center, scale = _gt:cell_to_screen(mgid, fcol, frow)
     if not center then
       return
     end
@@ -1443,17 +1471,29 @@ function _gt:draw_gamemap_cursor()
     else
       cursor.Color = Color(1, 0.3, 0.3, 1, 0, 0, 0) --not teleportable: red, like the aux map's red rooms
     end
-    --the aux map draws the cursor sprite 2,1.5px past the cell center; keep
-    --the same relation so the glyph sits identically within the bigger cells
+    --two plot corrections, kept here rather than folded into cell_to_screen so
+    --that stays pure geometry (and calibx/caliby keep meaning just the player's
+    --sliders). first: cursor.anm2's pivot (7,7) sits well off the layer's own
+    --visual center (8,16 -- it's a pointer's hotspot, near the glyph's tip, not
+    --its middle), so cancel it deterministically, scaled with the sprite.
+    --second: the residual measured in-game under REPENTOGON. Y is the same in
+    --both worlds, X flips with the mirrored axis -- the 1px asymmetry matches
+    --the one already calibrated into vanilla_map_anchors (-4 main vs -5 mirror)
+    local gmcoff = room:IsMirrorWorld() and Vector(9, 2) or Vector(-8, 2)
     cursor.Scale = Vector(scale, scale)
-    cursor:Render(center + Vector(2, 1.5) * scale, Vector(0, 0), Vector(0, 0))
+    cursor:Render(center - Vector(1, 9) * scale + gmcoff, Vector(0, 0), Vector(0, 0))
     cursor.Scale = Vector(1, 1)
     cursor.Color = Color(1, 1, 1, 1, 0, 0, 0)
 end
 --
 function _gt:draw_minimap()
     if _gt.enableGMC then
-      _gt:draw_gamemap_cursor()
+      --REPENTOGON draws the game's own map during MC_HUD_RENDER, so a cursor
+      --drawn here or there both land underneath it; MC_POST_HUD_RENDER is the
+      --one that actually runs after -- let it handle drawing instead (below)
+      if not REPENTOGON then
+        _gt:draw_gamemap_cursor()
+      end
       return
     end
     ---draw outline---
@@ -1601,13 +1641,59 @@ function _gt:mmp_ctrl_move()
         end
       end
       if gtconfig.FasterCursorMove then
-        if Input.IsActionTriggered(key[i], player.ControllerIndex) and dif[i] > 0 then
-          mmp_ctrl_pos = mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i]) * Vector(8, 7) * mmsc
+        --a fresh tap jumps immediately (cooldown resets to 0 whenever the key
+        --is up or blocked at the boundary); held afterward, it keeps jumping
+        --a room at a time instead of needing a fresh tap per room
+        if Input.IsActionPressed(key[i], player.ControllerIndex) and dif[i] > 0 then
+          if fast_move_cd[i] <= 0 then
+            mmp_ctrl_pos = mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i]) * Vector(8, 7) * mmsc
+            fast_move_cd[i] = FAST_MOVE_REPEAT_FRAMES
+          else
+            fast_move_cd[i] = fast_move_cd[i] - 1
+          end
+        else
+          fast_move_cd[i] = 0
         end
       else
         if Input.IsActionPressed(key[i], player.ControllerIndex) and dif[i] > 0 then
-          mmp_ctrl_pos = mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i]) * mmsc
+          local step = _gt:mirror_mmp_dir(dir[i]) * mmsc
+          if _gt.enableGMC then
+            --vanilla map cells (17x15px) are physically bigger than the 8x7
+            --virtual unit this step size was tuned around, so the identical
+            --held key moves ~2.1x faster in real screen pixels here than it
+            --does on the widget; scale the step down to match its own pace
+            step = step * Vector(8 / 17, 7 / 15)
+          end
+          mmp_ctrl_pos = mmp_ctrl_pos + step
         end
+      end
+    end
+    if gtconfig.FasterCursorMove then
+      --dif[]'s far-edge slack above exists so the widget's cursor can reach the
+      --pin/zoom buttons past the last room column/row -- the keyboard cursor
+      --never actually interacts with those (only the mouse does, elsewhere).
+      --smooth movement's own dif[] gate already stops it close enough to the
+      --true edge on its own (each step is a single mmsc unit); snapping it too
+      --pulls a legally-still-creeping position back to the room's center, so
+      --the gate says yes again next frame and it bounces in a slow loop. only
+      --FasterCursorMove's whole-cell jump is coarse enough to clear the slack
+      --in one frame rather than creep past it, so only it needs correcting.
+      --a plain min/max on the pixel position would land on the edge of the
+      --valid range rather than a room's center, off by half a cell from every
+      --other position movement can reach -- snap to the boundary room's own
+      --canonical center instead, and only when actually out of range, so an
+      --in-bounds position (however mid-cell) is never touched
+      local cx = math.floor((mmp_ctrl_pos.X - mmp_pos0.X - 2 * mmsc) / (8 * mmsc))
+      local cy = math.floor((mmp_ctrl_pos.Y - mmp_pos0.Y - 2 * mmsc) / (7 * mmsc))
+      if cx < ltroom.X then
+        mmp_ctrl_pos.X = mmp_pos0.X + (ltroom.X * 8 + 6) * mmsc
+      elseif cx > rbroom.X then
+        mmp_ctrl_pos.X = mmp_pos0.X + (rbroom.X * 8 + 6) * mmsc
+      end
+      if cy < ltroom.Y then
+        mmp_ctrl_pos.Y = mmp_pos0.Y + (ltroom.Y * 7 + 5) * mmsc
+      elseif cy > rbroom.Y then
+        mmp_ctrl_pos.Y = mmp_pos0.Y + (rbroom.Y * 7 + 5) * mmsc
       end
     end
 end
@@ -1653,10 +1739,17 @@ function _gt:tab_action()
             or Input.IsActionPressed(key[2],player.ControllerIndex)
             or Input.IsActionPressed(key[3],player.ControllerIndex)
             or Input.IsActionPressed(key[4],player.ControllerIndex)
-        --with the cursor on the game's own map there is no widget for the mouse
-        --to hover, so the keyboard always owns the cursor
-        local in_ui = not _gt.enableGMC
-            and _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
+        --the hover region the mouse can take the cursor over: the widget's own
+        --box normally, the game's map under GMC (where the mouse already draws
+        --its own pointer -- showing ours too would be two cursors). same
+        --ownership rules either way, only the region differs. get_pos_grid_index
+        --is the map's own hit test, so this can't drift from where clicks land
+        local in_ui
+        if _gt.enableGMC then
+          in_ui = _gt:get_pos_grid_index(mpos) >= 0
+        else
+          in_ui = _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
+        end
         if arrowdown then --keyboard used: it becomes the active device
           kb_active = true
         elseif mouse_moved and in_ui then --mouse physically moved over the minimap: it takes over
@@ -2023,6 +2116,11 @@ function _gt:new_room()
     crid = crd.GridIndex
     crsid = crd.SafeGridIndex
     mmp_ctrl = false
+    --the cursor is rebuilt from scratch in the new room, so let the device
+    --claim be rebuilt with it: under GMC the cursor only draws once the
+    --keyboard is active, and entering a room is the natural point for
+    --"reading the map" to stop implying "aiming at something"
+    kb_active = false
     player = Isaac.GetPlayer(0)
     stage = level:GetStage()
     if gtconfig.KeyboardMapEnable then
@@ -2141,3 +2239,6 @@ _gt:AddCallback(ModCallbacks.MC_POST_RENDER, _gt.step)
 _gt:AddCallback(ModCallbacks.MC_POST_UPDATE, _gt.step2)
 _gt:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, _gt.new_room)
 _gt:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, _gt.new_level)
+if REPENTOGON then
+  _gt:AddCallback(ModCallbacks.MC_POST_HUD_RENDER, _gt.draw_gamemap_cursor)
+end
