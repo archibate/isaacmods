@@ -972,12 +972,11 @@ local function vanilla_map_anchors()
     local mirrorsum = nil
     --repentance stage 2c:mirror--
     if room:IsMirrorWorld() then
+      --the mirrored map keeps the same box on screen and only flips what is
+      --drawn inside it, so the flip reflects about that box's own middle: the
+      --drawn columns run ltr.X..rtr.X, half a cell of margin on either side
       local ltr = _gt:get_corner_room(3)
-      local rtx = scpos.X - (ltr.X + 1) * 17 - 5 - hudoffset * 2.4 --withleftbottommap; -5 includes the calibrated vanilla-map +2px mirror-world correction
-      -- print(rtr.X, ltr.X) -- 3 -> 9; 4 -> 9; 5 -> 9; 6 -> 7; 7 -> 5
-      --the tail constant is the mirror flip's phase, slider-calibrated on each
-      --game version (Rep+ re-anchored the corner map 2 cells from old Repentance)
-      mirrorsum = ltx + rtx + (9 - math.max(0, rtr.X - ltr.X - 5) * 2)*17 - (REPENTANCE_PLUS and 34 or 0)
+      mirrorsum = 2 * ltx + (ltr.X + rtr.X + 1) * 17
     end
     return ltx, lty, mirrorsum
 end
@@ -1180,6 +1179,11 @@ function _gt:get_room_neighbours()
 
 end
 
+--the outermost drawn column and row on the side `num` names (1 left-top,
+--2 right-top, 3 left-bottom, 4 right-bottom). the whole 13 are scanned from
+--that side inward: the starting room usually pins column 6, but a dimension
+--entered part way through -- the mirror -- can have every drawn room on one
+--side of it, and stopping at 6 would report the middle instead of the edge
 function _gt:get_corner_room(num)
     local corner_room = Vector(6, 6)
     local fx = {1, -1, 1, -1}
@@ -1187,30 +1191,34 @@ function _gt:get_corner_room(num)
     local ffx = fx[num]
     local ffy = fy[num]
     ----
-    for i = 6 - 6 * ffx, 6 - ffx, ffx do
+    for i = 6 - 6 * ffx, 6 + 6 * ffx, ffx do
+      local found = false
       for j = 0, 12 do
         if grid_room[i+j*13] then
           if grid_room[i+j*13].DisplayFlags > 0 then
-            corner_room.X = i
+            found = true
             break
           end
         end
       end
-      if corner_room.X ~= 6 then
+      if found then
+        corner_room.X = i
         break
       end
     end
     ----
-    for j = 6 - 6 * ffy, 6 - ffy, ffy do
+    for j = 6 - 6 * ffy, 6 + 6 * ffy, ffy do
+      local found = false
       for i = 0, 12 do
         if grid_room[i+j*13] then
           if grid_room[i+j*13].DisplayFlags > 0 then
-            corner_room.Y = j
+            found = true
             break
           end
         end
       end
-      if corner_room.Y ~= 6 then
+      if found then
+        corner_room.Y = j
         break
       end
     end

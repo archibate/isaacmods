@@ -17,10 +17,10 @@ local STEPS = {
     "debug 10",
     "stage 2c", 12,
     "giveitem c333",
-    "lua gt.enableGMC=true gt:get_config().FasterCursorMove=false",
+    "lua gt.enableGMC=false",
 }
 
-local HINT = "check BOTH: cursor centered, and TAB+click lands right. F1 for fresh floors, 3-4x"
+local HINT = "in the MIRROR: park on your own room, then click around - does it land where you aim?"
 
 local mod = RegisterMod("devrepro", 1)
 
