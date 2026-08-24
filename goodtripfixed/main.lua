@@ -2,10 +2,6 @@ local hasoldgoodtrip = (gt and not gt.isgtfixed)
 local _gt = RegisterMod("GoodTrip [Fixed]", 1)
 gt = _gt
 _gt.isgtfixed = true
---drawing the cursor on the game's own map needs a Repentogon render callback to
---land above the map, so it sits behind it for everyone else: kept out of MCM and
---off until that is solved, flip it from the console to work on it
-_gt.enableGMC = false
 --these are conditions, not events: they stay on screen until the player fixes
 --them. the old code faded out after five seconds counted from load, and since
 --render callbacks run on the menus too, those seconds were spent at the title
@@ -163,6 +159,7 @@ local gtconfig = {
     NoShootWhenClick = true,  --disable mouse click shooting when holding Tab
     -- AllowRightClick = false,  --mouse right click on bigmap to teleport
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
+    CursorOnGameMap = false,  --draw the cursor on the game's own corner map instead of the draggable window; needs REPENTOGON, see _gt:enableGMC
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
     FairTripTime = false,  --weather to incur fair time according to distance; off by default so the apiless rework doesn't spring time penalties on existing players
     FairTripPath = true,  --true = enable / false = disable. only trip to rooms linked to the current one by cleared rooms
@@ -185,6 +182,15 @@ local gtconfig = {
     CalibMainY = 0,
     CalibMirrorY = 0,
 }
+----
+--the cursor on the game's own map only lands above it from a REPENTOGON render
+--callback; without the script extender it draws behind the map and the window
+--it replaces is hidden, which is how the mode broke players before. asked here
+--rather than read from the setting, so switching it on without REPENTOGON --
+--from an old saved config, or by hand -- leaves the mod as it was
+function _gt:enableGMC()
+    return REPENTOGON ~= nil and gtconfig.CursorOnGameMap
+end
 ----
 --gtconfig.lua is the config surface for players without Mod Config Menu: it is
 --applied after the saved config, so a hand-edited setting wins on every launch,
@@ -293,44 +299,57 @@ if ModConfigMenu then
         print('GoodTrip [Fixed] is reloading ModConfigMenu options')
         ModConfigMenu.RemoveCategory("GoodTrip [Fixed]")
     end
-    for _, info in ipairs({
-        { "KeyboardMapEnable", "Teleport using TAB + arrow keys" },
-        { "FollowCurseOfLost", "Disable GoodTrip on curse of lost" },
-        { "TeleportAnimation", "Play cool animation on teleport" },
-        { "QuicklyOneRoomMove", "Quickly teleport using TAB + ASWD" },
-        { "AllowNeighborRoom", "Allow moving into uncleaned neighbor room" },
-        { "AllowBookmarking", "Allow adding bookmarks for rooms via TAB + 1~9" },
-        { "LastRoomShortcut", "Allow teleport back to last room via TAB + Z" },
-        { "FastRestartEnable", "Allow restarting the run quickly via TAB + R" },
-        { "NoShootWhenClick", "Disable shoot when teleporting via TAB + Click" },
-        { "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
+    --a page starts scrolling past ten settings, so every tab is kept well under
+    --that, at the cost of paging the tab bar itself (it shows three at a time).
+    --first column is the tab; tabs appear in the order they are first named here
+    local options = {
+        { "Map", "KeyboardMapEnable", "Teleport using TAB + arrow keys" },
+        --a fourth field is a condition to offer the setting at all: this one
+        --does nothing without REPENTOGON, so it is not shown there
+        { "Map", "CursorOnGameMap", "Put the cursor on the game's own corner map and hide the mod's window (needs REPENTOGON)", REPENTOGON ~= nil },
 
-        { "ShowSpecialIcons", "Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull" },
-        { "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
-        { "FairTripTime", "Fairly increase game time according to player move speed and distance" },
-        { "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
-        { "FastTransition", "Even faster transition without animation" },
-        { "IgnoreMovementKeys", "Keep moving the map cursor while you walk, instead of pausing it until you let go" },
-    }) do
+        { "Fairness", "AllowNeighborRoom", "Allow moving into uncleaned neighbor room" },
+        { "Fairness", "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
+        { "Fairness", "FairTripTime", "Fairly increase game time according to player move speed and distance" },
+        { "Fairness", "FollowCurseOfLost", "Disable GoodTrip on curse of lost" },
+
+        { "Shortcuts", "LastRoomShortcut", "Allow teleport back to last room via TAB + Z" },
+        { "Shortcuts", "FastRestartEnable", "Allow restarting the run quickly via TAB + R" },
+        { "Shortcuts", "AllowBookmarking", "Allow adding bookmarks for rooms via TAB + 1~9" },
+
+
+        { "Display", "ShowSpecialIcons", "Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull" },
+        { "Display", "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
+        { "Display", "TeleportAnimation", "Play cool animation on teleport" },
+        { "Display", "FastTransition", "Even faster transition without animation" },
+
+        { "Controls", "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
+        { "Controls", "IgnoreMovementKeys", "Keep moving the map cursor while you walk, instead of pausing it until you let go" },
+        { "Controls", "QuicklyOneRoomMove", "Quickly teleport using TAB + ASWD" },
+        { "Controls", "NoShootWhenClick", "Disable shoot when teleporting via TAB + Click" },
+    }
+    for _, info in ipairs(options) do
+      if info[4] == nil or info[4] then
         ModConfigMenu.AddSetting(
-          "GoodTrip [Fixed]", "General",
+          "GoodTrip [Fixed]", info[1],
           {
             Type = ModConfigMenu.OptionType.BOOLEAN,
             CurrentSetting = function()
-              return gtconfig[info[1]]
+              return gtconfig[info[2]]
             end,
             Display = function()
-              return info[1] .. ": " .. (gtconfig[info[1]] and "on" or "off")
+              return info[2] .. ": " .. (gtconfig[info[2]] and "on" or "off")
             end,
             OnChange = function(b)
-              gtconfig[info[1]] = b
+              gtconfig[info[2]] = b
             end,
-            Info = { info[2] },
+            Info = { info[3] },
           }
         )
+      end
     end
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", "General",
+      "GoodTrip [Fixed]", "Map",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 5,
@@ -349,7 +368,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", "General",
+      "GoodTrip [Fixed]", "Map",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 14,
@@ -368,7 +387,7 @@ if ModConfigMenu then
       }
     )
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", "General",
+      "GoodTrip [Fixed]", "Map",
       {
         Type = ModConfigMenu.OptionType.NUMBER,
         Minimum = 5,
@@ -388,14 +407,17 @@ if ModConfigMenu then
         Info = { "Keyboard minimap size, x0.5 (tiny) to x1.0 (original) up to x2.5" },
       }
     )
+    --shown under the key's own name: without the menu the same setting has to be
+    --typed into gtconfig.lua, and a label that differs from the key sends the
+    --player to a setting that does not exist
     for _, info in ipairs({
-        { "CalibMainX", "CalibClickMain", "Corner-map click calibration in normal world (pixels): clicks landing LEFT of your aim -> increase, RIGHT of aim -> decrease" },
-        { "CalibMirrorX", "CalibClickMirror", "Corner-map click calibration in mirror world (pixels): clicks landing LEFT of your aim -> increase, RIGHT of aim -> decrease" },
-        { "CalibMainY", "CalibClickMainY", "Corner-map click calibration in normal world (pixels): clicks landing ABOVE your aim -> increase, BELOW your aim -> decrease" },
-        { "CalibMirrorY", "CalibClickMirrorY", "Corner-map click calibration in mirror world (pixels): clicks landing ABOVE your aim -> increase, BELOW your aim -> decrease" },
+        { "CalibMainX", "Sideways nudge for corner-map clicks in the normal world (pixels): clicks landing LEFT of your aim -> increase, RIGHT of aim -> decrease" },
+        { "CalibMirrorX", "Sideways nudge for corner-map clicks in the mirror world (pixels): clicks landing LEFT of your aim -> increase, RIGHT of aim -> decrease" },
+        { "CalibMainY", "Vertical nudge for corner-map clicks in the normal world (pixels): clicks landing ABOVE your aim -> increase, BELOW your aim -> decrease" },
+        { "CalibMirrorY", "Vertical nudge for corner-map clicks in the mirror world (pixels): clicks landing ABOVE your aim -> increase, BELOW your aim -> decrease" },
     }) do
         ModConfigMenu.AddSetting(
-          "GoodTrip [Fixed]", "General",
+          "GoodTrip [Fixed]", "Calibration",
           {
             Type = ModConfigMenu.OptionType.NUMBER,
             Minimum = -100, --several cells: game builds re-anchor the corner map whole cells apart, ±1 cell wasn't enough
@@ -405,17 +427,17 @@ if ModConfigMenu then
               return gtconfig[info[1]] or 0
             end,
             Display = function()
-              return ("%s: %+dpx"):format(info[2], gtconfig[info[1]] or 0)
+              return ("%s: %+dpx"):format(info[1], gtconfig[info[1]] or 0)
             end,
             OnChange = function(b)
               gtconfig[info[1]] = b
             end,
-            Info = { info[3] },
+            Info = { info[2] },
           }
         )
     end
     ModConfigMenu.AddSetting(
-      "GoodTrip [Fixed]", "General",
+      "GoodTrip [Fixed]", "Controls",
       {
         Type = ModConfigMenu.OptionType.BOOLEAN,
         CurrentSetting = function()
@@ -1400,7 +1422,7 @@ function _gt:prep_minimap()
 end
 --
 function _gt:draw_minimap_ui()
-    if _gt.enableGMC then --the game's own map is the widget: no window chrome
+    if _gt:enableGMC() then --the game's own map is the widget: no window chrome
       return
     end
     if not ((gtconfig.KeyboardMapEnable and _gt:check_teleble(false)) or debug) then -------return when gtconfig.KeyboardMapEnable disable & debug disable
@@ -1456,7 +1478,7 @@ function _gt:draw_gamemap_cursor()
     --checked here, not just at the draw_minimap call site: under REPENTOGON
     --this also runs unconditionally from MC_POST_HUD_RENDER every frame, so
     --GMC off must not leak a cursor through that second path
-    if not _gt.enableGMC or not mmp_ctrl then
+    if not _gt:enableGMC() or not mmp_ctrl then
       return
     end
     --the widget appearing at all is its own signal that a cursor is in play;
@@ -1502,7 +1524,7 @@ function _gt:draw_gamemap_cursor()
 end
 --
 function _gt:draw_minimap()
-    if _gt.enableGMC then
+    if _gt:enableGMC() then
       --REPENTOGON draws the game's own map during MC_HUD_RENDER, so a cursor
       --drawn here or there both land underneath it; MC_POST_HUD_RENDER is the
       --one that actually runs after -- let it handle drawing instead (below)
@@ -1689,7 +1711,7 @@ function _gt:mmp_ctrl_move()
       else
         if Input.IsActionPressed(key[i], player.ControllerIndex) then
           local step = _gt:mirror_mmp_dir(dir[i]) * mmsc
-          if _gt.enableGMC then
+          if _gt:enableGMC() then
             --vanilla map cells (17x15px) are physically bigger than the 8x7
             --virtual unit this step size was tuned around, so the identical
             --held key moves ~2.1x faster in real screen pixels here than it
@@ -1749,7 +1771,7 @@ function _gt:tab_action()
         --ownership rules either way, only the region differs. get_pos_grid_index
         --is the map's own hit test, so this can't drift from where clicks land
         local in_ui
-        if _gt.enableGMC then
+        if _gt:enableGMC() then
           in_ui = _gt:get_pos_grid_index(mpos) >= 0
         else
           in_ui = _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
@@ -1844,7 +1866,7 @@ function _gt:mouse_action()
       ---
       if (_gt:check_teleble(mgid) and tele_cd < 1) then
         _gt:teleport_to_grid_index(mgid)
-      elseif gtconfig.KeyboardMapEnable and not _gt.enableGMC then --aux-widget zones (window click / pin / zoom / drag): only when the widget is visible
+      elseif gtconfig.KeyboardMapEnable and not _gt:enableGMC() then --aux-widget zones (window click / pin / zoom / drag): only when the widget is visible
         mgid = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
         --
         if (_gt:check_teleble(mgid) and tele_cd < 1) then
@@ -2028,7 +2050,7 @@ function _gt:step()
       end
     elseif (gtconfig.KeyboardMapEnable) or debug then -------return when gtconfig.KeyboardMapEnable & debug disable
       --PIN ACTION WITHOUT TAB--
-      if mmp_pin == 1 and not _gt.enableGMC and crd.Clear and _gt:check_teleble(false) then
+      if mmp_pin == 1 and not _gt:enableGMC() and crd.Clear and _gt:check_teleble(false) then
         if mouse_in_ui then
           ---click
           if _gt:IsMouseBtnTriggered(0) then

@@ -25,6 +25,7 @@ return {
     -- FastTransition = false,     -- skip the room-change animation
     -- NoShootWhenClick = true,    -- clicking the map does not fire a tear
     -- FasterCursorMove = false,   -- cursor jumps a room per press instead of sliding
+    -- CursorOnGameMap = false,    -- cursor rides the game's own corner map; needs REPENTOGON
     -- DangerCautionCompat = true, -- colour dangerous rooms with Dangerous room! Caution
     -- FairTripTime = false,       -- charge game time for the distance travelled
     -- FairTripPath = true,        -- only trip to rooms reachable through cleared rooms

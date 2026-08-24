@@ -17,10 +17,10 @@ local STEPS = {
     "debug 10",
     "giveitem c333",
     "stage 2c", 12,
-    "lua gt.enableGMC=true gt:get_config().FasterCursorMove=false",
+    "lua gt:get_config().CursorOnGameMap=true gt:get_config().FasterCursorMove=false",
 }
 
-local HINT = "push the cursor into all four edges of the game map - does it still vanish?"
+local HINT = "MCM should now offer CursorOnGameMap, and the cursor should ride the corner map."
 
 local mod = RegisterMod("devrepro", 1)
 
