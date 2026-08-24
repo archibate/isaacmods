@@ -1,1 +1,2 @@
 - Fixed clicks landing two rooms away from where you aimed inside the mirror world: the mod flips the map's coordinates to match the mirrored drawing, and that flip was pinned to a fixed column, so every floor whose map did not happen to start there was off by exactly two rooms — the room under the pointer either refused the trip or sent you somewhere else. The flip now reads the map's own edges, so it lands right on any layout.
+- The keyboard cursor now stops on the outermost room instead of drifting a little past it into empty space, where it selected nothing.

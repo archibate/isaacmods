@@ -104,6 +104,8 @@ local neighlut = {
 }
 local ltroom = Vector(6, 6)
 local rbroom = Vector(6, 6)
+local ctrl_ltroom = Vector(6, 6) --the same two corners before the widget's 3x3 padding widens them
+local ctrl_rbroom = Vector(6, 6)
 local mmp_pos0 = Vector(0, 0)
 local mmp_ltpos_ = Vector(0, 0)
 local mmp_ltpos = Vector(100, 100) --main
@@ -120,7 +122,7 @@ local fast_move_cd = {0, 0, 0, 0} --FasterCursorMove: per-direction hold-to-repe
 local FAST_MOVE_REPEAT_FRAMES = 6 --frames between room-jumps while a key stays held
 local last_mpos = Vector(0, 0)
 local mouse_moved = false --physical mouse motion this frame (tracked every frame in step)
-local kb_active = false --keyboard is the active map-cursor device (persists across TAB sessions)
+local kb_active = false --keyboard is the active map-cursor device, for this opening of the map
 local mouse_in_ui = false
 local mmp_1step_tp = false
 local mmp_1step_mgid = -1
@@ -1301,6 +1303,11 @@ function _gt:prep_minimap()
     ----
     ltroom = _gt:get_corner_room(1)
     rbroom = _gt:get_corner_room(4)
+    --the cursor's range is the drawn rooms themselves: the padding below only
+    --widens the widget's window, and the game's own map never draws those empty
+    --cells at all, so a cursor allowed onto one would sit off the map there
+    ctrl_ltroom = Vector(ltroom.X, ltroom.Y)
+    ctrl_rbroom = Vector(rbroom.X, rbroom.Y)
     --minimum 3x3 window (the top bar must fit the pin + zoom buttons);
     --split the padding to both sides so the rooms sit centered
     local padx = 2 - (rbroom.X - ltroom.X)
@@ -1633,28 +1640,45 @@ function _gt:draw_minimap()
     end
 end
 ---control & run---
+--the keyboard cursor may only stand on the drawn map: its range is the
+--rectangle between the first and the last drawn room's own resting spot.
+--holding the position inside that rectangle -- rather than gating each step by
+--how much room is left, which left a few pixels of slack past the last room
+--where the cursor selects nothing and, on the game map, is not drawn at all --
+--means a held key simply stops on the edge room. it cannot bounce either: the
+--clamp lands on the spot movement would reach anyway, so the next frame has
+--nothing left to correct. mmp_ctrl_pos is kept unmirrored, only the direction
+--of a key flips, so one rectangle serves both worlds
+local function clamp_ctrl_pos(pos)
+    local minx = mmp_pos0.X + (ctrl_ltroom.X * 8 + 6) * mmsc
+    local maxx = mmp_pos0.X + (ctrl_rbroom.X * 8 + 6) * mmsc
+    local miny = mmp_pos0.Y + (ctrl_ltroom.Y * 7 + 5) * mmsc
+    local maxy = mmp_pos0.Y + (ctrl_rbroom.Y * 7 + 5) * mmsc
+    return Vector(math.min(math.max(pos.X, minx), maxx), math.min(math.max(pos.Y, miny), maxy))
+end
+--
 function _gt:mmp_ctrl_move()
-  local dif = {mmp_ctrl_pos.Y - mmp_ltpos.Y + 2 * mmsc, mmp_ctrl_pos.X - mmp_ltpos.X + 2 * mmsc, mmp_rbpos.X - mmp_ctrl_pos.X + 14 * mmsc, mmp_rbpos.Y - mmp_ctrl_pos.Y + 13 * mmsc}
-    if room:IsMirrorWorld() then dif[2], dif[3] = dif[3], dif[2] end --X movement is mirrored, so left/right bound guards swap too
     for i = 1,4 do
       if gtconfig.QuicklyOneRoomMove then
-        if Input.IsActionTriggered(movkey[i], player.ControllerIndex) and dif[i] > 0 then
-          -- local s = room:GetRoomShape()
-          mmp_ctrl_pos = mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i] * Vector(8, 7) * mmsc)
-          local nmgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
-          if _gt:check_teleble(nmgid) and tele_cd < 1 then
-            mmp_1step_tp = true
-            mmp_1step_mgid = nmgid
+        if Input.IsActionTriggered(movkey[i], player.ControllerIndex) then
+          local npos = clamp_ctrl_pos(mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i] * Vector(8, 7) * mmsc))
+          if npos.X ~= mmp_ctrl_pos.X or npos.Y ~= mmp_ctrl_pos.Y then
+            mmp_ctrl_pos = npos
+            local nmgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
+            if _gt:check_teleble(nmgid) and tele_cd < 1 then
+              mmp_1step_tp = true
+              mmp_1step_mgid = nmgid
+            end
           end
         end
       end
       if gtconfig.FasterCursorMove then
-        --a fresh tap jumps immediately (cooldown resets to 0 whenever the key
-        --is up or blocked at the boundary); held afterward, it keeps jumping
-        --a room at a time instead of needing a fresh tap per room
-        if Input.IsActionPressed(key[i], player.ControllerIndex) and dif[i] > 0 then
+        --a fresh tap jumps immediately (the cooldown resets whenever the key is
+        --up); held afterward, it keeps jumping a room at a time instead of
+        --needing a fresh tap per room
+        if Input.IsActionPressed(key[i], player.ControllerIndex) then
           if fast_move_cd[i] <= 0 then
-            mmp_ctrl_pos = mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i]) * Vector(8, 7) * mmsc
+            mmp_ctrl_pos = clamp_ctrl_pos(mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i]) * Vector(8, 7) * mmsc)
             fast_move_cd[i] = FAST_MOVE_REPEAT_FRAMES
           else
             fast_move_cd[i] = fast_move_cd[i] - 1
@@ -1663,7 +1687,7 @@ function _gt:mmp_ctrl_move()
           fast_move_cd[i] = 0
         end
       else
-        if Input.IsActionPressed(key[i], player.ControllerIndex) and dif[i] > 0 then
+        if Input.IsActionPressed(key[i], player.ControllerIndex) then
           local step = _gt:mirror_mmp_dir(dir[i]) * mmsc
           if _gt.enableGMC then
             --vanilla map cells (17x15px) are physically bigger than the 8x7
@@ -1672,36 +1696,8 @@ function _gt:mmp_ctrl_move()
             --does on the widget; scale the step down to match its own pace
             step = step * Vector(8 / 17, 7 / 15)
           end
-          mmp_ctrl_pos = mmp_ctrl_pos + step
+          mmp_ctrl_pos = clamp_ctrl_pos(mmp_ctrl_pos + step)
         end
-      end
-    end
-    if gtconfig.FasterCursorMove then
-      --dif[]'s far-edge slack above exists so the widget's cursor can reach the
-      --pin/zoom buttons past the last room column/row -- the keyboard cursor
-      --never actually interacts with those (only the mouse does, elsewhere).
-      --smooth movement's own dif[] gate already stops it close enough to the
-      --true edge on its own (each step is a single mmsc unit); snapping it too
-      --pulls a legally-still-creeping position back to the room's center, so
-      --the gate says yes again next frame and it bounces in a slow loop. only
-      --FasterCursorMove's whole-cell jump is coarse enough to clear the slack
-      --in one frame rather than creep past it, so only it needs correcting.
-      --a plain min/max on the pixel position would land on the edge of the
-      --valid range rather than a room's center, off by half a cell from every
-      --other position movement can reach -- snap to the boundary room's own
-      --canonical center instead, and only when actually out of range, so an
-      --in-bounds position (however mid-cell) is never touched
-      local cx = math.floor((mmp_ctrl_pos.X - mmp_pos0.X - 2 * mmsc) / (8 * mmsc))
-      local cy = math.floor((mmp_ctrl_pos.Y - mmp_pos0.Y - 2 * mmsc) / (7 * mmsc))
-      if cx < ltroom.X then
-        mmp_ctrl_pos.X = mmp_pos0.X + (ltroom.X * 8 + 6) * mmsc
-      elseif cx > rbroom.X then
-        mmp_ctrl_pos.X = mmp_pos0.X + (rbroom.X * 8 + 6) * mmsc
-      end
-      if cy < ltroom.Y then
-        mmp_ctrl_pos.Y = mmp_pos0.Y + (ltroom.Y * 7 + 5) * mmsc
-      elseif cy > rbroom.Y then
-        mmp_ctrl_pos.Y = mmp_pos0.Y + (rbroom.Y * 7 + 5) * mmsc
       end
     end
 end
@@ -1973,6 +1969,7 @@ function _gt:step()
     if _gt:is_overlay_triggerd() then
       _gt:get_grid_room()
       _gt:prep()
+      kb_active = false --every opening of the map starts as a read; an arrow key claims it
     end
 
     if _gt:is_overlay_pressed() then

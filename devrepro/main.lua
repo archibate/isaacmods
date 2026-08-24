@@ -15,12 +15,12 @@ local STEPS = {
     "restart 10", 10,
     "debug 3",
     "debug 10",
-    "stage 2c", 12,
     "giveitem c333",
-    "lua gt.enableGMC=false",
+    "stage 2c", 12,
+    "lua gt.enableGMC=true gt:get_config().FasterCursorMove=false",
 }
 
-local HINT = "in the MIRROR: park on your own room, then click around - does it land where you aim?"
+local HINT = "push the cursor into all four edges of the game map - does it still vanish?"
 
 local mod = RegisterMod("devrepro", 1)
 
