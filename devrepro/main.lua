@@ -13,11 +13,10 @@
 local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
-    "lua local c=gt:get_config() c.TopLeftX=100 c.TopLeftY=100 c.MinimapScale=0 gt.save_config()",
-    "restart 0", 10,
+    "debug 3",
 }
 
-local HINT = "scale is now 0 (position restored). hold TAB: anything visible at all?"
+local HINT = "park the mouse in a far corner, then: TAB alone, then TAB+W"
 
 local mod = RegisterMod("devrepro", 1)
 
