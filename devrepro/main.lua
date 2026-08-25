@@ -17,10 +17,10 @@ local STEPS = {
     "debug 10",
     "giveitem c333",
     "stage 2c", 12,
-    "lua gt:get_config().CursorOnGameMap=true gt:get_config().FasterCursorMove=false",
+    "lua gt:get_config().CursorOnGameMap=false",
 }
 
-local HINT = "MCM should now offer CursorOnGameMap, and the cursor should ride the corner map."
+local HINT = "open Mod Config Menu -> GoodTrip: every tab, label and description in Chinese?"
 
 local mod = RegisterMod("devrepro", 1)
 
