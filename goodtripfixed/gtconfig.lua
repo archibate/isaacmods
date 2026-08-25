@@ -29,6 +29,8 @@ return {
     -- DangerCautionCompat = true, -- colour dangerous rooms with Dangerous room! Caution
     -- FairTripTime = false,       -- charge game time for the distance travelled
     -- FairTripPath = true,        -- only trip to rooms reachable through cleared rooms
+    -- DimMapInCombat = true,      -- keep the map on screen, faint, while the room is uncleared
+    -- DimMapAlpha = 35,           -- how faint, in percent; 5 is the lowest allowed
     -- ShowSpecialIcons = true,    -- mirror, white fire, minecart, mine button, tinted skull (visited rooms)
     -- IgnoreMovementKeys = false, -- keep aiming while you walk
     -- SwapAnalogSticks = false,   -- aim the cursor with the movement stick

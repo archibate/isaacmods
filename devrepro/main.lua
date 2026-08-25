@@ -11,10 +11,13 @@
 -- it or whatever follows is swallowed.
 
 local STEPS = {
-    "luamod timemachinefixed",
+    "luamod goodtripfixed",
+    "restart 10", 10,
+    "debug 3",
+    "stage 2", 12,
 }
 
-local HINT = "open Mod Config Menu -> TimeMachine: labels, machine names, descriptions Chinese?"
+local HINT = "TAB with enemies alive: faint map, no cursor. DimMapAlpha and the on/off both live in Display."
 
 local mod = RegisterMod("devrepro", 1)
 

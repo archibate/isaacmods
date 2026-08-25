@@ -160,6 +160,8 @@ local gtconfig = {
     -- AllowRightClick = false,  --mouse right click on bigmap to teleport
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
     CursorOnGameMap = false,  --draw the cursor on the game's own corner map instead of the draggable window; needs REPENTOGON, see _gt:enableGMC
+    DimMapInCombat = true,  --while the room is uncleared and no trip is possible, draw the window faint and inert instead of hiding it
+    DimMapAlpha = 35,  --how faint that is, in percent; floored at 5 so a mistyped 0 cannot erase the window the way MinimapScale once did
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
     FairTripTime = false,  --weather to incur fair time according to distance; off by default so the apiless rework doesn't spring time penalties on existing players
     FairTripPath = true,  --true = enable / false = disable. only trip to rooms linked to the current one by cleared rooms
@@ -318,6 +320,7 @@ if ModConfigMenu then
         { "Shortcuts", "AllowBookmarking", "Allow adding bookmarks for rooms via TAB + 1~9" },
 
 
+        { "Display", "DimMapInCombat", "While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it" },
         { "Display", "ShowSpecialIcons", "Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "Display", "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
         { "Display", "TeleportAnimation", "Play cool animation on teleport" },
@@ -348,6 +351,25 @@ if ModConfigMenu then
         )
       end
     end
+    ModConfigMenu.AddSetting(
+      "GoodTrip [Fixed]", "Display",
+      {
+        Type = ModConfigMenu.OptionType.NUMBER,
+        Minimum = 5, --never 0: an invisible window is the bug this feature exists to end
+        Maximum = 100,
+        Default = 35,
+        CurrentSetting = function()
+          return gtconfig.DimMapAlpha or 35
+        end,
+        Display = function()
+          return ("DimMapAlpha: %d%%"):format(gtconfig.DimMapAlpha or 35)
+        end,
+        OnChange = function(b)
+          gtconfig.DimMapAlpha = b
+        end,
+        Info = { "How faint the teleport map is while the room is uncleared (DimMapInCombat)" },
+      }
+    )
     ModConfigMenu.AddSetting(
       "GoodTrip [Fixed]", "Map",
       {
@@ -591,6 +613,8 @@ if ModConfigMenu then
             { "^LastRoomShortcut:", "TAB+Z 回上一个房间:" },
             { "^FastRestartEnable:", "TAB+R 快速重开:" },
             { "^AllowBookmarking:", "TAB+1~9 房间书签:" },
+            { "^DimMapInCombat:", "战斗中淡显地图:" },
+            { "^DimMapAlpha:", "淡显的浓度:" },
             { "^ShowSpecialIcons:", "显示特殊房间图标:" },
             { "^DangerCautionCompat:", "危险房间提示联动:" },
             { "^TeleportAnimation:", "传送动画:" },
@@ -628,6 +652,8 @@ if ModConfigMenu then
             ["Allow teleport back to last room via TAB + Z"] = "TAB+Z 回到上一个待过的房间",
             ["Allow restarting the run quickly via TAB + R"] = "TAB+R 直接重开一局",
             ["Allow adding bookmarks for rooms via TAB + 1~9"] = "TAB+1~9 给房间做书签, 再按一次传送过去, TAB+0 全部清空",
+            ["While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it"] = "房间还没清干净, 传送本来就用不了, 这时把传送小窗淡淡地留在原地而不是整个藏起来",
+            ["How faint the teleport map is while the room is uncleared (DimMapInCombat)"] = "战斗中传送小窗淡到什么程度, 百分比, 最低 5% 免得看不见",
             ["Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull"] = "在待过的房间上标出镜子, 白火, 矿车, 矿洞按钮, 暗色骷髅",
             ["weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors"] = "检测到我的另一个 mod 'Dangerous room! Caution' 时, 用颜色标出危险房间",
             ["Play cool animation on teleport"] = "传送时播放动画",
@@ -1626,7 +1652,7 @@ function _gt:draw_gamemap_cursor()
     cursor.Color = Color(1, 1, 1, 1, 0, 0, 0)
 end
 --
-function _gt:draw_minimap()
+function _gt:draw_minimap(faint)
     if _gt:enableGMC() then
       --REPENTOGON draws the game's own map during MC_HUD_RENDER, so a cursor
       --drawn here or there both land underneath it; MC_POST_HUD_RENDER is the
@@ -1636,7 +1662,15 @@ function _gt:draw_minimap()
       end
       return
     end
+    --faint pass: the room is not cleared, so no trip is possible from it. The
+    --window stays where it is at low alpha rather than disappearing, which is
+    --what players report as the mod being broken. Nothing on it can be used,
+    --so the chrome and the cursor are left out (see tab_action)
+    local alpha = faint and math.min(math.max(gtconfig.DimMapAlpha or 35, 5), 100) / 100 or 1
+    mic.Color = Color(1, 1, 1, alpha, 0, 0, 0)
+    select.Color = Color(1, 1, 1, alpha, 0, 0, 0)
     ---draw outline---
+    mmp.Color = Color(1, 1, 1, alpha, 0, 0, 0)
     mmp:SetFrame(icon_room[1], 0)
     for i = 1, #draw_room_id do
       local s = grid_room[draw_room_id[i]].Data.Shape
@@ -1652,12 +1686,12 @@ function _gt:draw_minimap()
       if rd.ListIndex < n_room_num then --and rd.Data.Type ~= 29 then
         local markclr = grid_room_mark[rd.SafeGridIndex]
         if markclr ~= nil then
-            mmp.Color = Color(markclr.Red, markclr.Green, markclr.Blue, 1, 0, 0, 0)
+            mmp.Color = Color(markclr.Red, markclr.Green, markclr.Blue, alpha, 0, 0, 0)
         else
-            mmp.Color = Color(1, 1, 1, 1, 0, 0, 0)
+            mmp.Color = Color(1, 1, 1, alpha, 0, 0, 0)
         end
       else
-        mmp.Color = Color(1, 0.3, 0.3, 1, 0, 0, 0)
+        mmp.Color = Color(1, 0.3, 0.3, alpha, 0, 0, 0)
       end
       if rd.SafeGridIndex == draw_room_id[i] or (rd.Data.Type == 5 and stage == 12) then
         -----room
@@ -1678,7 +1712,7 @@ function _gt:draw_minimap()
         --     end
         -- end
         -----icon
-        mmp.Color = Color(1, 1, 1, 1, 0, 0, 0)
+        mmp.Color = Color(1, 1, 1, alpha, 0, 0, 0)
         if rd.Data.Type > 1 and rd.DisplayFlags > 1 and (rd.DisplayFlags ~= 3 or (rd.Data.Type ~= 6 and rd.Data.Type ~= 13)) and rd.Data.Type ~= 23 then
           if (rd.Data.Type == 2 or rd.Data.Type == 12 or (rd.Data.Type > 17 and rd.Data.Type < 22)) and rd.DisplayFlags == 3 then
             mic:SetFrame(icon_flag2[1], 0)
@@ -1760,7 +1794,7 @@ function _gt:draw_minimap()
       end
     end
     ---draw cursor---
-    if mmp_ctrl then
+    if mmp_ctrl and not faint then
       cursor:Render(_gt:mirror_mmp_pos(mmp_ctrl_pos), Vector(0, 0), Vector(0, 0))
     end
 end
@@ -1855,7 +1889,19 @@ function _gt:tab_action()
       player.ControlsCooldown = player.ControlsCooldown + 1
     end
     --
-    if (gtconfig.KeyboardMapEnable and _gt:check_teleble(false)) or debug then -------return when gtconfig.KeyboardMapEnable & debug disable
+    --a room still being fought in refuses every trip, and the window used to
+    --answer that by disappearing -- which reads as the mod having broken, and
+    --is most of the "my map is gone" reports. Draw it faint and inert instead.
+    --Only for that case: Curse of the Lost hiding the map is the player's own
+    --switch, and a room the map does not know is nothing to draw
+    local dim_only = gtconfig.KeyboardMapEnable and gtconfig.DimMapInCombat
+        and not _gt:check_teleble(false)
+        and grid_room[crd.SafeGridIndex] ~= nil
+        and not (gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0)
+    if dim_only and not debug then
+      mmp_ctrl = false --no cursor while it is inert; it rebuilds at the room you stand in
+      _gt:draw_minimap(true)
+    elseif (gtconfig.KeyboardMapEnable and _gt:check_teleble(false)) or debug then -------return when gtconfig.KeyboardMapEnable & debug disable
       local movement_pressed = false
       for i = 1, 4 do
         if Input.IsActionPressed(movkey[i], player.ControllerIndex) then
