@@ -188,6 +188,66 @@ if ModConfigMenu then
           }
         )
     end
+    --Mod配置菜单（中文版）announces itself, and it is the only build that draws
+    --text as UTF-8 -- the plain menu goes byte by byte, where Chinese comes out
+    --as rubbish. The English menu above is untouched; this paints over what is
+    --drawn, and the keys settings save under never move. Punctuation stays
+    --ASCII: the bundled font has the hanzi but not the full-width marks, which
+    --render as gaps
+    if ModConfigMenu.i18n == "Chinese" then
+        local CAT = "TimeMachine [Fixed]"
+        --Display is a function, so these are search-and-replace pairs run over
+        --the finished line ("MaxSpeed: 5"), anchored to the front so a name
+        --cannot eat the front of a longer one
+        local names = {
+            { "^MaxSpeed:", "最高倍速:" },
+            { "^SpeedUpPercent:", "加速快慢:" },
+            { "^KillSpawnedFlies:", "清掉刷出来的苍蝇:" },
+            { "^DefuseSpawnedBombs:", "延后刷出来的即爆炸弹:" },
+            { "^PreventSuddenDeath:", "血量危险时停下:" },
+            { ": on$", ": 开" },
+            { ": off$", ": 关" },
+        }
+        --Info is a plain table of strings, matched whole
+        local infos = {
+            ["Maximum extra speed a machine can reach (in game ticks per real tick)"] = "机器最多能快到几倍, 也就是一个真实帧里跑多少个游戏帧",
+            ["How fast the speed builds up while touching a machine (percent per tick)"] = "贴着机器时倍速涨得多快, 每帧涨百分之几",
+            ["Kill flies spawned by Shell Game / Hell Game / beggars so speeding up won't get you hurt"] = "把猜球游戏, 地狱猜球和乞丐刷出来的苍蝇清掉, 免得快进的时候挨一下",
+            ["Delay troll bombs dropped by machines / beggars so they explode after you finished"] = "机器和乞丐掉出来的恶搞炸弹推迟引爆, 等你弄完再炸",
+            ["Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to keep accelerating at lethal HP too)"] = "在抽血的机器前, 如果下一次抽血就会要命, 就先停住不加速 (关掉的话血量再低也照样加速)",
+        }
+        --every machine's own switch and its one-line description come from the
+        --same name, so both sides are generated from one table. The pattern
+        --side is escaped: "Isaac (secret)" would otherwise read as a capture
+        local machines = {
+            { "Slot Machine", "老虎机" },
+            { "Blood Donation Machine", "献血机" },
+            { "Fortune Telling Machine", "预言机" },
+            { "Beggar", "乞丐" },
+            { "Devil Beggar", "恶魔乞丐" },
+            { "Shell Game", "三选一游戏" },
+            { "Key Master", "钥匙大师" },
+            { "Donation Machine", "捐款机" },
+            { "Bomb Bum", "炸弹乞丐" },
+            { "Shop Restock Machine", "商店补货机" },
+            { "Greed Donation Machine", "贪婪捐款机" },
+            { "Mom's Dressing Table", "妈妈的梳妆台" },
+            { "Battery Bum", "电池乞丐" },
+            { "Isaac (secret)", "以撒 (隐藏)" },
+            { "Hell Game", "恶魔三选一" },
+            { "Crane Game", "抓娃娃机" },
+            { "Confessional", "忏悔室" },
+            { "Rotten Beggar", "腐烂乞丐" },
+        }
+        for _, m in ipairs(machines) do
+            local pattern = m[1]:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+            names[#names + 1] = { "^" .. pattern .. ":", m[2] .. ":" }
+            infos["Accelerate " .. m[1] .. " while touching it"] = "贴着" .. m[2] .. "时加速"
+        end
+        ModConfigMenu.SetCategoryNameTranslate(CAT, "TimeMachine [修复版]")
+        ModConfigMenu.TranslateOptionsDisplayWithTable(CAT, nil, names)
+        ModConfigMenu.TranslateOptionsInfoTextWithTable(CAT, nil, infos)
+    end
     load_config()
     _tmmc:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
         load_config()

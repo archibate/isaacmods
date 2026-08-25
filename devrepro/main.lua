@@ -11,16 +11,10 @@
 -- it or whatever follows is swallowed.
 
 local STEPS = {
-    "luamod goodtripfixed",
-    "restart 10", 10,
-    "debug 3",
-    "debug 10",
-    "giveitem c333",
-    "stage 2c", 12,
-    "lua gt:get_config().CursorOnGameMap=false",
+    "luamod timemachinefixed",
 }
 
-local HINT = "open Mod Config Menu -> GoodTrip: every tab, label and description in Chinese?"
+local HINT = "open Mod Config Menu -> TimeMachine: labels, machine names, descriptions Chinese?"
 
 local mod = RegisterMod("devrepro", 1)
 

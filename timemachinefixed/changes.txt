@@ -1,1 +1,1 @@
-- Fixed invincible blood selling (The Chariot / Power Pill / Unicorn) paying out far less than vanilla: the invincibility was burning at twice the machine's rate, so a Chariot donation run gave about half the coins and cost an extra heart at the end — only post-hit i-frames are fast-forwarded now (thanks @TesKwokin and @Tako-chan for the reports!)
+- 中文玩家: 装了 Mod配置菜单（中文版）的话, 本 mod 的设置菜单现在是中文的, 机器名字和说明都翻译好了 (原版菜单画不了中文, 所以只在中文版菜单下生效).
