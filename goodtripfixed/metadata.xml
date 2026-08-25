@@ -25,7 +25,7 @@ KEY FIXES
 
 FEATURES
 
-Configure these features with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url]:
+Configure these features with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url] or [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2494192799]Mod配置菜单（中文版）[/url]:
 
 - Bookmark rooms with TAB + 1, TAB + 2, etc.; use the same shortcut again to teleport back (MCM: AllowBookmarking).
 - Return to the previously visited room with TAB + Z; press it again to return (MCM: LastRoomShortcut).
@@ -45,6 +45,7 @@ Configure these features with [url=https://steamcommunity.com/sharedfiles/filede
 - Move the cursor with the movement keys instead of the shoot keys, so aiming doesn't fire (MCM: SwapAnalogSticks, off by default). Thanks @Porp!
 - Keep aiming while you walk, instead of the cursor pausing until you let go of the movement keys (MCM: IgnoreMovementKeys, off by default).
 - Put the cursor on the game's own corner map and leave this mod's window hidden — needs [url=https://repentogon.com/]REPENTOGON[/url] to draw above the map, and the switch is only offered when it is installed (MCM: CursorOnGameMap, off by default).
+- Full Chinese config menu support, if you are using [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2494192799]Mod配置菜单（中文版）[/url].
 
 FAQ
 
@@ -53,7 +54,7 @@ No Mod Config Menu? Open gtconfig.lua in the mod folder and uncomment the settin
 Accidentally dragged the teleport map into the trash? Restore it from MCM, or enter this command in the in-game console:
 lua gt:get_config().KeyboardMapEnable=true gt.save_config()
 
-装了[url=https://steamcommunity.com/sharedfiles/filedetails/?id=2494192799]Mod配置菜单（中文版）[/url]的话，本 mod 的设置界面就是中文的，选项名、说明、分页全都翻译好了。原版的 Mod Config Menu 画文字是一个字节一个字节画的，中文塞进去只会变成乱码，所以中文界面只在这个中文版菜单下才有，不是 bug。
+如果你装的是[url=https://steamcommunity.com/sharedfiles/filedetails/?id=2494192799]Mod配置菜单（中文版）[/url]，本 mod 的设置界面就是中文的，选项名、说明、分页全都翻译好了。原版的 Mod Config Menu 画文字是一个字节一个字节画的，中文塞进去只会变成乱码。因此我无法在原版MCM里写中文，中文界面只在这个中文版菜单下才有。
 
 Original [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831]GoodTrip[/url] by @tarako
 Co-authored with @Porp
