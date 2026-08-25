@@ -53,8 +53,7 @@ No Mod Config Menu? Open gtconfig.lua in the mod folder and uncomment the settin
 Accidentally dragged the teleport map into the trash? Restore it from MCM, or enter this command in the in-game console:
 lua gt:get_config().KeyboardMapEnable=true gt.save_config()
 
-Playing in Chinese? Install [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2494192799]Mod Config Menu (Chinese)[/url] and this mod's settings menu comes up in Chinese — names, descriptions and all. The usual Mod Config Menu draws text one byte at a time, so Chinese is unreadable there whatever font it is given; that fork is the one that handles it.
-中文玩家：装了上面这个中文版的 Mod 配置菜单，本 mod 的设置界面就是中文的。
+装了[url=https://steamcommunity.com/sharedfiles/filedetails/?id=2494192799]Mod配置菜单（中文版）[/url]的话，本 mod 的设置界面就是中文的，选项名、说明、分页全都翻译好了。原版的 Mod Config Menu 画文字是一个字节一个字节画的，中文塞进去只会变成乱码，所以中文界面只在这个中文版菜单下才有，不是 bug。
 
 Original [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1630477831]GoodTrip[/url] by @tarako
 Co-authored with @Porp
