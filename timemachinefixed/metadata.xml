@@ -44,7 +44,7 @@ Configure maximum speed, acceleration, and individual machine toggles with [url=
 - 修复骨哥符文、双子符文、稻草人和复得幽魂使用献血机时导致的崩溃。
 - 修复高速互动时穿过乞丐、距离异常或瞬移的问题。
 
-所有速度与机器开关均可在 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url] 中调整；装了[url=https://steamcommunity.com/sharedfiles/filedetails/?id=2494192799]Mod配置菜单（中文版）[/url]的话，设置界面还是中文的，机器名字和说明全都翻译好了（原版菜单画文字是一个字节一个字节画的，中文塞进去只会变成乱码，所以中文界面只在中文版菜单下才有，不是 bug）。默认还会清除互动生成的苍蝇、延缓即爆炸弹，并在下一次献血可能致死时自动停止加速；这些安全功能都可以单独关闭。无敌状态（战车牌、独角兽等）下卖血的收益与不加速时完全相同。
+所有速度与机器开关均可在 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3701683951]Mod Config Menu[/url] 中调整；装了[url=https://steamcommunity.com/sharedfiles/filedetails/?id=2494192799]Mod配置菜单（中文版）[/url]的话，设置界面自动全中文，机器名字和说明全都翻译好了。默认还会清除互动生成的苍蝇、延缓即爆炸弹，并在下一次献血可能致死时自动停止加速；这些安全功能都可以单独关闭。无敌状态（战车牌、独角兽等）下卖血的收益与不加速时完全相同。
 
 发现其他问题，欢迎留言反馈！
 
@@ -52,7 +52,7 @@ Configure maximum speed, acceleration, and individual machine toggles with [url=
 │★ Check out my other fixed mod: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2916069863]GoodTrip [Fixed][/url] ★│
 └──────────────────────────────────────────────────────────┘
 </description>
-    <version>1.28</version>
+    <version>1.29</version>
     <visibility>Public</visibility>
     <tag id="Tweaks"/>
 </metadata>
