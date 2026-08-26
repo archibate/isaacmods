@@ -3,4 +3,4 @@
 - Birthright now doubles the shown reach of Tainted Azazel's hemoptysis, matching its doubled cloud size
 - InfAimLength changes in Mod Config Menu now apply immediately (only TractorBeamMode still needs a game restart)
 - Now compatible with Cuerzor's "Range fix for Bones & Sword": the bone club, berserk club and Spirit Sword now show the reach that mod gives them, instead of a ring with an empty middle you can actually hit into
-- The Spirit Sword now has a range indicator at last; its SpiritSword option in Mod Config Menu had never been wired up to anything
+- The Spirit Sword range is finally out of "work in progress" — it now shows how far your swing reaches, with its own marker
