@@ -2,5 +2,5 @@
 - Fixed Tractor Beam mode never activating: the saved setting was applied after the mode was already chosen at load time; now it works (still requires a game restart after changing it, as documented)
 - Birthright now doubles the shown reach of Tainted Azazel's hemoptysis, matching its doubled cloud size
 - InfAimLength changes in Mod Config Menu now apply immediately (only TractorBeamMode still needs a game restart)
-- Now compatible with Cuerzor's "Range fix for Bones & Sword": the reach shown for the Forgotten's bone club, Tainted Samson's berserk club and the Spirit Sword follows what that mod actually changes, instead of leaving an empty middle you can in fact hit into
-- The Spirit Sword now shows its swing reach, which the range stat pushes further out from you; its option in Mod Config Menu had never been connected to anything before. Holding the sword also no longer hides every other indicator, so a synergy that replaces your weapon now shows that weapon's range instead of nothing
+- Now compatible with Cuerzor's "Range fix for Bones & Sword": the bone club, berserk club and Spirit Sword now show the reach that mod gives them, instead of a ring with an empty middle you can actually hit into
+- The Spirit Sword now has a range indicator at last; its SpiritSword option in Mod Config Menu had never been wired up to anything
