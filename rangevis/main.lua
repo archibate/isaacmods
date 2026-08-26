@@ -53,7 +53,7 @@ local configDescs = {
     { "RangedBone", "Show range of Forgotten's ranged bone attack" },
     { "TaintedForgotten", "Show throw range of Tainted Forgotten's body when held" },
     { "MomsKnife", "Show dynamic range of Mom's Knife when charging" },
-    { "SpiritSword", "Show range of the Spirit Sword (work in progress)" },
+    { "SpiritSword", "Show swing range of the Spirit Sword" },
     { "BagOfCrafting", "Show pickup collecting range of the Bag of Crafting" },
     { "BobsRottenHead", "Show bomb landing site of the Bob's Rotten Head" },
     { "TaintedLilith", "Show shoot range of Tainted Lilith's Gello" },
@@ -152,7 +152,8 @@ local AimMode = {
     AIM_KNIFE = 10, -- Mom's Knife
     AIM_FARBONE = 11, -- Forgotten's ranged bone attack
     AIM_TECHX = 12, -- Technology X
-    NUM_AIM_MODES = 13,
+    AIM_SWORD = 13, -- Spirit Sword's swing
+    NUM_AIM_MODES = 14,
 }
 
 local ShootMode = {
@@ -176,12 +177,14 @@ local LineMode = {
     LINE_BOMB = 8,
     LINE_GELLO = 9,
     LINE_CRAFTBAG = 10,
-    NUM_LINE_MODES = 11,
+    LINE_SWORD = 11,
+    NUM_LINE_MODES = 12,
 }
 
 local lineColorTear = Color(0.50, 0.55, 0.6)
 local lineColorBone = Color(0.55, 0.65, 0.7)
 local lineColorKnife = Color(0.7, 0.4, 0.6)
+local lineColorSword = Color(0.55, 0.75, 0.8)
 local lineColorBrim = Color(0.95, 0.35, 0.2)
 local lineColorSamson = Color(0.85, 0.1, 0.1)
 local lineColorLaser = Color(0.9, 0.15, 0.15)
@@ -322,6 +325,12 @@ if kOldMode then
                 targetSprite.Rotation = -targetSprite.Rotation
             end
             renderTargetSprite("Knife", to, opacity)
+        elseif aimMode == LineMode.LINE_SWORD then
+            if Vector.FromAngle(angle).X < -0.1 then
+                targetSprite.FlipY = true
+                targetSprite.Rotation = -targetSprite.Rotation
+            end
+            renderTargetSprite("Sword", to, opacity)
         elseif aimMode == LineMode.LINE_TARGET then
             targetSprite.Rotation = 0
             renderTargetSprite("Target", to, opacity)
@@ -362,6 +371,71 @@ else
         table.insert(pData.rvDraws, draw)
     end
 
+end
+
+-- "Range fix for Bones & Sword" (workshop 3033566163) rewrites a melee swing on its
+-- first frame: it parks the weapon on the player and multiplies its scale instead of
+-- letting it reach outward, so the vanilla reach this mod draws no longer describes
+-- what the swing covers. Read back the scale it applied and follow it -- deriving it
+-- instead would mean copying that mod's formula and its own configurable factor, and
+-- would still miss whatever the game had put in TargetPosition to begin with.
+
+-- measured in-game: pixels of reach per unit of the weapon's own scale, keyed by knife
+-- variant. Separate weapons of separate lengths pass through here, so one shared number
+-- would be wrong for at least one of them -- these three were each measured on their own
+-- and simply came out the same, so keep them apart rather than collapsing them.
+local kSwingReach = {
+    [1] = 60, -- bone club, checked at scale 1.04 and 2.29 and linear between them
+    [3] = 60, -- berserk club, same length, checked at scale 2.19
+    [10] = 60, -- spirit sword, same again, checked at scale 1.04 and 2.29
+}
+local swingScale = {}
+local swingOffset = {}
+
+mod:AddCallback(ModCallbacks.MC_POST_KNIFE_UPDATE, function(_, knife)
+    -- read it past the first frame, so whichever order this and the range fix's own
+    -- callback run in, what lands here is the shape the swing settled on
+    if knife.FrameCount > 0 then
+        swingScale[knife.Variant] = knife.Scale
+        swingOffset[knife.Variant] = knife.TargetPosition.X
+    end
+end, 4)
+
+local function swingReach(knifeVariant)
+    local reach = kSwingReach[knifeVariant]
+    local scale = swingScale[knifeVariant]
+    if not reach or not scale then
+        return nil
+    end
+    return reach * scale
+end
+
+-- The Forgotten's club and Tainted Samson's berserk club only take their reach from
+-- scale once "Range fix for Bones & Sword" has reshaped them; left alone the game
+-- swings them outward instead, which the vanilla formula above already describes.
+function mod:meleeRangeFixReach(knifeVariant)
+    local fix = RangeFixForBonesAndSword
+    if not (fix and fix.IsEnabled and fix:IsEnabled()) then
+        return nil
+    end
+    local scale = swingScale[knifeVariant]
+    if not scale or scale <= 1.01 then
+        return nil
+    end
+    return swingReach(knifeVariant)
+end
+
+-- The Spirit Sword hangs off the player at an offset the range stat pushes outward, and
+-- reaches a blade's length past that. "Range fix for Bones & Sword" trades that offset
+-- away for a longer blade, which is the same two numbers with different values in them,
+-- so reading both live describes the swing with or without that mod installed.
+function mod:spiritSwordBand()
+    local far = swingReach(10)
+    if not far then
+        return nil
+    end
+    local near = swingOffset[10] or 0
+    return near, near + far
 end
 
 mod.shootTime = 0
@@ -467,6 +541,16 @@ function mod:renderAimline(player, shotVel, aimMode, shootMode)
         extraVel = shotVel / shotVel:LengthSquared() * extraVel:Dot(shotVel)
     end
 
+    if aimMode == AimMode.AIM_SWORD then
+        local near, far = mod:spiritSwordBand()
+        if near and mod:getConfig().SpiritSword then
+            local dir = shotVel:Normalized()
+            mod:drawLine(player, origPos + dir * near, origPos + dir * far,
+                LineMode.LINE_SWORD, lineColorSword, 1, true)
+        end
+        return
+    end
+
     if aimMode == AimMode.AIM_HEMOPTYSIS then
         local ext = (player.ShotSpeed - 1) * 40
         local reach = 64 - 15
@@ -505,6 +589,15 @@ function mod:renderAimline(player, shotVel, aimMode, shootMode)
                 local size = math.max(player.SpriteScale.X - 1, 0)
                 local shotMin = svn * (svl - 42)
                 shotVel = svn * (svl + 20 + size * 64) * ssc
+                -- Tainted Samson swings a berserk club here, everyone else a bone club
+                local fixReach = mod:meleeRangeFixReach(
+                    (shootMode & ShootMode.SHOOT_TSAMSON) ~= 0 and 3 or 1)
+                if fixReach then
+                    -- same swing, so the fix reshapes it the same way; the charge is
+                    -- already inside the scale the fix worked out for this swing
+                    shotMin = svn * 0
+                    shotVel = svn * fixReach
+                end
                 if mod:getConfig().MeleeBone then
                     local lineColor = lineColorBone
                     if (shootMode & ShootMode.SHOOT_TSAMSON) ~= 0 then
@@ -551,6 +644,16 @@ function mod:renderAimline(player, shotVel, aimMode, shootMode)
             local size = math.max(player.SpriteScale.X - 1, 0)
             local shotMin = svn * (svl - 42)
             shotVel = svn * (svl + 20 + size * 64)
+            -- Tainted Samson swings a berserk club here, everyone else a bone club
+            local fixReach = mod:meleeRangeFixReach(
+                (shootMode & ShootMode.SHOOT_TSAMSON) ~= 0 and 3 or 1)
+            if fixReach then
+                -- the fix parks the swing on the player and grows the weapon
+                -- instead, so the band starts at the player rather than leaving
+                -- the near hole the vanilla swing has
+                shotMin = svn * 0
+                shotVel = svn * fixReach
+            end
             if mod:getConfig().MeleeBone then
                 local lineColor = lineColorBone
                 if (shootMode & ShootMode.SHOOT_TSAMSON) ~= 0 then
@@ -704,10 +807,11 @@ function mod:renderOverlay(player)
         or player:HasCollectible(CollectibleType.COLLECTIBLE_C_SECTION)
         or player:HasCollectible(CollectibleType.COLLECTIBLE_EPIC_FETUS)
         or player:HasCollectible(CollectibleType.COLLECTIBLE_EYE_OF_THE_OCCULT)
-        or player:HasCollectible(CollectibleType.COLLECTIBLE_SPIRIT_SWORD)
     -- or player:HasCollectible(CollectibleType.COLLECTIBLE_TRACTOR_BEAM)
     then
         aimMode = AimMode.AIM_NOAIM
+    elseif player:HasWeaponType(WeaponType.WEAPON_SPIRIT_SWORD) then
+        aimMode = AimMode.AIM_SWORD
     else
         if player:HasCollectible(CollectibleType.COLLECTIBLE_LUDOVICO_TECHNIQUE) then
             aimMode = AimMode.AIM_NOAIM
@@ -897,6 +1001,8 @@ else
                     anim = "Hemopt"
                 elseif mode == LineMode.LINE_KNIFE then
                     anim = "Knife"
+                elseif mode == LineMode.LINE_SWORD then
+                    anim = "Sword"
                 elseif mode == LineMode.LINE_GELLO then
                     anim = "Gello"
                     -- effSprite.Rotation = -90
