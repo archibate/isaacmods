@@ -1,1 +1,1 @@
-- 中文玩家: 装了 Mod配置菜单（中文版）的话, 本 mod 的设置菜单现在是中文的, 机器名字和说明都翻译好了 (原版菜单画不了中文, 所以只在中文版菜单下生效).
+- Eternal Chests (the blue chest in Angel Rooms) now speed up while you stand on them: the wait between one payout and the next open used to be about three seconds of standing still per key, and it is now a fraction of that (MCM: EternalChest, on by default) — thanks @明月何掇duo for the request!

@@ -15,6 +15,7 @@ SUPPORTED
 - Shell Game and Hell Game
 - Greed Donation Machine
 - Beggar, Devil Beggar, Key Master, Bomb Bum, Battery Bum, and Rotten Beggar
+- Eternal Chest
 - Multiplayer
 
 KEY FIXES
@@ -36,7 +37,7 @@ Configure maximum speed, acceleration, and individual machine toggles with [url=
 
 让机器和乞丐在连续使用时越来越快，节省现实时间，同时保持游戏内计时公平。
 
-本修复版支持老虎机、预言机、娃娃机、献血机、告解室、三选一游戏、贪婪存款机以及各种乞丐，并支持多人游戏。只需启用 TimeMachine [Fixed]，无需同时启用旧版。
+本修复版支持老虎机、预言机、娃娃机、献血机、告解室、三选一游戏、贪婪存款机、永恒宝箱、各种乞丐，并支持多人游戏。只需启用 TimeMachine [Fixed]，无需同时启用旧版。
 
 主要修复：
 

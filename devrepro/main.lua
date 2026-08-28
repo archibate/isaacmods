@@ -11,36 +11,27 @@
 -- it or whatever follows is swallowed.
 
 local STEPS = {
-    "luamod rangevis",
+    "luamod timemachinefixed",
     "restart 0", 10,
-    "debug 3",
-    "giveitem c579", -- Spirit Sword
-    -- plenty of range, because range is what pushes the sword forward and so what
-    -- makes the wrong indicator obvious
-    "giveitem c731",
-    "giveitem c30",
-    "giveitem c14",
-    "giveitem c339",
-    "giveitem c345",
-    "giveitem c370",
-    "giveitem c29",
-    "giveitem c31", 5,
-    -- the bug lives with the range fix absent, so the run has to start from there
-    "lua RangeFixForBonesAndSword:SetEnabled(false)",
+    -- no "debug 3" in this one: invincibility is the very thing under test, and the
+    -- cheat would pay for every donation
+    "giveitem k8", -- The Chariot
     "stage 2", 12,
-    "spawn 33.0.0", 3,
-    "spawn 33.0.0", 3,
-    "spawn 33.0.0",
+    "spawn 6.2.0", -- Blood Donation Machine
+    "spawn 5.10.1", 3,
+    "spawn 5.10.1", 3,
+    "spawn 5.10.1",
 }
 
-local HINT = "fix OFF: does the band cover the swing now? F4 to check it on too"
-
--- range ups handed out one at a time by F5; Magic Mushroom is deliberately absent
--- because it also grows the player sprite, which muddies a reach measurement
-local RANGE_ITEMS = { 731, 30, 14, 339, 345, 370, 29, 31 }
-local rangeItemStep = 0
+local HINT = "sell blood: F4 flips acceleration off for a vanilla count, F3 more hearts"
 
 local mod = RegisterMod("devrepro", 1)
+
+-- which copy of this file the game is actually running. Bump it with any edit worth
+-- reading a log for: a run that logs nothing new is otherwise indistinguishable from
+-- a run whose reload never happened
+local REV = 8
+Isaac.DebugString("[TMBOOT] devrepro rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything
@@ -73,71 +64,129 @@ if pressed == "dump" then dump() end
 local step = 0
 local waiting = 0
 
--- TEMP instrument: how far a swung weapon really reaches, to compare against what
--- RangeVis draws. Everything here is tracked at its peak across each knife's life --
--- scale and target offset hold still through a swing, so keying the log on those
--- sampled the travelling values exactly once and missed the entire sweep.
-local knifeSeen = {}
+-- TEMP instrument. Run 2 read the shape of one chest cycle off the log -- about 60 frames held open, then
+-- a 30 frame lockout -- and run 3 showed extra Update() calls compress it exactly in
+-- proportion. The driver now only watches: the mod under test does the speeding up,
+-- and these cycle lines are how a fast cycle proves itself against those numbers
+local chests = {}
+local chestCount = 0
 
--- whether the range fix is loaded, and at what factor, belongs in the log rather
--- than in a question afterwards; it publishes itself as a global
-local function logRangeFix()
-    local fix = RangeFixForBonesAndSword
-    if not fix then
-        Isaac.DebugString("[RVFIX] range fix mod not loaded")
+local function logChests()
+    local player = Isaac.GetPlayer(0)
+    -- subtype -1: the chest must stay in the list across its own open/close flips
+    for _, ent in ipairs(Isaac.FindByType(EntityType.ENTITY_PICKUP,
+            PickupVariant.PICKUP_ETERNALCHEST, -1, false, false)) do
+        local pickup = ent:ToPickup()
+        local touching = player.Position:Distance(ent.Position) < (player.Size + ent.Size)
+        local id = GetPtrHash(ent)
+        local st = chests[id]
+        if st == nil then
+            chestCount = chestCount + 1
+            st = { n = chestCount, sub = ent.SubType, since = ent.FrameCount,
+                   touched = 0, ready = false }
+            chests[id] = st
+        end
+        if touching then st.touched = st.touched + 1 end
+
+        if ent.SubType ~= st.sub then
+            local phase = st.sub == 1 and "closed->open" or "open->closed"
+            Isaac.DebugString(string.format(
+                "[TMCYCLE] c%d %s after %d frames, touching %d of them",
+                st.n, phase, ent.FrameCount - st.since, st.touched))
+            st.sub = ent.SubType
+            st.since = ent.FrameCount
+            st.touched = 0
+            st.ready = false
+        elseif ent.SubType == 1 and not st.ready and pickup.Wait == 0 then
+            st.ready = true
+            Isaac.DebugString(string.format(
+                "[TMCYCLE] c%d openable again %d frames after closing",
+                st.n, ent.FrameCount - st.since))
+        end
+
+        -- the frame-by-frame field trace stays, at a tenth of the volume: the cycle
+        -- lines say what happened, this says which field carried it
+        if ent.FrameCount % 10 == 0 then
+            Isaac.DebugString(string.format(
+                "[TMCHEST] c%d age=%d sub=%d state=%d wait=%d anim=%s aframe=%d keys=%d touch=%s",
+                st.n, ent.FrameCount, ent.SubType, pickup.State, pickup.Wait,
+                ent:GetSprite():GetAnimation(), ent:GetSprite():GetFrame(),
+                player:GetNumKeys(), tostring(touching)))
+        end
+    end
+end
+
+-- the run timer is what a dead chest would quietly steal: the mod pushes it forward
+-- by one tick per accelerated frame, so its climb against real frames says whether
+-- anything is still being accelerated -- 1:1 means the guard let go
+local ticks = 0
+local lastFrame, lastTime
+-- the same reading the log gets, kept for the screen: standing in the right spot is
+-- half of this test, and the player cannot see a log while doing it
+local clockLine = "waiting"
+local function logClock()
+    local game = Game()
+    local frame, time = game:GetFrameCount(), game.TimeCounter
+    ticks = ticks + 1
+    if lastFrame == nil then
+        lastFrame, lastTime = frame, time
         return
     end
-    Isaac.DebugString(string.format("[RVFIX] enabled=%s factor=%s boc=%s",
-        tostring(fix:IsEnabled()), tostring(fix:GetRangeFactor()),
-        tostring(fix:IsEnabledBOC())))
+    -- counted here rather than off the game's own frame number: this instrument is
+    -- measuring that number, so it cannot also be the thing that decides when to look
+    if ticks % 30 ~= 0 then return end
+    local player = Isaac.GetPlayer(0)
+    local on = "none"
+    for _, ent in ipairs(Isaac.FindByType(EntityType.ENTITY_PICKUP,
+            PickupVariant.PICKUP_ETERNALCHEST, -1, false, false)) do
+        if player.Position:Distance(ent.Position) < (player.Size + ent.Size) then
+            on = "chest sub=" .. ent.SubType
+        end
+    end
+    clockLine = string.format("on %s, timer %d per 30", on, time - lastTime)
+    Isaac.DebugString(string.format(
+        "[TMTIME] 30 updates -> %d game frames, %d timer frames (frame=%d timer=%d), on %s, hearts=%d coins=%d keys=%d",
+        frame - lastFrame, time - lastTime, frame, time, on,
+        player:GetHearts() + player:GetSoulHearts(),
+        player:GetNumCoins(), player:GetNumKeys()))
+    lastFrame, lastTime = frame, time
 end
 
--- Tainted Samson only swings while berserk, and earning that honestly in a test room
--- is slow and fiddly; his meter is a plain 0-100000 field, so pinning it keeps the
--- club out for as long as the run needs
-local function keepBerserk()
+-- every donation, one line: what it cost, what it paid, and whether it was bought
+-- with invincibility. Counting donations per Chariot with acceleration on and then
+-- off is the only honest way to say the payout still matches vanilla
+local blood = nil
+local function logBlood()
     local player = Isaac.GetPlayer(0)
-    if player:GetPlayerType() == PlayerType.PLAYER_SAMSON_B then
-        player.SamsonBerserkCharge = 100000
+    local now = { red = player:GetHearts(), soul = player:GetSoulHearts(),
+                  coins = player:GetNumCoins() }
+    if blood == nil then
+        blood = now
+        return
+    end
+    if now.red ~= blood.red or now.soul ~= blood.soul or now.coins ~= blood.coins then
+        Isaac.DebugString(string.format(
+            "[TMBLOOD] red %d->%d soul %d->%d coins %d->%d, cooldown=%d, accel=%s, frame=%d",
+            blood.red, now.red, blood.soul, now.soul, blood.coins, now.coins,
+            player:GetDamageCooldown(), tostring(tmmc and tmmc.enable and tmmc.enable[2]),
+            Game():GetFrameCount()))
+        blood = now
     end
 end
 
-local function logKnives()
-    local player = Isaac.GetPlayer(0)
-    for _, ent in ipairs(Isaac.FindByType(EntityType.ENTITY_KNIFE, -1, -1, false, false)) do
-        local knife = ent:ToKnife()
-        local id = GetPtrHash(ent)
-        local tgt, scale = ent.TargetPosition.X, knife.Scale
-        local seen = knifeSeen[id]
-        if seen == nil then
-            seen = { reach = -1, dist = -1 }
-            knifeSeen[id] = seen
-            Isaac.DebugString(string.format(
-                "[RVKNIFE] born range=%.0f var=%d sub=%d age=%d scale=%.2f sprite=%.2f tgt=%.1f",
-                player.TearRange, ent.Variant, ent.SubType, ent.FrameCount, scale,
-                ent.SpriteScale.X, tgt))
-        end
-        -- how far the weapon reaches from the body is the thing a reach indicator
-        -- needs, and the engine answers that directly; position is logged beside it
-        -- because the two disagree once a mod moves the weapon around
-        local reach = knife:GetKnifeDistance()
-        local dist = (ent.Position - player.Position):Length()
-        if reach > seen.reach + 2 or dist > seen.dist + 2 then
-            seen.reach = math.max(seen.reach, reach)
-            seen.dist = math.max(seen.dist, dist)
-            Isaac.DebugString(string.format(
-                "[RVKNIFE] far range=%.0f var=%d sub=%d reach=%.1f dist=%.1f scale=%.2f tgt=%.1f size=%.1f",
-                player.TearRange, ent.Variant, ent.SubType, reach, dist, scale, tgt,
-                ent.Size))
-        end
-    end
+-- what an open actually paid out: the reclose is supposed to depend on it (pickups
+-- reclose, a collectible or nothing ends the cycle), so the drops have to be on the
+-- record beside the chest's own state
+local function onPickupInit(_, pickup)
+    if pickup.Variant == PickupVariant.PICKUP_ETERNALCHEST then return end
+    Isaac.DebugString(string.format("[TMDROP] var=%d sub=%d price=%d",
+        pickup.Variant, pickup.SubType, pickup.Price))
 end
-
-if running then logRangeFix() end
 
 function mod:onUpdate()
-    keepBerserk()
-    logKnives()
+    logChests()
+    logClock()
+    logBlood()
     if not running then return end
     if waiting > 0 then
         waiting = waiting - 1
@@ -158,30 +207,26 @@ function mod:onUpdate()
 end
 
 function mod:onRender()
-    -- a fresh target on demand, for tests that burn through dummies faster than one
-    -- run can supply them; no reload, so it stays usable mid-run
+    -- blood runs out faster than a measurement does
     if Input.IsButtonTriggered(Keyboard.KEY_F3, 0) then
-        Isaac.ExecuteCommand("spawn 33.0.0")
+        Isaac.ExecuteCommand("spawn 5.10.1")
     end
 
-    -- fitting reach against the range stat needs several ranges, and handing them out
-    -- one key press at a time beats one run per point
-    if Input.IsButtonTriggered(Keyboard.KEY_F5, 0) then
-        local item = RANGE_ITEMS[rangeItemStep + 1]
-        if item then
-            rangeItemStep = rangeItemStep + 1
-            Isaac.ExecuteCommand("giveitem c" .. item)
-        end
-    end
-
-    -- flipping the fix mid-run is the only way to see both shapes of the same swing
-    -- without two separate presses; the next swing picks the new setting up
+    -- the vanilla control, inside the same run: with the machine's own switch off,
+    -- the mod leaves it alone entirely, so a Chariot's worth of donations counted
+    -- here is the number the accelerated one has to match
     if Input.IsButtonTriggered(Keyboard.KEY_F4, 0) then
-        local fix = RangeFixForBonesAndSword
-        if fix then
-            fix:SetEnabled(not fix:IsEnabled())
-            Isaac.DebugString("[RVFIX] toggled to " .. tostring(fix:IsEnabled()))
+        if tmmc and tmmc.enable then
+            tmmc.enable[2] = not tmmc.enable[2]
+            Isaac.DebugString("[TMBLOOD] blood machine acceleration -> "
+                .. tostring(tmmc.enable[2]))
         end
+    end
+
+    -- the chest was added by rewriting the same loop the machines run through, and
+    -- the blood machine is the delicate half of it, so one is in reach of this run
+    if Input.IsButtonTriggered(Keyboard.KEY_F5, 0) then
+        Isaac.ExecuteCommand("spawn 6.2.0")
     end
 
     for key, intent in pairs({ [Keyboard.KEY_F1] = "run", [Keyboard.KEY_F2] = "dump" }) do
@@ -198,10 +243,12 @@ function mod:onRender()
         Isaac.RenderText("dumped to log", 25, 25, 0.6, 0.9, 0.6, 1)
     elseif step > 0 then
         Isaac.RenderText(HINT, 25, 25, 0.6, 0.9, 0.6, 1)
+        Isaac.RenderText(clockLine, 25, 40, 0.9, 0.8, 0.4, 1)
     else
-        Isaac.RenderText("F1: run repro    F2: dump", 25, 25, 0.5, 0.5, 0.5, 1)
+        Isaac.RenderText("F1: run repro    F2: dump    rev " .. REV, 25, 25, 0.5, 0.5, 0.5, 1)
     end
 end
 
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
+mod:AddCallback(ModCallbacks.MC_POST_PICKUP_INIT, onPickupInit)
