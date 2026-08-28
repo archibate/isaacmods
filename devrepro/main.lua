@@ -15,6 +15,12 @@
 -- screen carry only what is being asked now.
 
 local STEPS = {
+    -- Soundtrack Menu ships two implementations and picks the newer one when
+    -- REPENTOGON is present. Most players have no REPENTOGON, so the reported
+    -- bug lives in the other one: hide the marker and reload it into the legacy
+    -- path, which is cheaper than relaunching the game without the extender
+    "lua REPENTOGON = nil",
+    "luamod musicpicker_1933285222",
     "luamod goodtripfixed",
     "restart 0", 10,
     "debug 3",
@@ -26,14 +32,14 @@ local STEPS = {
     "giveitem c190", -- Pyro: bombs to get through the wall
 }
 
-local HINT = "bomb into the secret room, then TAB+click any room. Does its music follow you?"
+local HINT = "in the secret room, TAB+click a room FAR away - not the one next door"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 9
+local REV = 13
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -67,7 +73,25 @@ if pressed == "dump" then dump() end
 local step = 0
 local waiting = 0
 
+-- the claim is that a secret room's track outlives the room it belongs to, and a
+-- track id settles that without anyone having to trust their ears. One line per
+-- change of either, so a run reads as a list of "here, playing this"
+local last_music, last_room = -1, -1
+local function logMusic()
+    local mus = MusicManager()
+    local id = mus:GetCurrentMusicID()
+    local desc = Game():GetLevel():GetCurrentRoomDesc()
+    if id ~= last_music or desc.SafeGridIndex ~= last_room then
+        last_music, last_room = id, desc.SafeGridIndex
+        Isaac.DebugString(string.format(
+            "[MUSIC] music=%d queued=%d roomtype=%d grid=%d stage=%d.%d",
+            id, mus:GetQueuedMusicID(), desc.Data.Type, desc.SafeGridIndex,
+            Game():GetLevel():GetStage(), Game():GetLevel():GetStageType()))
+    end
+end
+
 function mod:onUpdate()
+    logMusic()
     if not running then return end
     if waiting > 0 then
         waiting = waiting - 1
