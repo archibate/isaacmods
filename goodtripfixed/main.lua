@@ -1040,6 +1040,8 @@ function _gt:teleport_to_grid_index(gid) ----core
       --expected, got boolean" and the teleport died; the properly-typed call
       --below covers every path, only its tele_cd side effect is kept)
       tele_cd = 45
+      if not gtconfig.TeleportAnimation then tele_cd = 10 end
+      if debug or gtconfig.FastTransition then tele_cd = 1 end
     end
     -- print('goto', gid)
     -- local cid = crd.SafeGridIndex
