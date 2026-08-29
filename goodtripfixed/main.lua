@@ -978,8 +978,7 @@ function _gt:check_teleble(gid)
     return true
 end
 --
-function _gt:hurt(n, why) --INSTRUMENT: `why` (strip before shipping)
-  Isaac.DebugString("[GTHURT] " .. tostring(why) .. " n=" .. n) --INSTRUMENT
+function _gt:hurt(n)
   --local ent = Isaac.Spawn(EntityType.ENTITY_SLOT,1,Vector(0, 0), Vector(0, 0),nil,0,Game():GetRoom():GetSpawnSeed())
   player:TakeDamage(n, DamageFlag.DAMAGE_CURSED_DOOR | DamageFlag.DAMAGE_NO_PENALTIES, EntityRef(player), 0)
   --player:UseActiveItem(326, false, false, false, false, 0)
@@ -997,27 +996,16 @@ function _gt:check_curse_room(gid)
       if secret_pre_room_id[crid] and (secret_pre_room_id[crid] == gid or (secret_pre_room_id[secret_pre_room_id[crid]] and secret_pre_room_id[secret_pre_room_id[crid]] ~= crid)) then
         return
       end
-      _gt:hurt(1, "from-curse-room")
+      _gt:hurt(1)
     elseif trd.Data.Type == 10 and not player:IsFlying() then --target to curse room
       if secret_pre_room_id[gid] and (secret_pre_room_id[gid] == crid or (secret_pre_room_id[secret_pre_room_id[gid]] and secret_pre_room_id[secret_pre_room_id[gid]] ~= gid)) then
         return
       end
-      _gt:hurt(1, "to-curse-room")
+      _gt:hurt(1)
     end
 end
 --
 function _gt:teleport_to_grid_index(gid) ----core
-    --INSTRUMENT (strip before shipping): which rooms the trip joins and, for a
-    --secret room at either end, the room it was bombed in from -- the one the
-    --heart charge is decided by, whether or not a charge follows
-    do
-      local trd = grid_room[gid]
-      local function pre(id) local p = secret_pre_room_id[id]
-        return p and string.format("%d(t%d)", p, grid_room[p] and grid_room[p].Data.Type or -1) or "none" end
-      Isaac.DebugString(string.format("[GTTRIP] %d(t%d) pre %s -> %d(t%d) pre %s flying=%s",
-        crid, crd.Data.Type, pre(crid), gid, trd and trd.Data.Type or -1, pre(gid),
-        tostring(player:IsFlying())))
-    end
     --
     for _,en in pairs(Isaac.GetRoomEntities()) do
 			if en.Type == 867 then
@@ -1078,7 +1066,7 @@ function _gt:teleport_to_grid_index(gid) ----core
       --check_curse_room
       elseif not (grid_room[gid].Data.Type == 10 and secret_pre_room_id[gid] and secret_pre_room_id[gid] == crid) then
         if from_prd.Data.Type == 10 and not flat then
-          _gt:hurt(1, "antechamber-out")
+          _gt:hurt(1)
         end
         Game():ChangeRoom(from_pre,-1)
       end
@@ -1095,7 +1083,7 @@ function _gt:teleport_to_grid_index(gid) ----core
         --check_curse_room
         elseif not (crd.Data.Type == 10 and secret_pre_room_id[crid] and secret_pre_room_id[crid] == gid) then
           if to_prd.Data.Type == 10 and not player:IsFlying() and not flat then
-            _gt:hurt(1, "antechamber-in")
+            _gt:hurt(1)
           end
           Game():ChangeRoom(to_pre,-1)
         end
