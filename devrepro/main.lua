@@ -25,14 +25,14 @@ local STEPS = {
     "giveitem c333", -- The Mind: whole map at once, so anywhere is one click away
 }
 
-local HINT = "walk between two rooms, then trip between the same two, and watch where you land"
+local HINT = "trip far across the floor, both ways, and watch which door you land at"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 20
+local REV = 21
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a

@@ -125,6 +125,7 @@ local mmp_1step_mgid = -1
 --
 local tele_maze = false
 local tele_landing = false --INSTRUMENT (strip before shipping)
+local tele_slot = -1 --INSTRUMENT (strip before shipping)
 --the real door graph, learned one room at a time. Grid adjacency alone cannot
 --tell a doorway from a secret room's unbombed wall, so a trip that crosses one
 --hands out a bomb nobody spent. Kept per dimension: the mirror world reuses the
@@ -896,9 +897,11 @@ function _gt:sweep_doors()
       if door and door.Desc.Variant ~= DoorVariant.DOOR_HIDDEN then
         local there = lvl:GetRoomByIdx(door.TargetRoomIndex, -1).SafeGridIndex
         if there ~= here then
-          link[here][there] = true
+          --this end knows which of its own walls the door sits in; the far end
+          --only learns that when its own turn comes, so it gets a bare mark
+          link[here][there] = i
           link[there] = link[there] or {}
-          link[there][here] = true
+          if link[there][here] == nil then link[there][here] = true end
         end
       end
     end
@@ -911,10 +914,52 @@ end
 --used to work starts refusing.
 function _gt:linked(a, b)
     local link, swept = _gt:door_graph()
-    if link[a] and link[a][b] then
+    if link[a] and link[a][b] ~= nil then
       return true
     end
     return not (swept[a] or swept[b])
+end
+--
+--the door a trip should put the player down at, in the room being arrived in.
+--The game is no help here: StartRoomTransition ignores its own Direction
+--argument and works the side out from the two grid numbers, which is right for
+--neighbours and arbitrary for anything further, so a long trip can land against
+--a blank wall. The room's own doors are known from the sweep, so pick the one
+--facing the room being left, and failing that the one on the side it lies on.
+function _gt:landing_slot(from, to)
+    local link = _gt:door_graph()
+    local slots = link[to]
+    if not slots then return -1 end
+    if type(slots[from]) == "number" then --neighbours: the door between them
+      return slots[from]
+    end
+    local function side(d, neg, pos)
+      if d < 0 then return neg elseif d > 0 then return pos end
+    end
+    local dcol = from % 13 - to % 13
+    local drow = (from - from % 13) / 13 - (to - to % 13) / 13
+    local across, along = side(dcol, 0, 2), side(drow, 1, 3)
+    if math.abs(drow) > math.abs(dcol) then across, along = along, across end
+    --a big room has two doors to a side, 4-7 repeating 0-3; either is that side
+    local function on_side(want)
+      local best
+      for _, s in pairs(slots) do
+        if type(s) == "number" and (want == nil or s % 4 == want)
+            and (best == nil or s < best) then
+          best = s
+        end
+      end
+      return best
+    end
+    return (across and on_side(across)) or (along and on_side(along))
+      or on_side(nil) or -1
+end
+--
+--LeaveDoor is the only lever the game leaves open -- EnterDoor is read back
+--from it and ignores writes -- and it puts the player down at the slot across
+--from the one named, base doors and the second set of a big room alike
+function _gt:opposite_slot(s)
+    return (s % 4 + 2) % 4 + (s >= 4 and 4 or 0)
 end
 --
 function _gt:check_teleble(gid)
@@ -1113,6 +1158,16 @@ function _gt:teleport_to_grid_index(gid) ----core
     end
     -- print('goto', gid)
     -- local cid = crd.SafeGridIndex
+    --named here rather than up top: an antechamber hop may have moved the
+    --player since, and the door to arrive by faces wherever they stand now
+    do
+      local lvl = Game():GetLevel()
+      local trd = grid_room[gid]
+      local slot = _gt:landing_slot(lvl:GetCurrentRoomDesc().SafeGridIndex,
+        trd and trd.SafeGridIndex or gid)
+      lvl.LeaveDoor = slot >= 0 and _gt:opposite_slot(slot) or -1
+      tele_slot = slot --INSTRUMENT (strip before shipping)
+    end
     if gtconfig.FastTransition or debug then
       tele_landing = true --INSTRUMENT (strip before shipping)
       Game():ChangeRoom(gid,-1)
@@ -2430,8 +2485,9 @@ function _gt:log_landing(last_crd)
       end
     end
     Isaac.DebugString(string.format(
-      "[GTLAND] %s into %d(t%d) from %d  at %.0f,%.0f  middle %.0f,%.0f  doors %s",
+      "[GTLAND] %s into %d(t%d) from %d  asked s%d  at %.0f,%.0f  middle %.0f,%.0f  doors %s",
       tele_landing and "tripped" or "walked", crsid, crd.Data.Type, from,
+      tele_landing and tele_slot or -1,
       pos.X, pos.Y, mid.X, mid.Y, table.concat(doors, " ")))
     tele_landing = false
 end
