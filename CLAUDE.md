@@ -86,7 +86,9 @@ local HINT = "walk into the boss room and fire once"
 - Need a particular layout (a secret room beside a curse room, say)? No command asks for
   one, but `reseed` redraws the current floor and leaves the run otherwise alone, so the
   driver can loop it and read `Level:GetRooms()` each try until the shape turns up. Once
-  found, `seed GGGG GGGG` before `stage` pins that layout for later runs.
+  found, `seed GGGG GGGG` before `stage` pins that layout for later runs. `MLBG W9ET`
+  floor 2 is worth keeping: a treasure room and a sacrifice room either side of one
+  secret room, which is most of a GoodTrip path test in three rooms.
 - `debug <N>`: enable testing cheats accordingly to help user reproduce easy — `3` invincibility (prevent player death during test), `4` +40 damage (kills faster), `8` active always charged (to allow test active items repeatitively), `6` draws each entity's damage hitbox as a circle (see what a shot actually covers), `9` very high luck (luck-gated tear effects fire more often), `10` quick kill enemies (useful when need to walk through rooms). Run again to toggle off. Flags clear on restart.
 - `lua print(...)`: run lua expression.
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
