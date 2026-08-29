@@ -14,21 +14,29 @@
 -- and take it out again once that question is answered, so the next run's log and
 -- screen carry only what is being asked now.
 
--- the floor that already shows the bug is worth more than a fresh one, so this
--- run only swaps the code in underneath it: no restart, no stage, nothing that
--- would throw the layout away
+-- MLBG W9ET lays a treasure room and a sacrifice room either side of one secret
+-- room on floor 2, which is the whole shape of the report in three rooms. Worth
+-- keeping: reproducing this by wandering took a hunt the first time
 local STEPS = {
     "luamod goodtripfixed",
+    "restart 0", 10, -- pick the character first; the seed keeps it
+    "seed MLBG W9ET", 20,
+    -- invincible, and nothing else: the rooms in between have to stay UNCLEARED
+    -- for the trip to have no honest path, so no quick-kill and no damage up
+    "debug 3",
+    "stage 2", 12,
+    "giveitem c333", -- The Mind: whole map at once, secret room included
+    "giveitem c190", -- Pyro: bombs never run out
 }
 
-local HINT = "re-enter the secret room and the rooms either side of it, then try that trip again both ways"
+local HINT = "walk every room first, then bomb into the secret room from the SACRIFICE side only"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 16
+local REV = 17
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -63,6 +71,7 @@ function mod:onUpdate()
     local entry = STEPS[step]
     if entry == nil then
         running = false
+        dump() -- the seed, so a run that drifted off the intended one says so
         return
     end
     if type(entry) == "number" then
