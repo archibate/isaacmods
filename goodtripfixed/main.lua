@@ -863,96 +863,9 @@ function _gt:get_reachable_rooms()
         end
       end
     end
-    _gt:log_reach_loss(reach) --INSTRUMENT (strip before shipping)
     return reach
 end
---INSTRUMENT (strip before shipping): the route a completed trip was allowed to
---take, each room with its type, so the chain can be read back instead of guessed
---at. A t7 in the middle used to be the report: a secret room counted as a
---corridor on a side that was never bombed.
-function _gt:log_path(gid)
-    local start = crd.SafeGridIndex
-    local parent = {[start] = start}
-    local queue, head = {start}, 1
-    while queue[head] do
-      local cur = queue[head]
-      local node = room_neighbours[cur]
-      head = head + 1
-      if node then
-        for _, adj in ipairs(node.Neighbors) do
-          local rd = grid_room[adj]
-          if rd and not parent[adj] and rd.VisitedCount > 0 and rd.Clear
-              and _gt:linked(cur, adj) then
-            parent[adj] = cur
-            queue[#queue + 1] = adj
-          end
-        end
-      end
-    end
-    local trd = grid_room[gid]
-    local tid = trd and trd.SafeGridIndex or gid
-    local chain = {}
-    if parent[tid] then
-      local at, guard = tid, 0
-      while guard < 40 do
-        local rd = grid_room[at]
-        chain[#chain + 1] = string.format("%d(t%d)", at, rd and rd.Data.Type or -1)
-        if at == start then break end
-        at = parent[at]
-        guard = guard + 1
-      end
-      local rev = {}
-      for i = #chain, 1, -1 do rev[#rev + 1] = chain[i] end
-      chain = rev
-    else
-      chain[1] = string.format("%d(t%d)", start, crd.Data.Type)
-      chain[2] = string.format("%d(t%d)-OFF-ISLAND", tid, trd and trd.Data.Type or -1)
-    end
-    Isaac.DebugString("[GTPATH] fairpath=" .. tostring(gtconfig.FairTripPath)
-      .. " route " .. table.concat(chain, " -> "))
-end
---INSTRUMENT (strip before shipping): the price of the tightening. Every room the
---old grid-adjacency flood would have handed out and the door graph took back, so
---over-refusal shows up as a named list rather than as a player noticing later
---that a room stopped lighting up.
-local last_loss = ""
-function _gt:log_reach_loss(reach)
-    local loose = {[crd.SafeGridIndex] = true}
-    local queue, head = {crd.SafeGridIndex}, 1
-    while queue[head] do
-      local node = room_neighbours[queue[head]]
-      head = head + 1
-      if node then
-        for _, adj in ipairs(node.Neighbors) do
-          local rd = grid_room[adj]
-          if rd and not loose[adj] and rd.VisitedCount > 0 and rd.Clear then
-            loose[adj] = true
-            queue[#queue + 1] = adj
-          end
-        end
-      end
-    end
-    local _, swept = _gt:door_graph()
-    local lost, seen, total = {}, 0, 0
-    for id in pairs(loose) do
-      total = total + 1
-      if swept[id] then seen = seen + 1 end
-      if not reach[id] then
-        --a room lost with its walls unread is only the mod having joined the run
-        --late; a room lost with them read is the door graph making a claim
-        lost[#lost + 1] = string.format("%d(t%d,sw%d)", id, grid_room[id].Data.Type,
-          swept[id] and 1 or 0)
-      end
-    end
-    table.sort(lost)
-    local line = string.format("[GTLOSS] from %d(t%d) swept %d/%d lost %s",
-      crd.SafeGridIndex, crd.Data.Type, seen, total,
-      #lost > 0 and table.concat(lost, " ") or "nothing")
-    if line ~= last_loss then
-      last_loss = line
-      Isaac.DebugString(line)
-    end
-end
+--
 --the half of the door graph that answers for the side of the mirror being stood
 --on. Asked of the live room every time rather than the cached one: a trip hops
 --through an antechamber mid-call, and a wrong link, unlike a missing one, would
@@ -1092,7 +1005,6 @@ function _gt:check_curse_room(gid)
 end
 --
 function _gt:teleport_to_grid_index(gid) ----core
-    _gt:log_path(gid) --INSTRUMENT (strip before shipping)
     --
     for _,en in pairs(Isaac.GetRoomEntities()) do
 			if en.Type == 867 then

@@ -88,6 +88,8 @@ local HINT = "walk into the boss room and fire once"
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
 - Bombs, keys or coins needed? `giveitem c190` (Pyro) fills bombs, `c17` (Skeleton Key)
   keys, `c18` (A Dollar) coins — each fills the counter, so nobody scrounges mid-test.
+  Blowing walls open to cross a floor? `c40` (Kamikaze!) beats placing bombs, at the
+  cost of the run's one active slot.
 - Target dummy: pick by what the test measures. Reach or hitbox → `spawn 33.0.0` (normal
   fireplace), inert scenery that never moves or shoots, so nothing shoves the player off
   the mark mid-measurement; its red and purple variants do shoot, so always variant 0.
