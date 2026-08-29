@@ -125,6 +125,7 @@ local mmp_1step_mgid = -1
 --
 local tele_maze = false
 local tele_landing = false --INSTRUMENT (strip before shipping)
+local tele_door_slot = -1 --the door a trip means to arrive by
 local tele_slot = -1 --INSTRUMENT (strip before shipping)
 --the real door graph, learned one room at a time. Grid adjacency alone cannot
 --tell a doorway from a secret room's unbombed wall, so a trip that crosses one
@@ -955,11 +956,26 @@ function _gt:landing_slot(from, to)
       or on_side(nil) or -1
 end
 --
---LeaveDoor is the only lever the game leaves open -- EnterDoor is read back
---from it and ignores writes -- and it puts the player down at the slot across
---from the one named, base doors and the second set of a big room alike
-function _gt:opposite_slot(s)
-    return (s % 4 + 2) % 4 + (s >= 4 and 4 or 0)
+--and then put the player there by hand, because the game offers no lever that
+--works: StartRoomTransition ignores its Direction, EnterDoor ignores writes,
+--and LeaveDoor was measured changing nothing at all. One step inside the
+--doorway is where walking in leaves you, so that is where a trip leaves you.
+function _gt:land_at_door()
+    local slot = tele_door_slot
+    tele_door_slot = -1
+    if slot < 0 then return end
+    local door = room:GetDoor(slot)
+    if not door then return end
+    local dx, dy = 0, 0
+    local side = slot % 4
+    if side == 0 then dx = 40 elseif side == 2 then dx = -40
+    elseif side == 1 then dy = 40 else dy = -40 end
+    --everyone moves by the same step, so a co-op pair keeps its spacing
+    local shift = Vector(door.Position.X + dx, door.Position.Y + dy) - player.Position
+    for i = 0, Game():GetNumPlayers() - 1 do
+      local p = Isaac.GetPlayer(i)
+      p.Position = p.Position + shift
+    end
 end
 --
 function _gt:check_teleble(gid)
@@ -1161,12 +1177,11 @@ function _gt:teleport_to_grid_index(gid) ----core
     --named here rather than up top: an antechamber hop may have moved the
     --player since, and the door to arrive by faces wherever they stand now
     do
-      local lvl = Game():GetLevel()
       local trd = grid_room[gid]
-      local slot = _gt:landing_slot(lvl:GetCurrentRoomDesc().SafeGridIndex,
+      tele_door_slot = _gt:landing_slot(
+        Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex,
         trd and trd.SafeGridIndex or gid)
-      lvl.LeaveDoor = slot >= 0 and _gt:opposite_slot(slot) or -1
-      tele_slot = slot --INSTRUMENT (strip before shipping)
+      tele_slot = tele_door_slot --INSTRUMENT (strip before shipping)
     end
     if gtconfig.FastTransition or debug then
       tele_landing = true --INSTRUMENT (strip before shipping)
@@ -2435,6 +2450,7 @@ function _gt:new_room()
     kb_active = false
     player = Isaac.GetPlayer(0)
     stage = level:GetStage()
+    _gt:land_at_door()
     _gt:log_landing(last_crd) --INSTRUMENT (strip before shipping)
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true
