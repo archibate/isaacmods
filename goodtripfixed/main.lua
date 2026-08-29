@@ -1054,11 +1054,13 @@ function _gt:check_teleble(gid)
       end
       -- print(stage, Game():IsGreedMode(), trd.Data.Type)
       --the same wall applies to the last hop: stepping off a secret room into an
-      --uncleared neighbour is only a step where a hole was actually blown
+      --uncleared neighbour is only a step where a hole was actually blown. Held
+      --to the same switch as the flood -- `reach` is nil exactly when the player
+      --asked for no path rules, and a wall is a path rule like any other
       return _gt:check_neigh_connected(trd, function(rd)
           return (rd.DisplayFlags & 1 ~= 0) and rd.VisitedCount > 0 and rd.Clear
-            and (not reach or reach[rd.SafeGridIndex])
-            and _gt:linked(rd.SafeGridIndex, trd.SafeGridIndex)
+            and (not reach or (reach[rd.SafeGridIndex]
+              and _gt:linked(rd.SafeGridIndex, trd.SafeGridIndex)))
       end)
     end
     --[[
@@ -2568,6 +2570,7 @@ function _gt:fair_trip(roomIndex, target)
 		end
 		if _gt:check_neigh_connected(targetRoom, function(rd)
 			return rd.SafeGridIndex == safeIndex
+				and (not gtconfig.FairTripPath or _gt:linked(safeIndex, safeTarget))
 		end) then
 			return cur.dist + 1
 		end
@@ -2575,7 +2578,11 @@ function _gt:fair_trip(roomIndex, target)
 			for _, adj in ipairs(room_neighbours[cur.room.SafeGridIndex].Neighbors) do
         local adj_dsc = grid_room[adj]
 				local sid = adj_dsc.SafeGridIndex
-				if not visited[sid] then
+				--a wall no bomb opened is not a step, so the walk this charges
+				--time for is one the player could have taken. Same switch again:
+				--with path rules off the old grid answer stands
+				if not visited[sid]
+					and (not gtconfig.FairTripPath or _gt:linked(safeIndex, sid)) then
 					visited[sid] = true
 					queue[#queue+1] = {room = adj_dsc, dist = cur.dist + 1}
 				end
