@@ -14,29 +14,28 @@
 -- and take it out again once that question is answered, so the next run's log and
 -- screen carry only what is being asked now.
 
--- MLBG W9ET lays a treasure room and a sacrifice room either side of one secret
--- room on floor 2, which is the whole shape of the report in three rooms. Worth
--- keeping: reproducing this by wandering took a hunt the first time
+-- The shape the report describes -- a secret room with a curse room next door --
+-- is not something a console command can ask for, so this run rerolls the floor
+-- until one turns up (see the hunt below) rather than sending anyone wandering.
+-- No invincibility here: a heart has to be able to leave, or the thing being
+-- measured cannot be seen.
 local STEPS = {
     "luamod goodtripfixed",
-    "restart 0", 10, -- pick the character first; the seed keeps it
-    "seed MLBG W9ET", 20,
-    -- invincible, and nothing else: the rooms in between have to stay UNCLEARED
-    -- for the trip to have no honest path, so no quick-kill and no damage up
-    "debug 3",
+    "restart 0", 10,
+    "debug 10", -- enemies die on a touch: clearing the floor is not the test
     "stage 2", 12,
     "giveitem c333", -- The Mind: whole map at once, secret room included
-    "giveitem c190", -- Pyro: bombs never run out
+    "giveitem c40", -- Kamikaze!: blows the wall you stand at, no bomb to place
 }
 
-local HINT = "walk every room first, then bomb into the secret room from the SACRIFICE side only"
+local HINT = "read the line above: bomb into the secret room from the CURSE room only"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 17
+local REV = 18
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -57,10 +56,78 @@ end
 
 if pressed == "dump" then dump() end
 
+-- the hunt. `reseed` redraws the current floor and leaves the run otherwise
+-- alone, so a layout can be asked for over and over without restarting and
+-- re-granting everything each try.
+local TRIES = 60
+local hunting, tries, found = false, 0, nil
+
+local function rooms_by_grid()
+    local all = Game():GetLevel():GetRooms()
+    local by = {}
+    for i = 0, all.Size - 1 do
+        local d = all:Get(i)
+        if d and d.Data then by[d.SafeGridIndex] = d end
+    end
+    return by
+end
+
+-- the four grid steps, minus the one that would wrap off the end of a row into
+-- the row above or below and read two unrelated rooms as neighbours
+local function neighbours(by, idx)
+    local out = {}
+    for _, off in ipairs({ -13, 13, -1, 1 }) do
+        local wrapped = (off == -1 and idx % 13 == 0) or (off == 1 and idx % 13 == 12)
+        local n = not wrapped and by[idx + off] or nil
+        if n and n.SafeGridIndex ~= idx then out[n.SafeGridIndex] = n end
+    end
+    return out
+end
+
+local function find_shape()
+    local by = rooms_by_grid()
+    for idx, d in pairs(by) do
+        if d.Data.Type == RoomType.ROOM_SECRET then
+            local curse, others = nil, {}
+            for nidx, n in pairs(neighbours(by, idx)) do
+                if n.Data.Type == RoomType.ROOM_CURSE then
+                    curse = nidx
+                else
+                    others[#others + 1] = string.format("%d(t%d)", nidx, n.Data.Type)
+                end
+            end
+            if curse then
+                table.sort(others)
+                return { secret = idx, curse = curse,
+                    others = #others > 0 and table.concat(others, " ") or "none" }
+            end
+        end
+    end
+end
+
 local step = 0
 local waiting = 0
 
 function mod:onUpdate()
+    if hunting then
+        if waiting > 0 then
+            waiting = waiting - 1
+            return
+        end
+        found = find_shape()
+        if found or tries >= TRIES then
+            hunting = false
+            Isaac.DebugString(found
+                and string.format("[HUNT] secret %d, curse room %d, its other sides %s, %d rerolls",
+                    found.secret, found.curse, found.others, tries)
+                or string.format("[HUNT] no curse room beside a secret room in %d rerolls", tries))
+            return
+        end
+        tries = tries + 1
+        Isaac.ExecuteCommand("reseed")
+        waiting = 15
+        return
+    end
     if not running then return end
     if waiting > 0 then
         waiting = waiting - 1
@@ -71,6 +138,7 @@ function mod:onUpdate()
     local entry = STEPS[step]
     if entry == nil then
         running = false
+        hunting = true
         dump() -- the seed, so a run that drifted off the intended one says so
         return
     end
@@ -90,7 +158,13 @@ function mod:onRender()
         end
     end
 
-    if running then
+    if hunting then
+        Isaac.RenderText(string.format("rerolling the floor  %d/%d", tries, TRIES),
+            25, 25, 1, 0.9, 0.3, 1)
+    elseif found then
+        Isaac.RenderText(string.format("secret %d, curse room %d, other sides %s",
+            found.secret, found.curse, found.others), 25, 25, 0.6, 0.9, 0.6, 1)
+    elseif running then
         Isaac.RenderText(string.format("running  %d/%d", step, #STEPS), 25, 25, 1, 0.9, 0.3, 1)
     elseif pressed == "dump" then
         Isaac.RenderText("dumped to log", 25, 25, 0.6, 0.9, 0.6, 1)
