@@ -932,23 +932,33 @@ function _gt:log_reach_loss(reach)
         end
       end
     end
-    local lost = {}
+    local _, swept = _gt:door_graph()
+    local lost, seen, total = {}, 0, 0
     for id in pairs(loose) do
+      total = total + 1
+      if swept[id] then seen = seen + 1 end
       if not reach[id] then
-        lost[#lost + 1] = string.format("%d(t%d)", id, grid_room[id].Data.Type)
+        --a room lost with its walls unread is only the mod having joined the run
+        --late; a room lost with them read is the door graph making a claim
+        lost[#lost + 1] = string.format("%d(t%d,sw%d)", id, grid_room[id].Data.Type,
+          swept[id] and 1 or 0)
       end
     end
     table.sort(lost)
-    local line = string.format("[GTLOSS] from %d(t%d) lost %s", crd.SafeGridIndex,
-      crd.Data.Type, #lost > 0 and table.concat(lost, " ") or "nothing")
+    local line = string.format("[GTLOSS] from %d(t%d) swept %d/%d lost %s",
+      crd.SafeGridIndex, crd.Data.Type, seen, total,
+      #lost > 0 and table.concat(lost, " ") or "nothing")
     if line ~= last_loss then
       last_loss = line
       Isaac.DebugString(line)
     end
 end
---the half of the door graph that answers for the side of the mirror being stood on
+--the half of the door graph that answers for the side of the mirror being stood
+--on. Asked of the live room every time rather than the cached one: a trip hops
+--through an antechamber mid-call, and a wrong link, unlike a missing one, would
+--stand for the rest of the floor
 function _gt:door_graph()
-    local d = room:IsMirrorWorld() and 1 or 0
+    local d = Game():GetRoom():IsMirrorWorld() and 1 or 0
     door_link[d] = door_link[d] or {}
     door_swept[d] = door_swept[d] or {}
     return door_link[d], door_swept[d]
@@ -958,17 +968,19 @@ end
 --will answer for, and write them into the graph both ways. A slot still holding
 --DOOR_HIDDEN is a wall no bomb has opened yet, so it makes no passage;
 --everything else, locked doors included, is somewhere a player could walk.
+--Every room here is read live, so the doors, the room they belong to and the
+--side of the mirror they are filed under can never come from different moments.
 function _gt:sweep_doors()
+    local live = Game():GetRoom()
+    local here = level:GetCurrentRoomDesc().SafeGridIndex
     local link, swept = _gt:door_graph()
-    local here = crd.SafeGridIndex
     link[here] = link[here] or {}
     swept[here] = true
     for i = 0, 7 do
-      local door = room:GetDoor(i)
+      local door = live:GetDoor(i)
       if door and door.Desc.Variant ~= DoorVariant.DOOR_HIDDEN then
-        local trd = grid_room[door.TargetRoomIndex]
-        local there = trd and trd.SafeGridIndex
-        if there and there ~= here then
+        local there = level:GetRoomByIdx(door.TargetRoomIndex, -1).SafeGridIndex
+        if there ~= here then
           link[here][there] = true
           link[there] = link[there] or {}
           link[there][here] = true
