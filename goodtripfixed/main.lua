@@ -124,6 +124,14 @@ local mmp_1step_tp = false
 local mmp_1step_mgid = -1
 --
 local tele_maze = false
+--the real door graph, learned one room at a time. Grid adjacency alone cannot
+--tell a doorway from a secret room's unbombed wall, so a trip that crosses one
+--hands out a bomb nobody spent. Kept per dimension: the mirror world reuses the
+--same grid numbers for different rooms, and both halves of a Downpour floor are
+--one level, so a single table would answer for the wrong side of the mirror.
+local door_link = {}  --door_link[dim][a][b]: a passage, seen from either end
+local door_swept = {} --door_swept[dim][a]: a's own walls were read, so silence
+                      --about b is evidence and not merely ignorance
 local secret_pre_room_id = {}
 local prep_alarm = false
 local n_room_num = 0
@@ -830,26 +838,156 @@ end
 --
 function _gt:get_reachable_rooms()
     --flood out of the current room through visited+cleared rooms: a trip may
-    --only land on the island the player could have walked to. grid adjacency is
-    --a superset of the real door graph, so this never blocks a walkable target
+    --only land on the island the player could have walked to. Grid adjacency
+    --alone counts a secret room as a corridor on all four sides, which hands out
+    --a free wall the player never bombed, so each step has to hold a door too
     local start = crd.SafeGridIndex
+    --a wall blown open since this room was entered would otherwise still read as
+    --solid, and the trip it opened would be refused
+    _gt:sweep_doors()
     local reach = {[start] = true}
     local queue = {start}
     local head = 1
     while queue[head] do
-      local node = room_neighbours[queue[head]]
+      local cur = queue[head]
+      local node = room_neighbours[cur]
       head = head + 1
       if node then
         for _, adj in ipairs(node.Neighbors) do
           local rd = grid_room[adj]
-          if rd and not reach[adj] and rd.VisitedCount > 0 and rd.Clear then
+          if rd and not reach[adj] and rd.VisitedCount > 0 and rd.Clear
+              and _gt:linked(cur, adj) then
             reach[adj] = true
             queue[#queue + 1] = adj
           end
         end
       end
     end
+    _gt:log_reach_loss(reach) --INSTRUMENT (strip before shipping)
     return reach
+end
+--INSTRUMENT (strip before shipping): the route a completed trip was allowed to
+--take, each room with its type, so the chain can be read back instead of guessed
+--at. A t7 in the middle used to be the report: a secret room counted as a
+--corridor on a side that was never bombed.
+function _gt:log_path(gid)
+    local start = crd.SafeGridIndex
+    local parent = {[start] = start}
+    local queue, head = {start}, 1
+    while queue[head] do
+      local cur = queue[head]
+      local node = room_neighbours[cur]
+      head = head + 1
+      if node then
+        for _, adj in ipairs(node.Neighbors) do
+          local rd = grid_room[adj]
+          if rd and not parent[adj] and rd.VisitedCount > 0 and rd.Clear
+              and _gt:linked(cur, adj) then
+            parent[adj] = cur
+            queue[#queue + 1] = adj
+          end
+        end
+      end
+    end
+    local trd = grid_room[gid]
+    local tid = trd and trd.SafeGridIndex or gid
+    local chain = {}
+    if parent[tid] then
+      local at, guard = tid, 0
+      while guard < 40 do
+        local rd = grid_room[at]
+        chain[#chain + 1] = string.format("%d(t%d)", at, rd and rd.Data.Type or -1)
+        if at == start then break end
+        at = parent[at]
+        guard = guard + 1
+      end
+      local rev = {}
+      for i = #chain, 1, -1 do rev[#rev + 1] = chain[i] end
+      chain = rev
+    else
+      chain[1] = string.format("%d(t%d)", start, crd.Data.Type)
+      chain[2] = string.format("%d(t%d)-OFF-ISLAND", tid, trd and trd.Data.Type or -1)
+    end
+    Isaac.DebugString("[GTPATH] fairpath=" .. tostring(gtconfig.FairTripPath)
+      .. " route " .. table.concat(chain, " -> "))
+end
+--INSTRUMENT (strip before shipping): the price of the tightening. Every room the
+--old grid-adjacency flood would have handed out and the door graph took back, so
+--over-refusal shows up as a named list rather than as a player noticing later
+--that a room stopped lighting up.
+local last_loss = ""
+function _gt:log_reach_loss(reach)
+    local loose = {[crd.SafeGridIndex] = true}
+    local queue, head = {crd.SafeGridIndex}, 1
+    while queue[head] do
+      local node = room_neighbours[queue[head]]
+      head = head + 1
+      if node then
+        for _, adj in ipairs(node.Neighbors) do
+          local rd = grid_room[adj]
+          if rd and not loose[adj] and rd.VisitedCount > 0 and rd.Clear then
+            loose[adj] = true
+            queue[#queue + 1] = adj
+          end
+        end
+      end
+    end
+    local lost = {}
+    for id in pairs(loose) do
+      if not reach[id] then
+        lost[#lost + 1] = string.format("%d(t%d)", id, grid_room[id].Data.Type)
+      end
+    end
+    table.sort(lost)
+    local line = string.format("[GTLOSS] from %d(t%d) lost %s", crd.SafeGridIndex,
+      crd.Data.Type, #lost > 0 and table.concat(lost, " ") or "nothing")
+    if line ~= last_loss then
+      last_loss = line
+      Isaac.DebugString(line)
+    end
+end
+--the half of the door graph that answers for the side of the mirror being stood on
+function _gt:door_graph()
+    local d = room:IsMirrorWorld() and 1 or 0
+    door_link[d] = door_link[d] or {}
+    door_swept[d] = door_swept[d] or {}
+    return door_link[d], door_swept[d]
+end
+--
+--read the walls of the room being stood in, the only room whose doors the game
+--will answer for, and write them into the graph both ways. A slot still holding
+--DOOR_HIDDEN is a wall no bomb has opened yet, so it makes no passage;
+--everything else, locked doors included, is somewhere a player could walk.
+function _gt:sweep_doors()
+    local link, swept = _gt:door_graph()
+    local here = crd.SafeGridIndex
+    link[here] = link[here] or {}
+    swept[here] = true
+    for i = 0, 7 do
+      local door = room:GetDoor(i)
+      if door and door.Desc.Variant ~= DoorVariant.DOOR_HIDDEN then
+        local trd = grid_room[door.TargetRoomIndex]
+        local there = trd and trd.SafeGridIndex
+        if there and there ~= here then
+          link[here][there] = true
+          link[there] = link[there] or {}
+          link[there][here] = true
+        end
+      end
+    end
+end
+--
+--may a trip step between these two rooms? A passage seen from either end says
+--yes. Otherwise a swept room saying nothing is a no. Where neither room has been
+--read -- the mod loaded mid-run, or a save picked up again -- there is no
+--evidence either way, and the old grid-adjacency answer stands, so nothing that
+--used to work starts refusing.
+function _gt:linked(a, b)
+    local link, swept = _gt:door_graph()
+    if link[a] and link[a][b] then
+      return true
+    end
+    return not (swept[a] or swept[b])
 end
 --
 function _gt:check_teleble(gid)
@@ -895,9 +1033,12 @@ function _gt:check_teleble(gid)
         return false
       end
       -- print(stage, Game():IsGreedMode(), trd.Data.Type)
+      --the same wall applies to the last hop: stepping off a secret room into an
+      --uncleared neighbour is only a step where a hole was actually blown
       return _gt:check_neigh_connected(trd, function(rd)
           return (rd.DisplayFlags & 1 ~= 0) and rd.VisitedCount > 0 and rd.Clear
             and (not reach or reach[rd.SafeGridIndex])
+            and _gt:linked(rd.SafeGridIndex, trd.SafeGridIndex)
       end)
     end
     --[[
@@ -939,6 +1080,7 @@ function _gt:check_curse_room(gid)
 end
 --
 function _gt:teleport_to_grid_index(gid) ----core
+    _gt:log_path(gid) --INSTRUMENT (strip before shipping)
     --
     for _,en in pairs(Isaac.GetRoomEntities()) do
 			if en.Type == 867 then
@@ -2301,6 +2443,7 @@ function _gt:new_room()
     crd = level:GetCurrentRoomDesc()
     crid = crd.GridIndex
     crsid = crd.SafeGridIndex
+    _gt:sweep_doors()
     mmp_ctrl = false
     --the cursor is rebuilt from scratch in the new room, so let the device
     --claim be rebuilt with it: under GMC the cursor only draws once the
@@ -2362,6 +2505,8 @@ function _gt:new_level()
         end
 end
     secret_pre_room_id = {}
+    door_link = {}
+    door_swept = {}
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true
       _gt:prep_minimap()

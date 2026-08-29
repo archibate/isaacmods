@@ -14,32 +14,21 @@
 -- and take it out again once that question is answered, so the next run's log and
 -- screen carry only what is being asked now.
 
+-- the floor that already shows the bug is worth more than a fresh one, so this
+-- run only swaps the code in underneath it: no restart, no stage, nothing that
+-- would throw the layout away
 local STEPS = {
-    -- Soundtrack Menu ships two implementations and picks the newer one when
-    -- REPENTOGON is present. Most players have no REPENTOGON, so the reported
-    -- bug lives in the other one: hide the marker and reload it into the legacy
-    -- path, which is cheaper than relaunching the game without the extender
-    "lua REPENTOGON = nil",
-    "luamod musicpicker_1933285222",
     "luamod goodtripfixed",
-    "restart 0", 10,
-    "debug 3",
-    "debug 10",
-    "stage 5a", 12, -- Necropolis, where the report came from
-    -- walk in through a bombed wall, the way a player finds it: arriving by card
-    -- records no antechamber, and then FairTripPath has no cleared path to trace
-    "giveitem c333", -- The Mind: shows where the secret room is
-    "giveitem c190", -- Pyro: bombs to get through the wall
 }
 
-local HINT = "in the secret room, TAB+click a room FAR away - not the one next door"
+local HINT = "re-enter the secret room and the rooms either side of it, then try that trip again both ways"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 13
+local REV = 16
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -52,20 +41,10 @@ local running = pressed == "run"
 -- F2 writes something out of the game rather than playing anything. Rewrite this
 -- for whatever needs enumerating; it beats reading a wiki, which is where
 -- hallucinated ids come from.
-local KIND = { [ItemType.ITEM_PASSIVE] = "P", [ItemType.ITEM_ACTIVE] = "A",
-    [ItemType.ITEM_FAMILIAR] = "F" }
-
 local function dump()
-    local config = Isaac.GetItemConfig()
-    for id = 1, 5000 do
-        local item = config:GetCollectible(id)
-        if item ~= nil then
-            Isaac.DebugString("[ITEM] " .. id
-                .. "|" .. (KIND[item.Type] or tostring(item.Type))
-                .. "|" .. tostring(item.Name))
-        end
-    end
-    Isaac.DebugString("[ITEM] end of table")
+    Isaac.DebugString("[SEED] " .. Game():GetSeeds():GetStartSeedString()
+        .. " stage " .. Game():GetLevel():GetStage()
+        .. "." .. Game():GetLevel():GetStageType())
 end
 
 if pressed == "dump" then dump() end
@@ -73,25 +52,7 @@ if pressed == "dump" then dump() end
 local step = 0
 local waiting = 0
 
--- the claim is that a secret room's track outlives the room it belongs to, and a
--- track id settles that without anyone having to trust their ears. One line per
--- change of either, so a run reads as a list of "here, playing this"
-local last_music, last_room = -1, -1
-local function logMusic()
-    local mus = MusicManager()
-    local id = mus:GetCurrentMusicID()
-    local desc = Game():GetLevel():GetCurrentRoomDesc()
-    if id ~= last_music or desc.SafeGridIndex ~= last_room then
-        last_music, last_room = id, desc.SafeGridIndex
-        Isaac.DebugString(string.format(
-            "[MUSIC] music=%d queued=%d roomtype=%d grid=%d stage=%d.%d",
-            id, mus:GetQueuedMusicID(), desc.Data.Type, desc.SafeGridIndex,
-            Game():GetLevel():GetStage(), Game():GetLevel():GetStageType()))
-    end
-end
-
 function mod:onUpdate()
-    logMusic()
     if not running then return end
     if waiting > 0 then
         waiting = waiting - 1
