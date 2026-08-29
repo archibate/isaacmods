@@ -927,6 +927,35 @@ end
 --neighbours and arbitrary for anything further, so a long trip can land against
 --a blank wall. The room's own doors are known from the sweep, so pick the one
 --facing the room being left, and failing that the one on the side it lies on.
+--the room a walk would have arrived from: the step before the target on the
+--shortest way there through rooms already walked. A trip stands in for that
+--walk, so it should come in by the same door -- straight-line direction is not
+--the same thing, and on a floor that bends around it points at the wrong wall.
+function _gt:route_parent(from, to)
+    local parent = {[from] = from}
+    local queue, head = {from}, 1
+    while queue[head] do
+      local cur = queue[head]
+      head = head + 1
+      if cur == to then break end
+      local node = room_neighbours[cur]
+      if node then
+        for _, adj in ipairs(node.Neighbors) do
+          local rd = grid_room[adj]
+          --the target itself may be an uncleared neighbour, which is a room a
+          --trip is allowed to land in but not one it may pass through
+          if rd and not parent[adj] and _gt:linked(cur, adj)
+              and (adj == to or (rd.VisitedCount > 0 and rd.Clear)) then
+            parent[adj] = cur
+            queue[#queue + 1] = adj
+          end
+        end
+      end
+    end
+    local p = parent[to]
+    return p ~= to and p or nil
+end
+--
 function _gt:landing_slot(from, to)
     local link = _gt:door_graph()
     local slots = link[to]
@@ -934,6 +963,11 @@ function _gt:landing_slot(from, to)
     if type(slots[from]) == "number" then --neighbours: the door between them
       return slots[from]
     end
+    local walked = _gt:route_parent(from, to)
+    if walked and type(slots[walked]) == "number" then
+      return slots[walked]
+    end
+    --no route to trace: fall back on the side the room being left lies on
     local function side(d, neg, pos)
       if d < 0 then return neg elseif d > 0 then return pos end
     end
