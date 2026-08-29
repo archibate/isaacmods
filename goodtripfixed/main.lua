@@ -885,14 +885,15 @@ end
 --side of the mirror they are filed under can never come from different moments.
 function _gt:sweep_doors()
     local live = Game():GetRoom()
-    local here = level:GetCurrentRoomDesc().SafeGridIndex
+    local lvl = Game():GetLevel()
+    local here = lvl:GetCurrentRoomDesc().SafeGridIndex
     local link, swept = _gt:door_graph()
     link[here] = link[here] or {}
     swept[here] = true
     for i = 0, 7 do
       local door = live:GetDoor(i)
       if door and door.Desc.Variant ~= DoorVariant.DOOR_HIDDEN then
-        local there = level:GetRoomByIdx(door.TargetRoomIndex, -1).SafeGridIndex
+        local there = lvl:GetRoomByIdx(door.TargetRoomIndex, -1).SafeGridIndex
         if there ~= here then
           link[here][there] = true
           link[there] = link[there] or {}
