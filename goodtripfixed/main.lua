@@ -1145,6 +1145,10 @@ function _gt:teleport_to_grid_index(gid) ----core
     local dist = 0
     if gtconfig.FairTripTime then
       dist = _gt:fair_trip(crd.SafeGridIndex, gid)
+      --INSTRUMENT (strip before shipping): 999 refuses the trip in silence, so
+      --a walk tightened too far would read as the mod simply not working
+      Isaac.DebugString(string.format("[GTDIST] %d -> %d dist %d",
+        crd.SafeGridIndex, grid_room[gid] and grid_room[gid].SafeGridIndex or gid, dist))
       if dist == 999 then
         _gt:tele_failed()
         return

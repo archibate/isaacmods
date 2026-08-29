@@ -14,20 +14,29 @@
 -- and take it out again once that question is answered, so the next run's log and
 -- screen carry only what is being asked now.
 
+-- the walk that charges time now refuses a trip it can find no route for, and
+-- it refuses in silence, so this run turns that option on and watches the
+-- distances it comes back with. Path rules stay on: that is the pairing where
+-- the walk was tightened
 local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
+    "seed MLBG W9ET", 20,
+    "debug 10", -- enemies die on a touch, so the floor clears fast
     "stage 2", 12,
+    "giveitem c333", -- The Mind: whole map at once
+    "giveitem c40", -- Kamikaze!: blows the wall you stand at
+    "lua gt:get_config().FairTripTime=true",
 }
 
-local HINT = ""
+local HINT = "clear the floor, then trip everywhere -- watch for a trip that just refuses"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 24
+local REV = 25
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
