@@ -14,20 +14,25 @@
 -- and take it out again once that question is answered, so the next run's log and
 -- screen carry only what is being asked now.
 
+-- the report is about where a trip puts the player down, so the run only has to
+-- make trips cheap to take: a cleared floor and a full map. The comparison the
+-- log wants is the same pair of rooms walked between and then tripped between
 local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
+    "debug 10", -- enemies die on a touch: clearing the floor is not the test
     "stage 2", 12,
+    "giveitem c333", -- The Mind: whole map at once, so anywhere is one click away
 }
 
-local HINT = ""
+local HINT = "walk between two rooms, then trip between the same two, and watch where you land"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 19
+local REV = 20
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a

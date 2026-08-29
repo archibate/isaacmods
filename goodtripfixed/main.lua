@@ -124,6 +124,7 @@ local mmp_1step_tp = false
 local mmp_1step_mgid = -1
 --
 local tele_maze = false
+local tele_landing = false --INSTRUMENT (strip before shipping)
 --the real door graph, learned one room at a time. Grid adjacency alone cannot
 --tell a doorway from a secret room's unbombed wall, so a trip that crosses one
 --hands out a bomb nobody spent. Kept per dimension: the mirror world reuses the
@@ -1113,6 +1114,7 @@ function _gt:teleport_to_grid_index(gid) ----core
     -- print('goto', gid)
     -- local cid = crd.SafeGridIndex
     if gtconfig.FastTransition or debug then
+      tele_landing = true --INSTRUMENT (strip before shipping)
       Game():ChangeRoom(gid,-1)
       Game():GetRoom():PlayMusic()
       mmp_ctrl = true
@@ -1139,6 +1141,7 @@ function _gt:teleport_to_grid_index(gid) ----core
       end
       tele_dir = Direction.NO_DIRECTION
     end
+    tele_landing = true --INSTRUMENT (strip before shipping)
     Game():StartRoomTransition(gid, tele_dir, tele_anime,player,-1)
     tele_cd = 45
     if not gtconfig.TeleportAnimation then tele_cd = 10 end
@@ -2377,6 +2380,7 @@ function _gt:new_room()
     kb_active = false
     player = Isaac.GetPlayer(0)
     stage = level:GetStage()
+    _gt:log_landing(last_crd) --INSTRUMENT (strip before shipping)
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true
       _gt:prep_minimap()
@@ -2408,6 +2412,28 @@ function _gt:new_room()
     elseif crd.Data.Type == 10 then
       _gt:pre_secret_curse_room()
     end
+end
+--INSTRUMENT (strip before shipping): where the player is put down on arriving,
+--against the middle of the room and against every door in it. Walking in and
+--tripping in both get a line, so the two can be held side by side instead of
+--argued about, and the door facing the room just left is marked.
+function _gt:log_landing(last_crd)
+    local pos, mid = player.Position, room:GetCenterPos()
+    local from = last_crd and last_crd.Data and last_crd.SafeGridIndex or -1
+    local doors = {}
+    for i = 0, 7 do
+      local door = room:GetDoor(i)
+      if door then
+        local to = level:GetRoomByIdx(door.TargetRoomIndex, -1).SafeGridIndex
+        doors[#doors + 1] = string.format("s%d>%d@%.0f,%.0f%s", i, to,
+          door.Position.X, door.Position.Y, to == from and "*" or "")
+      end
+    end
+    Isaac.DebugString(string.format(
+      "[GTLAND] %s into %d(t%d) from %d  at %.0f,%.0f  middle %.0f,%.0f  doors %s",
+      tele_landing and "tripped" or "walked", crsid, crd.Data.Type, from,
+      pos.X, pos.Y, mid.X, mid.Y, table.concat(doors, " ")))
+    tele_landing = false
 end
 --
 function _gt:new_level()
