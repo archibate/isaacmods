@@ -782,7 +782,11 @@ end
 function _gt:check_neigh_connected(trd, cond)
     local tid = trd.SafeGridIndex
     if (trd.DisplayFlags & 1) ~= 0 then
+      --a room bought with a red key stands open: what it turned out to hold, a
+      --shop or a treasure room, is not a door the trip is picking. The key was
+      --the price, and it is already paid, so its contents do not make it special
       if (trd.VisitedCount == 0 or not trd.Clear) and
+        trd.Flags & RoomDescriptor.FLAG_RED_ROOM == 0 and
         trd.Data.Type ~= 1 and trd.Data.Type ~= 5 and
         trd.Data.Type ~= 6 and trd.Data.Type ~= 13 and
         not (((stage == 1 and level:GetStageType() < StageType.STAGETYPE_REPENTANCE) or room:IsMirrorWorld())
@@ -1856,15 +1860,18 @@ function _gt:draw_minimap(faint)
     ---draw room&icon---
     for i = 1, #draw_room_id do
       local rd = grid_room[draw_room_id[i]]
-      if rd.ListIndex < n_room_num then --and rd.Data.Type ~= 29 then
+      --a red room draws red, the way the game's own map draws it. The room says
+      --so itself; counting rooms and calling anything past the floor's original
+      --tally red missed the ones the list had room for already
+      if rd.Flags & RoomDescriptor.FLAG_RED_ROOM ~= 0 then
+        mmp.Color = Color(1, 0.3, 0.3, alpha, 0, 0, 0)
+      else
         local markclr = grid_room_mark[rd.SafeGridIndex]
         if markclr ~= nil then
             mmp.Color = Color(markclr.Red, markclr.Green, markclr.Blue, alpha, 0, 0, 0)
         else
             mmp.Color = Color(1, 1, 1, alpha, 0, 0, 0)
         end
-      else
-        mmp.Color = Color(1, 0.3, 0.3, alpha, 0, 0, 0)
       end
       if rd.SafeGridIndex == draw_room_id[i] or (rd.Data.Type == 5 and stage == 12) then
         -----room
@@ -2452,6 +2459,15 @@ function _gt:step()
 end
 --
 function _gt:step2()
+    --a wall can open under the player's feet: a bomb, or a red key buying a
+    --whole room next door. The room being stood in is the only one the game
+    --answers for, so read its walls every tick and the graph is never a door
+    --behind. Mid-transition the live room and the cached descriptor disagree,
+    --and a link filed against the wrong room would stand for the rest of the
+    --floor where a missing one heals itself, so wait until they agree.
+    if level:GetCurrentRoomDesc().SafeGridIndex == crsid then
+      _gt:sweep_doors()
+    end
     if mmp_pin == 1 and gtconfig.KeyboardMapEnable then
       mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
       if _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) then --ui zone
