@@ -15,23 +15,28 @@
 -- screen carry only what is being asked now.
 
 local STEPS = {
-    "luamod goodtripfixed",
+    "luamod damagemvp",
     "restart 0", 10,
     "debug 3",
-    "debug 10",
-    "stage 2", 12,
-    -- start with the new switch off, so the first trips show the old landing
-    "lua gt:get_config().LandAtDoor=false",
+    "debug 8",
+    "stage 1", 10,
+    -- the axe alone, with the mod forced down its plain-Repentance path: the blade is
+    -- the only one of yours out, so it should name its own crushing blow. Soy Milk
+    -- cuts the damage right down, because a diagnosis needs the target to stay alive
+    -- long enough to be hit many times over
+    "giveitem c147",
+    "giveitem c330",
+    "spawn 408.0.0", 10,
 }
 
-local HINT = "trip with it off, then turn Land at door back on in the menu and trip again"
+local HINT = "swing the axe at the dummy over and over"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 41
+local REV = 52
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a

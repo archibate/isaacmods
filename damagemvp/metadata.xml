@@ -4,7 +4,11 @@
     <directory>damagemvp</directory>
     <description>Shows what dealt the damage: an on-screen breakdown of your damage to enemies in the current room, ranked by source — tears, lasers named by weapon, melee, bombs, each familiar by name, blasts from exploding shots, and the creep, gas and fire they leave behind.
 
-Burn and poison ticks go to whatever applied the status, not to whatever hit last. Resets each room. Damage enemies deal to each other is never credited to you.</description>
+Burn and poison ticks go to whatever applied the status, not to whatever hit last. Resets each room. Damage enemies deal to each other is never credited to you.
+
+With REPENTOGON installed, two beams of yours in the air at once are told apart, each hit going to the beam that landed it. Without it the two share one "Laser" row, since nothing in the plain game says which of them it was.
+
+A blade that lands a crushing blow keeps its own row, and Dark Arts' dash and the snare it drops are each named — both with or without REPENTOGON.</description>
     <version>1.0</version>
     <visibility>Private</visibility>
     <tag id="Tweaks"/>

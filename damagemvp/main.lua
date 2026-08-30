@@ -326,17 +326,6 @@ local function logPlainLaser(player, amount, verdict, flags, victim)
 end
 
 
--- Development aid, to be dropped before release: which beams the game names for us
--- in the hit itself. A kind that always names itself can never be the one behind a
--- hit that names only the player, which would narrow what an ambiguous hit can be.
-local seenPath = {}
-
-local function logBeamPath(kind)
-    if seenPath[kind] then return end
-    seenPath[kind] = true
-    Isaac.DebugString("[DMVP] hit names its own beam: " .. kind)
-end
-
 -- Development aid, to be dropped before release: every kind of beam of yours seen,
 -- variant and subtype both. Two items sharing a variant may still differ here --
 -- that is what told Maw's ring from Brimstone -- and only this says so.
@@ -365,13 +354,16 @@ local function logBeamKind(laser)
     Isaac.DebugString(line)
 end
 
--- The hit names only the player -- no laser hit was ever seen naming its own beam --
--- but the beam that landed it is still in the room at that moment, so what is in
--- flight names it. Two returns: the one kind of beam of yours up there, and how many
--- kinds there were. A second kind is the end of it, and every way out of that was
--- tried and measured: the damage matches to the decimal, the order they arrive in
--- cannot be anchored since a beam can hit before it ever reports an update, and
--- there is no collision callback for lasers as there is for tears and knives.
+-- The fallback for a beam of yours, and only where REPENTOGON is absent -- with it,
+-- the hit hands over the beam itself and none of the below is reached.
+--
+-- The hit names only the player, but the beam that landed it is still in the room at
+-- that moment, so what is in flight names it. Two returns: the one kind of beam of
+-- yours up there, and how many kinds there were. A second kind is the end of it in
+-- plain Repentance, and every way out of that was tried and measured: the damage
+-- matches to the decimal, the order they arrive in cannot be anchored since a beam
+-- can hit before it ever reports an update, and vanilla has no collision callback for
+-- lasers as it has for tears and knives.
 --
 -- Their geometry does read -- through :ToLaser(), which is what an earlier attempt
 -- was missing -- and the game will even sample a beam's whole path. But a hit was
@@ -397,6 +389,36 @@ local function soleOwned(player, entityType, nameOf)
     return nil, count
 end
 
+-- What REPENTOGON hands the hit alongside the player: the blade or beam that actually
+-- landed it, which is the one thing plain Repentance never says. Two returns: the
+-- name, and the plain word for its kind where the tables have no name for it -- the
+-- second is what parts a thing handed over from nothing being handed over, and it
+-- matters because letting the flags answer instead would name the wrong weapon.
+-- Measured on both counts: two beams of yours in the air at once, where the guess
+-- below gives up and this named each hit correctly; and the axe, whose blow arrives
+-- crushing and was landing on the Crush row rather than its own.
+-- Both nil without REPENTOGON and on hits it does not cover, so the guesses stay
+-- behind this rather than being replaced.
+local function weaponFromHit(player, extraSource)
+    if extraSource == nil then return nil, nil end
+    local held = extraSource.Entity
+    local subtype = held ~= nil and held.SubType or nil
+    if extraSource.Type == EntityType.ENTITY_LASER then
+        return beamName(extraSource.Variant, subtype), "Laser"
+    end
+    -- a blade of a kind the table does not know still falls back to the weapon
+    -- wielded, the same as one that arrives naming itself
+    if extraSource.Type == EntityType.ENTITY_KNIFE then
+        local named = KNIFE_LABELS[extraSource.Variant]
+        if named ~= nil then return named, nil end
+        return nil, heldWeapon(player, MELEE_WEAPONS) or "Melee"
+    end
+    if extraSource.Type == EntityType.ENTITY_FAMILIAR then
+        return familiarLabel(extraSource.Variant), "Familiar"
+    end
+    return nil, nil
+end
+
 local function beamInFlight(player)
     return soleOwned(player, EntityType.ENTITY_LASER, function(laser)
         return beamName(laser.Variant, laser.SubType)
@@ -412,12 +434,21 @@ local function knifeInHand(player)
     end))
 end
 
--- A dash that hurts whatever it passes through arrives as you carrying no flag at
--- all, the same shape as a swing, and leaves nothing in the room to point at. What
--- names it is the state the game puts you in to dash: Tainted Judas' own Dark Arts
--- and the item that grants it are one and the same state, so one row covers both.
+-- A dash that hurts whatever it passes through arrives as you carrying no flag at all,
+-- the same shape as a swing, and hands nothing over. The state the game puts you in to
+-- dash was the witness, but measured on Tainted Judas it is already gone by the time
+-- the blow lands -- no state of any kind is on. What is on the floor at that moment is
+-- the snare the dash drops, so that names it. The state is still asked first, since
+-- the item's dash was measured through it and only the character's was measured here.
+--
+-- The snare's own damage is not this: it arrives as the snare and keeps its own row,
+-- the way a bomb's fire stands apart from the bomb.
 local function dashing(player)
     if player:GetEffects():HasNullEffect(NullItemID.ID_DARK_ARTS) then return "Dark Arts" end
+    if #Isaac.FindByType(EntityType.ENTITY_EFFECT, EffectVariant.DARK_SNARE,
+        -1, false, false) > 0 then
+        return "Dark Arts"
+    end
     return nil
 end
 
@@ -497,17 +528,34 @@ end
 
 -- The bare name of the weapon behind a hit, or nil when it was not ours.
 -- Modifiers such as "(explosion)" are the caller's business.
-local function weaponOf(source, flags, amount, victim)
+local function weaponOf(source, flags, amount, victim, extraSource)
     local entity = source.Entity
 
     -- the player's own beams and swings carry no weapon of their own
     if source.Type == EntityType.ENTITY_PLAYER then
         local player = entity ~= nil and entity:ToPlayer() or nil
         if player == nil then return nil end
+        -- REPENTOGON hands over the thing that actually landed the blow, and that
+        -- settles the hit outright whatever flag it carries -- the axe's swing arrives
+        -- crushing, and the crush row below was taking it. Everything after this is
+        -- for plain Repentance, where the flags are all there is to read.
+        local exact, plain = weaponFromHit(player, extraSource)
+        if exact ~= nil then return exact end
+        if plain ~= nil then
+            -- handed over, and no table has a name for it. Letting the flags answer
+            -- instead would name the wrong weapon, so it stays plain; an unnamed beam
+            -- is reported, since a variant nothing knows is a case worth naming
+            if extraSource.Type == EntityType.ENTITY_LASER then
+                logPlainLaser(player, amount, "unknown variant " .. tostring(extraSource.Variant),
+                    flags, victim)
+            end
+            return plain
+        end
+
         -- the beam is in the room at the instant it lands its hit, so what is in
-        -- flight names it. The weapon wielded answers only where nothing of yours
-        -- is up there at all: with two beams flying it would name one of them for
-        -- certain and be wrong about half the hits, which is worse than saying so.
+        -- flight names it, and the weapon wielded answers only where nothing of yours
+        -- is up there at all. With two beams flying that guess would name one of them
+        -- for certain and be wrong about half the hits, which is worse than saying so.
         if flags & DamageFlag.DAMAGE_LASER ~= 0 then
             local beam, kinds = beamInFlight(player)
             if kinds > 0 then
@@ -519,9 +567,14 @@ local function weaponOf(source, flags, amount, victim)
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
         -- character's melee, and the cooldown flag is what tells them apart
         if flags & DamageFlag.DAMAGE_COUNTDOWN ~= 0 then return "Contact" end
-        -- a crushing blow claims no weapon at all, and nothing in the room says
-        -- which one landed it, so it stays a crush rather than a guess
+        -- a crushing blow claims no weapon at all. The axe's swing is one -- measured,
+        -- and the hit hands the axe over where REPENTOGON is there to hand it. Where it
+        -- is not, the blade is still out at that moment, so one blade of yours up there
+        -- names it the way one beam in flight does. Two, and it stays a crush rather
+        -- than a guess between them.
         if flags & DamageFlag.DAMAGE_CRUSH ~= 0 then
+            local blade = knifeInHand(player)
+            if blade ~= nil then return blade end
             logSwing(player, "crush", flags, amount)
             return "Crush"
         end
@@ -609,7 +662,6 @@ local function weaponOf(source, flags, amount, victim)
     end
     if source.Type == EntityType.ENTITY_LASER then
         local subtype = entity ~= nil and entity.SubType or nil
-        logBeamPath(tostring(source.Variant) .. "." .. tostring(subtype))
         local beam = beamName(source.Variant, subtype)
         if beam ~= nil then return beam end
         logPlainLaser(owner, amount, "unknown variant " .. source.Variant, flags, victim)
@@ -700,7 +752,9 @@ local function statusLabel(data, burning, poisoned)
     return fromBurn .. " / " .. fromPoison .. " (burn + poison)"
 end
 
-function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
+-- extraSource is REPENTOGON's sixth argument: the beam or blade behind a hit that
+-- names only the player. Nil without REPENTOGON, and nil on hits it does not cover
+function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames, extraSource)
     if victim:ToPlayer() ~= nil then return nil end
     if not victim:IsEnemy() then return nil end
 
@@ -720,7 +774,7 @@ function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames)
         return nil
     end
 
-    local weapon = weaponOf(source, flags, amount, victim)
+    local weapon = weaponOf(source, flags, amount, victim, extraSource)
     if weapon == nil then
         pcall(logDropped, source, flags)
         -- something not ours touched this enemy last, so a status appearing now
@@ -803,7 +857,6 @@ end
 logPlainTear = guarded(logPlainTear)
 logCreep = guarded(logCreep)
 logPlainLaser = guarded(logPlainLaser)
-logBeamPath = guarded(logBeamPath)
 logSwing = guarded(logSwing)
 logShape = guarded(logShape)
 logBoard = guarded(logBoard)
