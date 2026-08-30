@@ -16,26 +16,22 @@
 
 local STEPS = {
     "luamod goodtripfixed",
-    "restart 0", 10,
+    -- the Forgotten, whose other half rides along as a sub-player rather than
+    -- as a second player, so the landing loop never counts it
+    "restart 16", 10,
     "debug 3",
     "debug 10",
     "stage 2", 12,
-    -- the two items named in the report, plus a plain follower as a control,
-    -- plus the knife, which the game also lays down at the door it picked
-    "giveitem c702",
-    "giveitem c658",
-    "giveitem c8",
-    "giveitem c114",
 }
 
-local HINT = "clear two rooms apart, then trip across and watch which wall the followers come in by"
+local HINT = "trip across, then switch to the Soul and see where it puts you"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 38
+local REV = 40
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
