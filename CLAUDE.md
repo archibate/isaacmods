@@ -90,6 +90,10 @@ local HINT = "walk into the boss room and fire once"
   floor 2 is worth keeping: a treasure room and a sacrifice room either side of one
   secret room, which is most of a GoodTrip path test in three rooms.
 - `debug <N>`: enable testing cheats accordingly to help user reproduce easy — `3` invincibility (prevent player death during test), `4` +40 damage (kills faster), `8` active always charged (to allow test active items repeatitively), `6` draws each entity's damage hitbox as a circle (see what a shot actually covers), `9` very high luck (luck-gated tear effects fire more often), `10` quick kill enemies (useful when need to walk through rooms). Run again to toggle off. Flags clear on restart.
+- Slow the kill down when the run asks *what dealt this damage*. A test like that needs
+  dozens of hits to land, so `debug 4` works against it — the target dies first. Cut the
+  damage instead with `giveitem c330` (Soy Milk) and pair it with a dummy that never
+  dies. Raise damage only when one hit is enough to answer, as in a reach or hitbox test.
 - `lua print(...)`: run lua expression.
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
 - Bombs, keys or coins needed? `giveitem c190` (Pyro) fills bombs, `c17` (Skeleton Key)
