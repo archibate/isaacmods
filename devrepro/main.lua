@@ -16,24 +16,26 @@
 
 local STEPS = {
     "luamod goodtripfixed",
-    -- the floor that lays a secret room between a treasure room and a sacrifice
-    -- room: bomb one side open and the wall rule must still refuse both ways
-    "seed MLBG W9ET",
     "restart 0", 10,
     "debug 3",
     "debug 10",
     "stage 2", 12,
-    "giveitem c40",
+    -- the two items named in the report, plus a plain follower as a control,
+    -- plus the knife, which the game also lays down at the door it picked
+    "giveitem c702",
+    "giveitem c658",
+    "giveitem c8",
+    "giveitem c114",
 }
 
-local HINT = "bomb into the secret room from one side, then try tripping across it both ways"
+local HINT = "clear two rooms apart, then trip across and watch which wall the followers come in by"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 36
+local REV = 38
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a

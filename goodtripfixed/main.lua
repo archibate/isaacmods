@@ -1012,6 +1012,18 @@ function _gt:land_at_door()
       local p = Isaac.GetPlayer(i)
       p.Position = p.Position + shift
     end
+    --and everything that came in with them. The game lays a familiar, a knife,
+    --a carried tear down where it thought the player arrived, so anything left
+    --behind spends the next second coming in from a wall nobody used. Familiars
+    --by their type, the rest by who owns them; the same step for all, so the
+    --trail keeps its shape.
+    for _, e in ipairs(Isaac.GetRoomEntities()) do
+      local owner = e.Parent or e.SpawnerEntity
+      if e.Type ~= EntityType.ENTITY_PLAYER
+          and (e.Type == EntityType.ENTITY_FAMILIAR or (owner and owner:ToPlayer())) then
+        e.Position = e.Position + shift
+      end
+    end
 end
 --
 function _gt:check_teleble(gid)
