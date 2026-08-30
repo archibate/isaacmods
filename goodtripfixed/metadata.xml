@@ -21,7 +21,7 @@ KEY FIXES
 - HUD offset is detected automatically from options.ini.
 - Fixed compatibility with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=1978904635]Minimap API[/url] and Repentance+.
 - Prevented accidental tear firing when clicking the teleport map.
-- Fixed trip into a room standing at the wrong door.
+- Fixed the original mod landing you, and your familiars, against a wall you never came in by.
 - The teleport map remembers its position between runs.
 
 FEATURES
@@ -40,6 +40,7 @@ Configure these features with [url=https://steamcommunity.com/sharedfiles/filede
 - Move quickly to a neighboring room with TAB + WASD (MCM: QuicklyOneRoomMove, off by default).
 - Move the teleport-map cursor faster with TAB + ↑↓←→ (MCM: FasterCursorMove, off by default).
 - Remove the black transition animation for faster teleportation (MCM: FastTransition, off by default).
+- Arrive standing at the door a walk would have come in by, familiars and knife along, instead of wherever the game drops you. Turn it off for the original's landing (MCM: LandAtDoor, on by default). Thanks @charles du bong and @Moe&amp;OF!
 - Integrate with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3071704639]Dangerous room! Caution[/url] to color dangerous rooms.
 - Enable Fair Trip rules, which add time based on movement speed and the length of the cleared route (MCM: FairTripTime, off by default). Thanks @iamthestoat and @Porp!
 - Bind a custom keyboard/controller button for the teleport map, useful for avoiding EID's TAB shortcut (MCM: OverlayKey / OverlayKeyController). Thanks @Porp!

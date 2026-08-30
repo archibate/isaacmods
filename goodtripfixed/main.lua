@@ -160,6 +160,7 @@ local gtconfig = {
     FastRestartEnable = true, --true = enable / false = disable. !Press TAB+R to FAST RESTART!
     FollowCurseOfLost = true, --true = enable / false = disable. cannot use goodtrip in curse of lost
     TeleportAnimation = false, --true = play / false = don't play
+    LandAtDoor = true,  --arrive at the door a walk would have come in by, carrying familiars along; off leaves everyone wherever the game drops them
     QuicklyOneRoomMove = false, --true = enable / false = disable. quickly move one entire room by TAB+ASWD
     AllowNeighborRoom = true,  --true = enable / false = disable. allow move to uncleaned neighbor room
     AllowBookmarking = true,  --true = enable / false = disable. allow tag bookmarks for rooms using TAB+0~9
@@ -332,6 +333,7 @@ if ModConfigMenu then
         { "Display", "ShowSpecialIcons", "Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "Display", "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
         { "Display", "TeleportAnimation", "Play cool animation on teleport" },
+        { "Display", "LandAtDoor", "Arrive standing at the door a walk would have come in by, familiars and all, instead of wherever the game drops you" },
         { "Display", "FastTransition", "Even faster transition without animation" },
         { "Display", "DimMapInCombat", "While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it" },
 
@@ -627,6 +629,7 @@ if ModConfigMenu then
             { "^ShowSpecialIcons:", "显示特殊房间图标:" },
             { "^DangerCautionCompat:", "危险房间提示联动:" },
             { "^TeleportAnimation:", "传送动画:" },
+            { "^LandAtDoor:", "传送后站在门口:" },
             { "^FastTransition:", "更快的过场:" },
             { "^FasterCursorMove:", "光标整格移动:" },
             { "^IgnoreMovementKeys:", "走路时不打断瞄准:" },
@@ -666,6 +669,7 @@ if ModConfigMenu then
             ["Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull"] = "在待过的房间上标出镜子, 白火, 矿车, 矿洞按钮, 暗色骷髅",
             ["weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors"] = "检测到我的另一个 mod 'Dangerous room! Caution' 时, 用颜色标出危险房间",
             ["Play cool animation on teleport"] = "传送时播放动画",
+            ["Arrive standing at the door a walk would have come in by, familiars and all, instead of wherever the game drops you"] = "传送后站在走过去时会进来的那道门边, 跟班也一起带过去; 关掉则听凭游戏把你丢在哪算哪",
             ["Even faster transition without animation"] = "连过场动画也省掉, 房间切换更快",
             ["Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them"] = "方向键按一下光标就跳一整格, 按住则连续跳, 不必一直按着慢慢挪",
             ["Keep moving the map cursor while you walk, instead of pausing it until you let go"] = "走路时光标继续跟着方向键动, 而不是等你松手",
@@ -1226,7 +1230,8 @@ function _gt:teleport_to_grid_index(gid) ----core
     -- local cid = crd.SafeGridIndex
     --named here rather than up top: an antechamber hop may have moved the
     --player since, and the door to arrive by faces wherever they stand now
-    do
+    tele_door_slot = -1 --off means the game's own landing, so nothing to aim for
+    if gtconfig.LandAtDoor then
       local trd = grid_room[gid]
       tele_door_slot = _gt:landing_slot(
         Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex,

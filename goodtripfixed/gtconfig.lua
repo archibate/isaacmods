@@ -18,6 +18,7 @@ return {
     -- FastRestartEnable = true,   -- TAB + R restarts the run
     -- FollowCurseOfLost = true,   -- no teleporting under Curse of the Lost
     -- TeleportAnimation = false,  -- white flash on arrival
+    -- LandAtDoor = true,          -- arrive at the door a walk would have used, familiars along
     -- QuicklyOneRoomMove = false, -- TAB + WASD steps one room
     -- AllowNeighborRoom = true,   -- trip into an uncleared room next to a cleared one
     -- AllowBookmarking = true,    -- TAB + 1~9 marks and returns

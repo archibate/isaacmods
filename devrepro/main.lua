@@ -16,22 +16,22 @@
 
 local STEPS = {
     "luamod goodtripfixed",
-    -- the Forgotten, whose other half rides along as a sub-player rather than
-    -- as a second player, so the landing loop never counts it
-    "restart 16", 10,
+    "restart 0", 10,
     "debug 3",
     "debug 10",
     "stage 2", 12,
+    -- start with the new switch off, so the first trips show the old landing
+    "lua gt:get_config().LandAtDoor=false",
 }
 
-local HINT = "trip across, then switch to the Soul and see where it puts you"
+local HINT = "trip with it off, then turn Land at door back on in the menu and trip again"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 40
+local REV = 41
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
