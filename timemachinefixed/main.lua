@@ -29,6 +29,9 @@ tmmc.supressFly = true
 tmmc.supressBomb = true
 tmmc.preventDeath = true
 tmmc.enableChest = true
+tmmc.enableModded = true
+tmmc.moddedmax = 5
+tmmc.moddedGuard = true
 tmmc.enable = {
     true,   --1.Slot Machine
     true,   --2.Blood Donation Machine
@@ -78,6 +81,9 @@ if ModConfigMenu then
             supressBomb = tmmc.supressBomb,
             preventDeath = tmmc.preventDeath,
             enableChest = tmmc.enableChest,
+            enableModded = tmmc.enableModded,
+            moddedmax = tmmc.moddedmax,
+            moddedGuard = tmmc.moddedGuard,
             enable = tmmc.enable,
         })
         if not oldcfgdatas or dat ~= oldcfgdatas then
@@ -98,6 +104,9 @@ if ModConfigMenu then
             if cfg.supressBomb ~= nil then tmmc.supressBomb = cfg.supressBomb end
             if cfg.preventDeath ~= nil then tmmc.preventDeath = cfg.preventDeath end
             if cfg.enableChest ~= nil then tmmc.enableChest = cfg.enableChest end
+            if cfg.enableModded ~= nil then tmmc.enableModded = cfg.enableModded end
+            tmmc.moddedmax = cfg.moddedmax or tmmc.moddedmax
+            if cfg.moddedGuard ~= nil then tmmc.moddedGuard = cfg.moddedGuard end
             if type(cfg.enable) == 'table' then
                 for i = 1, #tmmc.enable do
                     if cfg.enable[i] ~= nil then tmmc.enable[i] = cfg.enable[i] end
@@ -149,11 +158,33 @@ if ModConfigMenu then
         Info = { "How fast the speed builds up while touching a machine (percent per tick)" },
       }
     )
+    ModConfigMenu.AddSetting(
+      "TimeMachine [Fixed]", nil,
+      {
+        Type = ModConfigMenu.OptionType.NUMBER,
+        Minimum = 1,
+        Maximum = 10,
+        Default = 5,
+        CurrentSetting = function()
+          return tmmc.moddedmax
+        end,
+        Display = function()
+          return "ModdedMaxSpeed: " .. tostring(tmmc.moddedmax)
+        end,
+        OnChange = function(b)
+          tmmc.moddedmax = b
+          save_config()
+        end,
+        Info = { "Top speed for a machine another mod added, recommend lower to avoid compatibility or performance issues" },
+      }
+    )
     for _, info in ipairs({
         { "supressFly", "KillSpawnedFlies", "Kill flies spawned by Shell Game / Hell Game / beggars so speeding up won't get you hurt" },
         { "supressBomb", "DefuseSpawnedBombs", "Delay troll bombs dropped by machines / beggars so they explode after you finished" },
         { "preventDeath", "PreventSuddenDeath", "Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to keep accelerating at lethal HP too)" },
         { "enableChest", "EternalChest", "Speed up the eternal chest (the blue one in Angel Rooms) so its open-close-reopen wait is not dead time" },
+        { "enableModded", "ModdedMachines", "Speed up beggars and machines added by other mods -- potentially compatibility issue, turn this off if one of them misbehaves" },
+        { "moddedGuard", "ModdedDeathGuard", "Treat a machine another mod added as if it took a full heart, and stop speeding it up when the next use could kill" },
     }) do
         ModConfigMenu.AddSetting(
           "TimeMachine [Fixed]", nil,
@@ -210,6 +241,9 @@ if ModConfigMenu then
             { "^DefuseSpawnedBombs:", "延后刷出来的即爆炸弹:" },
             { "^PreventSuddenDeath:", "血量危险时停下:" },
             { "^EternalChest:", "永恒宝箱:" },
+            { "^ModdedMachines:", "模组机器:" },
+            { "^ModdedMaxSpeed:", "模组机器最高倍速:" },
+            { "^ModdedDeathGuard:", "模组机器保守血量:" },
             { ": on$", ": 开" },
             { ": off$", ": 关" },
         }
@@ -221,6 +255,9 @@ if ModConfigMenu then
             ["Delay troll bombs dropped by machines / beggars so they explode after you finished"] = "机器和乞丐掉出来的恶搞炸弹推迟引爆, 等你弄完再炸",
             ["Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to keep accelerating at lethal HP too)"] = "在抽血的机器前, 如果下一次抽血就会要命, 就先停住不加速 (关掉的话血量再低也照样加速)",
             ["Speed up the eternal chest (the blue one in Angel Rooms) so its open-close-reopen wait is not dead time"] = "贴着天使房的蓝宝箱时加速, 开了关关了开的那段等待就不用干等了",
+            ["Treat a machine another mod added as if it took a full heart, and stop speeding it up when the next use could kill"] = "模组乞丐和模组机器一律假设要扣一颗心, 下一次可能致命就不再加速",
+            ["Top speed for a machine another mod added, recommend lower to avoid compatibility or performance issues"] = "模组机器最多能快到几倍, 建议不要太高, 避免兼容性或性能问题",
+            ["Speed up beggars and machines added by other mods -- potentially compatibility issue, turn this off if one of them misbehaves"] = "模组乞丐和模组机器也加速, 可能有兼容性问题, 如果表现不对劲就关掉",
         }
         --every machine's own switch and its one-line description come from the
         --same name, so both sides are generated from one table. The pattern
@@ -274,9 +311,48 @@ local accelerating = false
 --its last flip are the tell
 local CHEST_SPENT = 60 * 4
 local chest_ticks = {}
+--what counts as touching a machine is measured off its size, and a machine
+--another mod added can carry any size at all: this beggar's reach and its
+--collision radius are the same number, so the player stands exactly at the
+--distance the test excludes and the machine was never seen as touched. The
+--engine settles the same question every frame anyway, so it is asked instead --
+--nothing is returned, so the collision itself behaves as it always did
+local touched = {}
+_tmmc:AddCallback(ModCallbacks.MC_PRE_PLAYER_COLLISION, function(_, player, collider)
+    if collider.Type == 6 then
+        touched[GetPtrHash(collider)] = Game():GetFrameCount()
+    end
+end)
+--a machine another mod added is driven by that mod, not by the game: the entity
+--carries only the animation, and every decision it makes -- what it pays, when
+--it pays, when it goes back to idle -- is taken in the once-a-frame pass that
+--mod subscribes to, off exact animation frames. An extra tick does move such a
+--machine, so a tick its owner never sees is a tick that did not happen for it:
+--the animation races past the frame the payout hangs on and the beggar freezes
+--there, paying nothing. So each extra tick is followed by that pass. It runs
+--every other mod's per-frame code too, which costs nothing measurable but does
+--run that code at the machine's speed -- hence a ceiling of its own
+--one subscriber at a time rather than Isaac.RunCallback, which stops at the
+--first one that returns a value and would leave the rest of the mods unfed --
+--the machine's owner among them, depending on the order they loaded in. Reading
+--the list back is a Repentance+ function, so on older Repentance no machine is
+--taken to be modded at all: a beggar left at plain speed beats a frozen one
+local can_pump = Isaac.GetCallbacks ~= nil
+local pumping = false
+local function pump_mods()
+    if pumping then return end
+    pumping = true
+    for _, cb in ipairs(Isaac.GetCallbacks(ModCallbacks.MC_POST_UPDATE)) do
+        if cb.Mod ~= _tmmc then
+            pcall(cb.Function, cb.Mod)
+        end
+    end
+    pumping = false
+end
 function tmmc:new_room()
     speedNow = tmmc.speedmin
     chest_ticks = {}
+    touched = {}
 end
 --everything the player can stand against and wait on: slot machines by their own
 --switches, plus the eternal chest, which is not a machine but is the same shape of
@@ -285,8 +361,16 @@ function tmmc:find_targets()
     local targets = {}
     local slots = Isaac.FindByType(6, -1, -1, false, false)
     for _, slot in ipairs(slots) do
-        if tmmc.enable[slot.Variant] then
-            table.insert(targets, { ent = slot, chest = false })
+        --membership is the variant being one the game itself ships, not the
+        --switch being on: a modded machine is free to claim a number inside the
+        --vanilla range, and it would otherwise inherit that machine's switch
+        --and its "costs health or not" answer, neither of which is about it
+        if slot.Variant >= 1 and slot.Variant <= #machine_names then
+            if tmmc.enable[slot.Variant] then
+                table.insert(targets, { ent = slot, chest = false, modded = false })
+            end
+        elseif tmmc.enableModded and can_pump then
+            table.insert(targets, { ent = slot, chest = false, modded = true })
         end
     end
     if tmmc.enableChest then
@@ -315,11 +399,20 @@ function tmmc:machine_cost(variant)
 end
 --one machine, count extra ticks: the player is held against it and stepped along
 --with it, because the interaction only advances while the two stay in contact
-function tmmc:accel_slot(player, slot, count)
-    --keep health-taking machines at vanilla speed when the next hit could
-    --kill, so the player has real time to walk away
-    local danger = tmmc.preventDeath and health_machine[slot.Variant]
-        and tmmc:hp_halves(player) <= tmmc:machine_cost(slot.Variant)
+function tmmc:accel_slot(player, slot, count, modded)
+    --keep health-taking machines at vanilla speed when the next hit could kill,
+    --so the player has real time to walk away. A machine another mod added is
+    --held to its own switch: what it charges cannot be read from here, so it is
+    --taken to charge the most the game itself charges, a full heart. The cost of
+    --being wrong is a modded coin beggar that stops speeding up on the last
+    --heart, against a death at one that turned out to take blood
+    local danger
+    if modded then
+        danger = tmmc.moddedGuard and tmmc:hp_halves(player) <= 2
+    else
+        danger = tmmc.preventDeath and health_machine[slot.Variant]
+            and tmmc:hp_halves(player) <= tmmc:machine_cost(slot.Variant)
+    end
     if danger then
         return false
     end
@@ -332,7 +425,18 @@ function tmmc:accel_slot(player, slot, count)
         end
     end
     for _ = 1, count do
+        --the player's body shoves a machine another mod owns the way it shoves a
+        --monster, and every tick is a whole shove: at ten ticks a frame the
+        --beggar visibly shakes. The game's own tick still moves it; ours do not
+        local slotPos, slotVel
+        if modded then
+            slotPos, slotVel = slot.Position, slot.Velocity
+        end
         slot:Update()
+        if modded then
+            slot.Position, slot.Velocity = slotPos, slotVel
+            pump_mods()
+        end
         --kill spawned flies before the player update below runs, so a fly
         --spawned this tick never gets a collision/damage pass against the
         --player (otherwise it could land one hit before the end-of-step kill)
@@ -392,6 +496,11 @@ function tmmc:accel_chest(player, chest, count)
     return true
 end
 function tmmc:step()
+    --this same pass is what a modded machine's extra ticks re-run, and stepping
+    --machines from inside a step is how one tick becomes a hundred
+    if pumping then
+        return
+    end
     accelerating = false
     if not Game():GetRoom():IsClear() then
         return
@@ -410,17 +519,26 @@ function tmmc:step()
     end
     local accelerated = false
     local acceleratedSlot = false
+    local acceleratedModded = false
     for i = 0, Game():GetNumPlayers() - 1 do
         local player = Isaac.GetPlayer(i)
         for _, target in ipairs(targets) do
             local ent = target.ent
-            if player.Position:Distance(ent.Position) < (player.Size + ent.Size) then
+            local contact = player.Position:Distance(ent.Position) < (player.Size + ent.Size)
+            if target.modded and not contact then
+                --a collision reported this frame or the one before it: the tick
+                --the player bounces off is still part of standing against it
+                local when = touched[GetPtrHash(ent)]
+                contact = when ~= nil and Game():GetFrameCount() - when <= 1
+            end
+            if contact then
                 local ran
                 if target.chest then
                     ran = tmmc:accel_chest(player, ent, count)
                 else
-                    ran = tmmc:accel_slot(player, ent, count)
+                    ran = tmmc:accel_slot(player, ent, count, target.modded)
                     acceleratedSlot = acceleratedSlot or ran
+                    acceleratedModded = acceleratedModded or (ran and target.modded)
                     if tmmc.supressBomb then
                         for _, e in ipairs(Isaac.FindByType(4, -1, -1)) do
                             e:ToBomb():SetExplosionCountdown(100)
@@ -433,7 +551,15 @@ function tmmc:step()
         end
     end
     if accelerated then
-        if speedNow <= tmmc.speedmax then
+        --the ramp is what a modded machine's own ceiling holds down, not the
+        --tick count, so the run timer keeps counting exactly the ticks that ran
+        local cap = tmmc.speedmax
+        if acceleratedModded then
+            cap = math.min(cap, tmmc.moddedmax)
+        end
+        if speedNow > cap then
+            speedNow = cap
+        elseif speedNow <= cap then
             speedNow = speedNow + tmmc.speeda
         end
         --the fly-damage block covers machines only: nothing a chest does spawns a
