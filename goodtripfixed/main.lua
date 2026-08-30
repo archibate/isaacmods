@@ -324,6 +324,7 @@ if ModConfigMenu then
         { "Fairness", "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
         { "Fairness", "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "Fairness", "FollowCurseOfLost", "Disable GoodTrip on curse of lost" },
+        { "Fairness", "LandAtDoor", "Arrive standing at the exact door a walk would have come in by" },
 
         { "Shortcuts", "LastRoomShortcut", "Allow teleport back to last room via TAB + Z" },
         { "Shortcuts", "FastRestartEnable", "Allow restarting the run quickly via TAB + R" },
@@ -333,7 +334,6 @@ if ModConfigMenu then
         { "Display", "ShowSpecialIcons", "Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull" },
         { "Display", "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
         { "Display", "TeleportAnimation", "Play cool animation on teleport" },
-        { "Display", "LandAtDoor", "Arrive standing at the door a walk would have come in by, familiars and all, instead of wherever the game drops you" },
         { "Display", "FastTransition", "Even faster transition without animation" },
         { "Display", "DimMapInCombat", "While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it" },
 
@@ -669,7 +669,7 @@ if ModConfigMenu then
             ["Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull"] = "在待过的房间上标出镜子, 白火, 矿车, 矿洞按钮, 暗色骷髅",
             ["weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors"] = "检测到我的另一个 mod 'Dangerous room! Caution' 时, 用颜色标出危险房间",
             ["Play cool animation on teleport"] = "传送时播放动画",
-            ["Arrive standing at the door a walk would have come in by, familiars and all, instead of wherever the game drops you"] = "传送后站在走过去时会进来的那道门边, 跟班也一起带过去; 关掉则听凭游戏把你丢在哪算哪",
+            ["Arrive standing at the exact door a walk would have come in by"] = "传送后就站在走过去时会进来的那道门边, 跟班也一起带过去",
             ["Even faster transition without animation"] = "连过场动画也省掉, 房间切换更快",
             ["Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them"] = "方向键按一下光标就跳一整格, 按住则连续跳, 不必一直按着慢慢挪",
             ["Keep moving the map cursor while you walk, instead of pausing it until you let go"] = "走路时光标继续跟着方向键动, 而不是等你松手",
