@@ -2077,17 +2077,28 @@ function _gt:draw_minimap(faint)
       checkid = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
     end
     if grid_room[checkid] then
-      local safecheckid = grid_room[checkid].SafeGridIndex
+      --two different questions, and they were being answered by one lookup. What
+      --lights up is the cell under the pointer: the drawing pass files a room
+      --under each cell it drew it on, so a cell it never drew on should stay
+      --dark. Where the outline goes is the room's own corner, which is the entry
+      --filed under its top-left cell -- drawing it at the cell hovered instead
+      --puts it a room away on anything wider than 1x1. A Void boss room has no
+      --entry at its top-left at all, being filed under whichever of its cells
+      --passed the test there, so it falls back to the cell that was hit, which is
+      --the one it was drawn on. That room used to answer neither question.
+      local hit, anchor
       for i = 1, #draw_room_id do
-        if safecheckid == draw_room_id[i] then
-          if _gt:check_teleble(checkid) then
-            select:SetFrame("select", draw_room_shape[i])
-          else
-            select:SetFrame("select_false", draw_room_shape[i])
-          end
-          select:Render(draw_room_pos[i], Vector(0, 0), Vector(0, 0))
-          break
+        if checkid == draw_room_id[i] then hit = i end
+        if grid_room[checkid].SafeGridIndex == draw_room_id[i] then anchor = i end
+      end
+      if hit then
+        local at = anchor or hit
+        if _gt:check_teleble(checkid) then
+          select:SetFrame("select", draw_room_shape[at])
+        else
+          select:SetFrame("select_false", draw_room_shape[at])
         end
+        select:Render(draw_room_pos[at], Vector(0, 0), Vector(0, 0))
       end
     end
     ---draw cursor---
