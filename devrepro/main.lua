@@ -14,25 +14,28 @@
 -- and take it out again once that question is answered, so the next run's log and
 -- screen carry only what is being asked now.
 
--- the Womb lays L-shaped rooms often, and The Mind draws the whole floor so they
--- can be picked off the teleport map. F3 reseeds until the floor has one
+-- The Mind draws the whole floor, a bomb opens the secret room, and the trinket is
+-- the one the toll is meant to answer to. F3 reseeds until a curse room shares a
+-- wall with a secret room, which is the shape the hop under test needs
 local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
     "debug 3",
     "debug 10",
-    "stage 7", 12,
+    "stage 2", 12,
     "giveitem c333",
+    "giveitem c190",
+    "giveitem t151",
 }
 
-local HINT = "turn SnapViewOnLanding back ON, then trip into a big room and press TAB"
+local HINT = "F3 first; then with Flat File held try every way in and out of the curse room"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 89
+local REV = 90
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -75,22 +78,26 @@ if pressed == "dump" then dump() end
 -- F3 hunts a floor shaped for the question at hand. No console command asks for a
 -- layout, but reseed redraws the floor and leaves the run otherwise alone, so the
 -- driver loops it and reads the room list each try. Wanted here: an L-shaped room,
--- where the line the view breaks on is the one thing the landing has to guess.
+-- where a trip to the secret room has to pass the curse room's own door.
 local hunting = pressed == "hunt"
 local hunt_wait, hunt_tries = 0, 0
 
 local function floor_wanted()
     local rooms = Game():GetLevel():GetRooms()
-    local found = {}
+    local curse, secret = {}, {}
     for i = 0, rooms.Size - 1 do
         local d = rooms:Get(i)
-        if d.Data.Shape >= 9 then
-            found[#found + 1] = string.format("%d shape %d", d.SafeGridIndex, d.Data.Shape)
-        end
+        if d.Data.Type == 10 then curse[#curse + 1] = d.SafeGridIndex end
+        if d.Data.Type == 7 then secret[#secret + 1] = d.SafeGridIndex end
     end
-    if #found > 0 then
-        Isaac.DebugString("[HUNT] L rooms: " .. table.concat(found, ", "))
-        return true
+    for _, c in ipairs(curse) do
+        for _, s in ipairs(secret) do
+            local samerow = (c - c % 13) == (s - s % 13)
+            if (samerow and math.abs(c - s) == 1) or math.abs(c - s) == 13 then
+                Isaac.DebugString(string.format("[HUNT] curse %d beside secret %d", c, s))
+                return true
+            end
+        end
     end
     return false
 end
