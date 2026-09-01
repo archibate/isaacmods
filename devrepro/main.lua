@@ -22,20 +22,18 @@ local STEPS = {
     "restart 0", 10,
     "debug 3",
     "debug 10",
-    "stage 2", 12,
+    "stage 7", 12,
     "giveitem c333",
-    "giveitem c190",
-    "giveitem t151",
 }
 
-local HINT = "F3 first; then with Flat File held try every way in and out of the curse room"
+local HINT = "one throw only: does the map come back on the next frame or stay gone?"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 90
+local REV = 94
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a

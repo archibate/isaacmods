@@ -125,8 +125,8 @@ local mmp_1step_mgid = -1
 --
 local tele_maze = false
 local tele_door_slot = -1 --the door a trip means to arrive by
-local tele_draw_back --and, while the view is still catching up, how far back to draw
-local tele_snap_to --or, with a writable camera in hand, where to hold the view instead
+local nongon_draw_back --and, while the view is still catching up, how far back to draw
+local gon_snap_to --or, with a writable camera in hand, where to hold the view instead
 --the real door graph, learned one room at a time. Grid adjacency alone cannot
 --tell a doorway from a secret room's unbombed wall, so a trip that crosses one
 --hands out a bomb nobody spent. Kept per dimension: the mirror world reuses the
@@ -178,8 +178,8 @@ local gtconfig = {
     NoShootWhenClick = true,  --disable mouse click shooting when holding Tab
     -- AllowRightClick = false,  --mouse right click on bigmap to teleport
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
-    CursorOnGameMap = false,  --draw the cursor on the game's own corner map instead of the draggable window; needs REPENTOGON, see _gt:enableGMC
-    SnapViewOnLanding = true,  --move the view to the door yourself instead of letting the fade catch up with it; needs REPENTOGON, so it does nothing without one, see _gt:enableViewSnap
+    CursorOnGameMap = false,  --draw the cursor on the game's own corner map instead of the draggable window; needs REPENTOGON, see _gt:gon_map_cursor
+    SnapViewOnLanding = true,  --move the view to the door yourself instead of letting the fade catch up with it; needs REPENTOGON, so it does nothing without one, see _gt:gon_view_snap
     DimMapInCombat = true,  --while the room is uncleared and no trip is possible, draw the window faint and inert instead of hiding it
     DimMapAlpha = 35,  --how faint that is, in percent; floored at 5 so a mistyped 0 cannot erase the window the way MinimapScale once did
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
@@ -205,18 +205,35 @@ local gtconfig = {
     CalibMirrorY = 0,
 }
 ----
+--Everything named gon_ belongs to REPENTOGON and to nobody else. Each one asks
+--for REPENTOGON itself rather than trusting whoever called it, so on a plain game
+--every gon_ test is false and every gon_ action does nothing -- a setting switched
+--on without REPENTOGON, from an old saved config or by hand, leaves the mod
+--exactly as it was. Nothing outside these may touch a REPENTOGON-only call.
+--
+--Anything named nongon_ is the other half of such a pair: the way the same job is
+--done on a game with no REPENTOGON, and dead on one that has it. The two never
+--run together, so a nongon_ name standing next to a gon_ one says which game each
+--belongs to without reading either.
+--
 --the cursor on the game's own map only lands above it from a REPENTOGON render
---callback; without the script extender it draws behind the map and the window
---it replaces is hidden, which is how the mode broke players before. asked here
---rather than read from the setting, so switching it on without REPENTOGON --
---from an old saved config, or by hand -- leaves the mod as it was
-function _gt:enableGMC()
+--callback; without the script extender it draws behind the map and the window it
+--replaces is hidden, which is how the mode broke players before
+function _gt:gon_map_cursor()
     return REPENTOGON ~= nil and gtconfig.CursorOnGameMap
 end
 --
 --the same shape for the one writable camera there is, which REPENTOGON hands over
-function _gt:enableViewSnap()
+function _gt:gon_view_snap()
     return REPENTOGON ~= nil and gtconfig.SnapViewOnLanding
+end
+--
+--and the call itself, which exists only under REPENTOGON: asked for again here so
+--that a game without one walks out rather than indexing a camera that is not
+--there. It is the only place in the mod that names it.
+function _gt:gon_snap_view(pos)
+    if REPENTOGON == nil then return end
+    Game():GetRoom():GetCamera():SnapToPosition(pos)
 end
 ----
 --gtconfig.lua is the config surface for players without Mod Config Menu: it is
@@ -1083,17 +1100,17 @@ function _gt:land_at_door()
     local lx, ly = part(was)
     local sx, sy = part(stand)
     if lx ~= sx or ly ~= sy then
-      if _gt:enableViewSnap() then
+      if _gt:gon_view_snap() then
         --with the one writable camera in hand there is nothing to work around: put
         --the view on the door and the room opens on it. Its own note says a snap
         --loses to Active Cam, which puts the view back on every update -- but the
         --fade runs no updates at all, so the snap stands for exactly the frames it
         --is wanted for, and the game has the view back by the first update.
-        tele_snap_to = stand
-        room:GetCamera():SnapToPosition(stand)
+        gon_snap_to = stand
+        _gt:gon_snap_view(stand)
       else
         local o = room:GetRenderScrollOffset()
-        tele_draw_back = { o.X, o.Y }
+        nongon_draw_back = { o.X, o.Y }
         for _, e in ipairs(party) do
           e.SpriteOffset = Vector(-shift.X, -shift.Y)
         end
@@ -1832,7 +1849,7 @@ function _gt:prep_minimap()
 end
 --
 function _gt:draw_minimap_ui()
-    if _gt:enableGMC() then --the game's own map is the widget: no window chrome
+    if _gt:gon_map_cursor() then --the game's own map is the widget: no window chrome
       return
     end
     if not ((gtconfig.KeyboardMapEnable and _gt:check_teleble(false)) or debug) then -------return when gtconfig.KeyboardMapEnable disable & debug disable
@@ -1884,11 +1901,11 @@ end
 --
 --game-map cursor mode: the aux window stays hidden, the keyboard cursor is
 --drawn on the game's own map instead; selection & teleport logic untouched
-function _gt:draw_gamemap_cursor()
+function _gt:gon_draw_map_cursor()
     --checked here, not just at the draw_minimap call site: under REPENTOGON
     --this also runs unconditionally from MC_POST_HUD_RENDER every frame, so
     --GMC off must not leak a cursor through that second path
-    if not _gt:enableGMC() or not mmp_ctrl then
+    if not _gt:gon_map_cursor() or not mmp_ctrl then
       return
     end
     --the widget appearing at all is its own signal that a cursor is in play;
@@ -1934,12 +1951,12 @@ function _gt:draw_gamemap_cursor()
 end
 --
 function _gt:draw_minimap(faint)
-    if _gt:enableGMC() then
+    if _gt:gon_map_cursor() then
       --REPENTOGON draws the game's own map during MC_HUD_RENDER, so a cursor
       --drawn here or there both land underneath it; MC_POST_HUD_RENDER is the
       --one that actually runs after -- let it handle drawing instead (below)
       if not REPENTOGON then
-        _gt:draw_gamemap_cursor()
+        _gt:gon_draw_map_cursor()
       end
       return
     end
@@ -2132,7 +2149,7 @@ function _gt:mmp_ctrl_move()
       else
         if Input.IsActionPressed(key[i], player.ControllerIndex) then
           local step = _gt:mirror_mmp_dir(dir[i]) * mmsc
-          if _gt:enableGMC() then
+          if _gt:gon_map_cursor() then
             --vanilla map cells (17x15px) are physically bigger than the 8x7
             --virtual unit this step size was tuned around, so the identical
             --held key moves ~2.1x faster in real screen pixels here than it
@@ -2209,7 +2226,7 @@ function _gt:tab_action()
         --ownership rules either way, only the region differs. get_pos_grid_index
         --is the map's own hit test, so this can't drift from where clicks land
         local in_ui
-        if _gt:enableGMC() then
+        if _gt:gon_map_cursor() then
           in_ui = _gt:get_pos_grid_index(mpos) >= 0
         else
           in_ui = _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
@@ -2304,7 +2321,7 @@ function _gt:mouse_action()
       ---
       if (_gt:check_teleble(mgid) and tele_cd < 1) then
         _gt:teleport_to_grid_index(mgid)
-      elseif gtconfig.KeyboardMapEnable and not _gt:enableGMC() then --aux-widget zones (window click / pin / zoom / drag): only when the widget is visible
+      elseif gtconfig.KeyboardMapEnable and not _gt:gon_map_cursor() then --aux-widget zones (window click / pin / zoom / drag): only when the widget is visible
         mgid = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
         --
         if (_gt:check_teleble(mgid) and tele_cd < 1) then
@@ -2418,17 +2435,17 @@ function _gt:step()
     --update anywhere near it, so this is the only place the moment can be caught
     --a snap has to be renewed every frame it is wanted, and is wanted until the
     --room starts counting its own frames, which is the game taking the view back
-    if tele_snap_to then
+    if REPENTOGON ~= nil and gon_snap_to then
       if room:GetFrameCount() > 0 then
-        tele_snap_to = nil
+        gon_snap_to = nil
       else
-        room:GetCamera():SnapToPosition(tele_snap_to)
+        _gt:gon_snap_view(gon_snap_to)
       end
     end
-    if tele_draw_back then
+    if nongon_draw_back then
       local o = room:GetRenderScrollOffset()
-      if o.X ~= tele_draw_back[1] or o.Y ~= tele_draw_back[2] then
-        tele_draw_back = nil
+      if o.X ~= nongon_draw_back[1] or o.Y ~= nongon_draw_back[2] then
+        nongon_draw_back = nil
         for _, e in ipairs(_gt:landed_party()) do
           e.SpriteOffset = Vector(0, 0)
         end
@@ -2516,7 +2533,7 @@ function _gt:step()
       end
     elseif (gtconfig.KeyboardMapEnable) or debug then -------return when gtconfig.KeyboardMapEnable & debug disable
       --PIN ACTION WITHOUT TAB--
-      if mmp_pin == 1 and not _gt:enableGMC() and crd.Clear and _gt:check_teleble(false) then
+      if mmp_pin == 1 and not _gt:gon_map_cursor() and crd.Clear and _gt:check_teleble(false) then
         if mouse_in_ui then
           --the pointer is over the window, so the click is aimed at a room and not
           --at anything in front of the player. The same holds whether TAB is up or
@@ -2543,7 +2560,7 @@ function _gt:step()
           ui_timer = 0
         end
         _gt:draw_minimap()
-      elseif mmp_pin == 1 and not _gt:enableGMC() and _gt:dim_map_only() and not debug then
+      elseif mmp_pin == 1 and not _gt:gon_map_cursor() and _gt:dim_map_only() and not debug then
         --pinned open into a room that refuses a trip: the same faint inert window
         --the held one gets, rather than the pin quietly going missing
         ui_timer = 0
@@ -2638,7 +2655,7 @@ function _gt:new_room()
     kb_active = false
     player = Isaac.GetPlayer(0)
     stage = level:GetStage()
-    tele_draw_back, tele_snap_to = nil, nil
+    nongon_draw_back, gon_snap_to = nil, nil
     _gt:land_at_door()
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true
@@ -2765,5 +2782,5 @@ _gt:AddCallback(ModCallbacks.MC_POST_UPDATE, _gt.step2)
 _gt:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, _gt.new_room)
 _gt:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, _gt.new_level)
 if REPENTOGON then
-  _gt:AddCallback(ModCallbacks.MC_POST_HUD_RENDER, _gt.draw_gamemap_cursor)
+  _gt:AddCallback(ModCallbacks.MC_POST_HUD_RENDER, _gt.gon_draw_map_cursor)
 end
