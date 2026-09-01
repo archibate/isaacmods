@@ -136,6 +136,13 @@ local door_link = {}  --door_link[dim][a][b]: a passage, seen from either end
 local door_swept = {} --door_swept[dim][a]: a's own walls were read, so silence
                       --about b is evidence and not merely ignorance
 local secret_pre_room_id = {}
+--curse rooms whose doors have been laid eyes on, and whether they had their
+--spikes. A door has two of itself, one in each room it joins, and Flat File takes
+--the spikes off whichever side it was standing beside, so the way in and the way
+--out are remembered apart. Both are needed: a trip out of a secret room hops
+--through the curse room that guards it and leaves by its inner door, and is
+--decided from inside the secret room, where that door cannot be read
+local curse_bare_outside, curse_bare_inside = {}, {}
 local prep_alarm = false
 local n_room_num = 0
 --
@@ -914,6 +921,16 @@ function _gt:sweep_doors()
       local door = live:GetDoor(i)
       if door and door.Desc.Variant ~= DoorVariant.DOOR_HIDDEN then
         local there = lvl:GetRoomByIdx(door.TargetRoomIndex, -1).SafeGridIndex
+        --a curse room's door is spiked or it is not, and reading it here is the
+        --only honest way to know: Flat File takes the spikes off the side it was
+        --standing beside, and they do not come back, so the trinket picked up or
+        --dropped afterwards says nothing about this door. The side facing in and
+        --the side facing out are separate doors and are kept apart.
+        if door.TargetRoomType == RoomType.ROOM_CURSE then
+          curse_bare_outside[there] = door.VarData ~= 0
+        elseif live:GetType() == RoomType.ROOM_CURSE then
+          curse_bare_inside[here] = door.VarData ~= 0
+        end
         if there ~= here then
           --this end knows which of its own walls the door sits in; the far end
           --only learns that when its own turn comes, so it gets a bare mark
@@ -1158,6 +1175,22 @@ function _gt:tele_failed()
   sfx:Play(187, 0.5, 0, false, 1)
 end
 --
+--is this way through a curse room's door already paid for? Two different things
+--waive it and they answer at different times. Isaac's Heart and Tooth and Nail
+--take the hit for you, so they are asked about now. Flat File is not asked about
+--at all where the door has been seen, because it acts on the door and not on the
+--player; only for a side that has never been laid down does the trinket in hand
+--decide, and that is right, because that side is about to be laid down under it.
+function _gt:curse_toll_free(gid, leaving)
+    if player:HasCollectible(276) or player:HasCollectible(663) then
+      return true
+    end
+    local bare = curse_bare_outside[gid]
+    if leaving then bare = curse_bare_inside[gid] end
+    if bare ~= nil then return bare end
+    return player:HasTrinket(151)
+end
+--
 function _gt:check_curse_room(gid)
     if debug then return end
     ----
@@ -1166,12 +1199,16 @@ function _gt:check_curse_room(gid)
       if secret_pre_room_id[crid] and (secret_pre_room_id[crid] == gid or (secret_pre_room_id[secret_pre_room_id[crid]] and secret_pre_room_id[secret_pre_room_id[crid]] ~= crid)) then
         return
       end
-      _gt:hurt(1)
+      if not _gt:curse_toll_free(crsid, true) then
+        _gt:hurt(1)
+      end
     elseif trd.Data.Type == 10 and not player:IsFlying() then --target to curse room
       if secret_pre_room_id[gid] and (secret_pre_room_id[gid] == crid or (secret_pre_room_id[secret_pre_room_id[gid]] and secret_pre_room_id[secret_pre_room_id[gid]] ~= gid)) then
         return
       end
-      _gt:hurt(1)
+      if not _gt:curse_toll_free(trd.SafeGridIndex) then
+        _gt:hurt(1)
+      end
     end
 end
 --
@@ -1201,11 +1238,7 @@ function _gt:teleport_to_grid_index(gid) ----core
       end
     end
     --
-    local flat = player:HasTrinket(151) or player:HasCollectible(276) or player:HasCollectible(663)----has flat file[rep]---- 276 = Isaac's Heart; 663=Tooth and Nail
-    --
-    if not flat then
-      _gt:check_curse_room(gid)
-    end
+    _gt:check_curse_room(gid)
     --
     level.EnterDoor = -1
     level.LeaveDoor = -1
@@ -1235,7 +1268,10 @@ function _gt:teleport_to_grid_index(gid) ----core
         gid = from_pre
       --check_curse_room
       elseif not (grid_room[gid].Data.Type == 10 and secret_pre_room_id[gid] and secret_pre_room_id[gid] == crid) then
-        if from_prd.Data.Type == 10 and not flat then
+        --the hole a bomb made into the secret room carries no spikes, so this toll
+        --is not for coming in; it is for the real door being left by on the far
+        --side, which is the curse room's own
+        if from_prd.Data.Type == 10 and not _gt:curse_toll_free(from_prd.SafeGridIndex, true) then
           _gt:hurt(1)
         end
         Game():ChangeRoom(from_pre,-1)
@@ -1252,7 +1288,8 @@ function _gt:teleport_to_grid_index(gid) ----core
           end
         --check_curse_room
         elseif not (crd.Data.Type == 10 and secret_pre_room_id[crid] and secret_pre_room_id[crid] == gid) then
-          if to_prd.Data.Type == 10 and not player:IsFlying() and not flat then
+          if to_prd.Data.Type == 10 and not player:IsFlying()
+              and not _gt:curse_toll_free(to_prd.SafeGridIndex) then
             _gt:hurt(1)
           end
           Game():ChangeRoom(to_pre,-1)
@@ -2631,6 +2668,7 @@ function _gt:new_level()
     --(the old MinimapAPI position sync is gone: with MinimapAPI present the
     --hit-test now inverts MinimapAPI's own per-room render anchors instead)
     bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
+    curse_bare_outside, curse_bare_inside = {}, {} --last floor's doors go with it
     level = Game():GetLevel()
     _gt:get_grid_room()
     _gt:get_room_neighbours()

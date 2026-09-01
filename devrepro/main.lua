@@ -18,17 +18,19 @@
 -- restart would only make that work be done again. The debug flags and The Mind
 -- from the earlier runs are still on, since only a restart clears them.
 local STEPS = {
+    -- nothing granted: the point of the run is a door Flat File has already been
+    -- past, with the trinket now lying on the floor
     "luamod goodtripfixed",
 }
 
-local HINT = "open the settings and read the new Display option in Chinese"
+local HINT = "walk past the curse door once, Flat File on the ground, then trip in and out"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 73
+local REV = 81
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -45,11 +47,25 @@ local function dump()
     Isaac.DebugString("[SEED] " .. Game():GetSeeds():GetStartSeedString()
         .. " stage " .. Game():GetLevel():GetStage()
         .. "." .. Game():GetLevel():GetStageType())
-    -- whether the loader that owns the only writable camera is actually in, and
-    -- whether Active Cam is on, which its own docs say defeats a camera snap
-    local ok, cam = pcall(function() return Game():GetRoom():GetCamera() end)
-    Isaac.DebugString(string.format("[RGON] repentogon %s  camera %s  camerastyle %s",
-        tostring(REPENTOGON ~= nil), tostring(ok and cam ~= nil), tostring(Options.CameraStyle)))
+    -- everything a door carries, so the one field that says "these spikes are gone
+    -- for good" can be picked out by comparing a door Flat File has seen against
+    -- one it has not
+    local room = Game():GetRoom()
+    Isaac.DebugString(string.format("[DOOR] room %d type %d, flat file held %s",
+        Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex,
+        Game():GetLevel():GetCurrentRoomDesc().Data.Type,
+        tostring(Isaac.GetPlayer(0):HasTrinket(151))))
+    for slot = 0, 7 do
+        local d = room:GetDoor(slot)
+        if d then
+            local s = d:GetSprite()
+            Isaac.DebugString(string.format(
+                "[DOOR] slot %d to room type %d, variant %d state %d vardata %d, anim %s overlay %s frame %d, open %s busted %s locked %s",
+                slot, d.TargetRoomType, d:GetVariant(), d.State, d.VarData,
+                s:GetAnimation(), s:GetOverlayAnimation(), s:GetFrame(),
+                tostring(d:IsOpen()), tostring(d:IsBusted()), tostring(d:IsLocked())))
+        end
+    end
 end
 
 if pressed == "dump" then dump() end
