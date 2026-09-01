@@ -125,7 +125,6 @@ local mmp_1step_mgid = -1
 --
 local tele_maze = false
 local tele_door_slot = -1 --the door a trip means to arrive by
-local nongon_draw_back --and, while the view is still catching up, how far back to draw
 local gon_snap_to --or, with a writable camera in hand, where to hold the view instead
 --the real door graph, learned one room at a time. Grid adjacency alone cannot
 --tell a doorway from a secret room's unbombed wall, so a trip that crosses one
@@ -210,11 +209,7 @@ local gtconfig = {
 --every gon_ test is false and every gon_ action does nothing -- a setting switched
 --on without REPENTOGON, from an old saved config or by hand, leaves the mod
 --exactly as it was. Nothing outside these may touch a REPENTOGON-only call.
---
---Anything named nongon_ is the other half of such a pair: the way the same job is
---done on a game with no REPENTOGON, and dead on one that has it. The two never
---run together, so a nongon_ name standing next to a gon_ one says which game each
---belongs to without reading either.
+
 --
 --the cursor on the game's own map only lands above it from a REPENTOGON render
 --callback; without the script extender it draws behind the map and the window it
@@ -737,11 +732,22 @@ if ModConfigMenu then
     end
 end
 _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
+    --a saved config that will not read back is worth losing on its own; it is not
+    --worth the rest of this callback, which is where the window's own position and
+    --scale are set, and where a throw would leave the run with neither
+    local cfg
     if _gt:HasData() then
         local dat = _gt:LoadData()
         cfgdata_written = dat
         local json = require('json')
-        local cfg = json.decode(dat)
+        local ok, read = pcall(json.decode, dat)
+        if ok and type(read) == "table" then
+          cfg = read
+        else
+          print("GoodTrip [Fixed]: the saved settings could not be read, starting from defaults")
+        end
+    end
+    if cfg then
         for k, v in pairs(cfg) do
             gtconfig[k] = v
         end
@@ -1084,13 +1090,13 @@ function _gt:land_at_door()
     end
     --a room bigger than the screen shows only the part of itself the player stands
     --in, and the game fixes that part as the room loads, from where it laid him
-    --rather than from the door. It holds that part for the whole fade -- ten frames
-    --drawn with no update between them -- and lets go of it by snapping to wherever
-    --he is by then. He is at the door from the first frame, so it does snap, but
-    --those ten frames watch a stretch of room he is no longer standing in. Drawing
-    --him back where the view still is costs nothing real: it moves the sprite, not
-    --the player, and the offset comes off on the frame the view snaps, so the two
-    --cancel out and nothing stirs on screen.
+    --rather than from the door, then holds it for the whole fade and snaps at the
+    --end. So a landing across that line watches a stretch of room nobody stands in
+    --and then jumps. With REPENTOGON the view can simply be put on the door and
+    --none of it happens; without one there is no way to move the view at all, and
+    --every way of working around it that was tried cost more than the jump did, so
+    --a plain game is left with the jump, as it was before any of this.
+    if not _gt:gon_view_snap() then return end
     local tl, br = room:GetTopLeftPos(), room:GetBottomRightPos()
     local midx, midy = (tl.X + br.X) / 2, (tl.Y + br.Y) / 2
     local function part(p)
@@ -1100,21 +1106,11 @@ function _gt:land_at_door()
     local lx, ly = part(was)
     local sx, sy = part(stand)
     if lx ~= sx or ly ~= sy then
-      if _gt:gon_view_snap() then
-        --with the one writable camera in hand there is nothing to work around: put
-        --the view on the door and the room opens on it. Its own note says a snap
-        --loses to Active Cam, which puts the view back on every update -- but the
-        --fade runs no updates at all, so the snap stands for exactly the frames it
-        --is wanted for, and the game has the view back by the first update.
-        gon_snap_to = stand
-        _gt:gon_snap_view(stand)
-      else
-        local o = room:GetRenderScrollOffset()
-        nongon_draw_back = { o.X, o.Y }
-        for _, e in ipairs(party) do
-          e.SpriteOffset = Vector(-shift.X, -shift.Y)
-        end
-      end
+      --the snap loses to Active Cam, which puts the view back on every update --
+      --but the fade runs no updates at all, so it stands for exactly the frames it
+      --is wanted for, and the game has the view back by the first update
+      gon_snap_to = stand
+      _gt:gon_snap_view(stand)
     end
 end
 --
@@ -2442,15 +2438,6 @@ function _gt:step()
         _gt:gon_snap_view(gon_snap_to)
       end
     end
-    if nongon_draw_back then
-      local o = room:GetRenderScrollOffset()
-      if o.X ~= nongon_draw_back[1] or o.Y ~= nongon_draw_back[2] then
-        nongon_draw_back = nil
-        for _, e in ipairs(_gt:landed_party()) do
-          e.SpriteOffset = Vector(0, 0)
-        end
-      end
-    end
     draw_warns()
     if n_room_num == 0 then
         print('GoodTrip [Fixed] luamod reload detected')
@@ -2655,7 +2642,7 @@ function _gt:new_room()
     kb_active = false
     player = Isaac.GetPlayer(0)
     stage = level:GetStage()
-    nongon_draw_back, gon_snap_to = nil, nil
+    gon_snap_to = nil
     _gt:land_at_door()
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true
