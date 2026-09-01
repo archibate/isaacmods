@@ -20,8 +20,34 @@ if ! pgrep -x steam >/dev/null; then
 	echo "warning: Steam is not running — Workshop upload will fail." >&2
 fi
 
-# Run from the caller's cwd so ModUploader's file dialogs default there.
+# Given a mod folder, start in it so ModUploader's file dialogs default there,
+# and put its changelog on the clipboard, since the changelog is typed into the
+# uploader by hand and is the one thing that cannot be picked from a dialog.
+if [[ -n "${1:-}" && -d "$1" ]]; then
+	cd "$1"
+	shift
+fi
+
+if [[ -f changes.txt ]]; then
+	# Both selections: the uploader is a fresh GUI process and does not always
+	# come up holding the ordinary clipboard, but middle-click paste reads the
+	# primary selection and does.
+	if command -v wl-copy >/dev/null; then
+		wl-copy <changes.txt
+		wl-copy --primary <changes.txt
+	elif command -v xclip >/dev/null; then
+		xclip -selection clipboard <changes.txt
+		xclip -selection primary <changes.txt
+	else
+		echo "warning: no wl-copy or xclip — changelog not copied." >&2
+	fi
+	echo "changelog on the clipboard, $(wc -l <changes.txt) lines:" >&2
+	cat changes.txt >&2
+else
+	echo "warning: no changes.txt in $PWD — nothing to paste." >&2
+fi
+
 # Use absolute paths for the binary and lib64/ so the bundled
-# libsteam_api.so and steam_appid.txt stay resolvable without cd-ing.
+# libsteam_api.so and steam_appid.txt stay resolvable from any directory.
 export LD_LIBRARY_PATH="$MU_DIR/lib64:${LD_LIBRARY_PATH:-}"
 exec "$MU_DIR/ModUploader.bin" "$@"
