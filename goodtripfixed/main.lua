@@ -125,6 +125,8 @@ local mmp_1step_mgid = -1
 --
 local tele_maze = false
 local tele_door_slot = -1 --the door a trip means to arrive by
+local tele_draw_back --and, while the view is still catching up, how far back to draw
+local tele_snap_to --or, with a writable camera in hand, where to hold the view instead
 --the real door graph, learned one room at a time. Grid adjacency alone cannot
 --tell a doorway from a secret room's unbombed wall, so a trip that crosses one
 --hands out a bomb nobody spent. Kept per dimension: the mirror world reuses the
@@ -170,6 +172,7 @@ local gtconfig = {
     -- AllowRightClick = false,  --mouse right click on bigmap to teleport
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
     CursorOnGameMap = false,  --draw the cursor on the game's own corner map instead of the draggable window; needs REPENTOGON, see _gt:enableGMC
+    SnapViewOnLanding = true,  --move the view to the door yourself instead of letting the fade catch up with it; needs REPENTOGON, so it does nothing without one, see _gt:enableViewSnap
     DimMapInCombat = true,  --while the room is uncleared and no trip is possible, draw the window faint and inert instead of hiding it
     DimMapAlpha = 35,  --how faint that is, in percent; floored at 5 so a mistyped 0 cannot erase the window the way MinimapScale once did
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
@@ -202,6 +205,11 @@ local gtconfig = {
 --from an old saved config, or by hand -- leaves the mod as it was
 function _gt:enableGMC()
     return REPENTOGON ~= nil and gtconfig.CursorOnGameMap
+end
+--
+--the same shape for the one writable camera there is, which REPENTOGON hands over
+function _gt:enableViewSnap()
+    return REPENTOGON ~= nil and gtconfig.SnapViewOnLanding
 end
 ----
 --gtconfig.lua is the config surface for players without Mod Config Menu: it is
@@ -335,6 +343,7 @@ if ModConfigMenu then
         { "Display", "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
         { "Display", "TeleportAnimation", "Play cool animation on teleport" },
         { "Display", "FastTransition", "Even faster transition without animation" },
+        { "Display", "SnapViewOnLanding", "Move the view to the door on arrival instead of letting the transition catch up with it (needs REPENTOGON)", REPENTOGON ~= nil },
         { "Display", "DimMapInCombat", "While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it" },
 
         { "Controls", "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
@@ -631,6 +640,7 @@ if ModConfigMenu then
             { "^TeleportAnimation:", "传送动画:" },
             { "^LandAtDoor:", "传送后站在门口:" },
             { "^FastTransition:", "更快的过场:" },
+            { "^SnapViewOnLanding:", "落地时镜头直接跟到门口:" },
             { "^FasterCursorMove:", "光标整格移动:" },
             { "^IgnoreMovementKeys:", "走路时不打断瞄准:" },
             { "^QuicklyOneRoomMove:", "TAB+ASWD 走一格:" },
@@ -671,6 +681,7 @@ if ModConfigMenu then
             ["Play cool animation on teleport"] = "传送时播放动画",
             ["Arrive standing at the exact door a walk would have come in by"] = "传送后站在正常走过去会进来的那道门边",
             ["Even faster transition without animation"] = "连过场动画也省掉, 房间切换更快",
+            ["Move the view to the door on arrival instead of letting the transition catch up with it (needs REPENTOGON)"] = "传进比屏幕大的房间时, 镜头立刻跟到门口, 而不是等过场结束才滑过去 (需要 REPENTOGON)",
             ["Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them"] = "方向键按一下光标就跳一整格, 按住则连续跳, 不必一直按着慢慢挪",
             ["Keep moving the map cursor while you walk, instead of pausing it until you let go"] = "走路时光标继续跟着方向键动, 而不是等你松手",
             ["Quickly teleport using TAB + ASWD"] = "按住 TAB 用 ASWD 一次走一个房间",
@@ -1000,6 +1011,25 @@ end
 --works: StartRoomTransition ignores its Direction, EnterDoor ignores writes,
 --and LeaveDoor was measured changing nothing at all. One step inside the
 --doorway is where walking in leaves you, so that is where a trip leaves you.
+--everyone a landing has to carry: the players, and everything the game laid down
+--alongside them where it thought they came in. Familiars by their type, the rest
+--by who owns them, which is how Mom's Knife -- an entity in its own right, not a
+--familiar -- and a carried tear come along.
+function _gt:landed_party()
+    local party = {}
+    for i = 0, Game():GetNumPlayers() - 1 do
+      party[#party + 1] = Isaac.GetPlayer(i)
+    end
+    for _, e in ipairs(Isaac.GetRoomEntities()) do
+      local owner = e.Parent or e.SpawnerEntity
+      if e.Type ~= EntityType.ENTITY_PLAYER
+          and (e.Type == EntityType.ENTITY_FAMILIAR or (owner and owner:ToPlayer())) then
+        party[#party + 1] = e
+      end
+    end
+    return party
+end
+--
 function _gt:land_at_door()
     local slot = tele_door_slot
     tele_door_slot = -1
@@ -1011,37 +1041,45 @@ function _gt:land_at_door()
     if side == 0 then dx = 40 elseif side == 2 then dx = -40
     elseif side == 1 then dy = 40 else dy = -40 end
     local stand = Vector(door.Position.X + dx, door.Position.Y + dy)
-    --a room wider or taller than the screen shows only the part the player stands
-    --in, and the game picks that part as the room loads, before any of this runs.
-    --Carrying him to a door in another part leaves the view on the old one for the
-    --whole length of the fade and then jumps across. Measured: ten frames of the
-    --wrong half, and the covering animation only makes them last longer. So the
-    --trip keeps the game's own landing whenever the door lies in another part; no
-    --room is more than two screens across, so the line between them is the middle.
-    local mid = room:GetCenterPos()
-    local function part(p)
-      return (room:GetGridWidth() > 15 and p.X < mid.X)
-          , (room:GetGridHeight() > 9 and p.Y < mid.Y)
-    end
-    local lx, ly = part(player.Position)
-    local sx, sy = part(stand)
-    if lx ~= sx or ly ~= sy then return end
+    local was = player.Position
     --everyone moves by the same step, so a co-op pair keeps its spacing
-    local shift = stand - player.Position
-    for i = 0, Game():GetNumPlayers() - 1 do
-      local p = Isaac.GetPlayer(i)
-      p.Position = p.Position + shift
+    local shift = stand - was
+    local party = _gt:landed_party()
+    for _, e in ipairs(party) do
+      e.Position = e.Position + shift
     end
-    --and everything that came in with them. The game lays a familiar, a knife,
-    --a carried tear down where it thought the player arrived, so anything left
-    --behind spends the next second coming in from a wall nobody used. Familiars
-    --by their type, the rest by who owns them; the same step for all, so the
-    --trail keeps its shape.
-    for _, e in ipairs(Isaac.GetRoomEntities()) do
-      local owner = e.Parent or e.SpawnerEntity
-      if e.Type ~= EntityType.ENTITY_PLAYER
-          and (e.Type == EntityType.ENTITY_FAMILIAR or (owner and owner:ToPlayer())) then
-        e.Position = e.Position + shift
+    --a room bigger than the screen shows only the part of itself the player stands
+    --in, and the game fixes that part as the room loads, from where it laid him
+    --rather than from the door. It holds that part for the whole fade -- ten frames
+    --drawn with no update between them -- and lets go of it by snapping to wherever
+    --he is by then. He is at the door from the first frame, so it does snap, but
+    --those ten frames watch a stretch of room he is no longer standing in. Drawing
+    --him back where the view still is costs nothing real: it moves the sprite, not
+    --the player, and the offset comes off on the frame the view snaps, so the two
+    --cancel out and nothing stirs on screen.
+    local tl, br = room:GetTopLeftPos(), room:GetBottomRightPos()
+    local midx, midy = (tl.X + br.X) / 2, (tl.Y + br.Y) / 2
+    local function part(p)
+      return (room:GetGridWidth() > 15 and p.X < midx)
+          , (room:GetGridHeight() > 9 and p.Y < midy)
+    end
+    local lx, ly = part(was)
+    local sx, sy = part(stand)
+    if lx ~= sx or ly ~= sy then
+      if _gt:enableViewSnap() then
+        --with the one writable camera in hand there is nothing to work around: put
+        --the view on the door and the room opens on it. Its own note says a snap
+        --loses to Active Cam, which puts the view back on every update -- but the
+        --fade runs no updates at all, so the snap stands for exactly the frames it
+        --is wanted for, and the game has the view back by the first update.
+        tele_snap_to = stand
+        room:GetCamera():SnapToPosition(stand)
+      else
+        local o = room:GetRenderScrollOffset()
+        tele_draw_back = { o.X, o.Y }
+        for _, e in ipairs(party) do
+          e.SpriteOffset = Vector(-shift.X, -shift.Y)
+        end
       end
     end
 end
@@ -1246,9 +1284,9 @@ function _gt:teleport_to_grid_index(gid) ----core
     -- local cid = crd.SafeGridIndex
     --named here rather than up top: an antechamber hop may have moved the
     --player since, and the door to arrive by faces wherever they stand now
+    local trd = grid_room[gid]
     tele_door_slot = -1 --off means the game's own landing, so nothing to aim for
     if gtconfig.LandAtDoor then
-      local trd = grid_room[gid]
       tele_door_slot = _gt:landing_slot(
         Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex,
         trd and trd.SafeGridIndex or gid)
@@ -2073,6 +2111,20 @@ function _gt:player_shoot_cooldown()
     end
 end
 --
+--a room still being fought in refuses every trip, and the window used to answer
+--that by disappearing -- which reads as the mod having broken, and is most of the
+--"my map is gone" reports. Draw it faint and inert instead. Only for that case:
+--Curse of the Lost hiding the map is the player's own switch, and a room the map
+--does not know is nothing to draw. Asked at both the windows that can be open --
+--the one TAB holds up and the one the pin leaves standing -- so neither goes
+--missing while the other stays.
+function _gt:dim_map_only()
+    return gtconfig.KeyboardMapEnable and gtconfig.DimMapInCombat
+        and not _gt:check_teleble(false)
+        and grid_room[crd.SafeGridIndex] ~= nil
+        and not (gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0)
+end
+--
 function _gt:tab_action()
     local cp = Isaac.WorldToRenderPosition(Vector(320,280))
     scpos = cp + cp
@@ -2088,16 +2140,7 @@ function _gt:tab_action()
       player.ControlsCooldown = player.ControlsCooldown + 1
     end
     --
-    --a room still being fought in refuses every trip, and the window used to
-    --answer that by disappearing -- which reads as the mod having broken, and
-    --is most of the "my map is gone" reports. Draw it faint and inert instead.
-    --Only for that case: Curse of the Lost hiding the map is the player's own
-    --switch, and a room the map does not know is nothing to draw
-    local dim_only = gtconfig.KeyboardMapEnable and gtconfig.DimMapInCombat
-        and not _gt:check_teleble(false)
-        and grid_room[crd.SafeGridIndex] ~= nil
-        and not (gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0)
-    if dim_only and not debug then
+    if _gt:dim_map_only() and not debug then
       mmp_ctrl = false --no cursor while it is inert; it rebuilds at the room you stand in
       _gt:draw_minimap(true)
     elseif (gtconfig.KeyboardMapEnable and _gt:check_teleble(false)) or debug then -------return when gtconfig.KeyboardMapEnable & debug disable
@@ -2324,6 +2367,26 @@ function _gt:check_and_tele_room(tgid)
     end
 end
 function _gt:step()
+    --the view lets go of its part inside the fade's own run of frames, with no
+    --update anywhere near it, so this is the only place the moment can be caught
+    --a snap has to be renewed every frame it is wanted, and is wanted until the
+    --room starts counting its own frames, which is the game taking the view back
+    if tele_snap_to then
+      if room:GetFrameCount() > 0 then
+        tele_snap_to = nil
+      else
+        room:GetCamera():SnapToPosition(tele_snap_to)
+      end
+    end
+    if tele_draw_back then
+      local o = room:GetRenderScrollOffset()
+      if o.X ~= tele_draw_back[1] or o.Y ~= tele_draw_back[2] then
+        tele_draw_back = nil
+        for _, e in ipairs(_gt:landed_party()) do
+          e.SpriteOffset = Vector(0, 0)
+        end
+      end
+    end
     draw_warns()
     if n_room_num == 0 then
         print('GoodTrip [Fixed] luamod reload detected')
@@ -2408,6 +2471,12 @@ function _gt:step()
       --PIN ACTION WITHOUT TAB--
       if mmp_pin == 1 and not _gt:enableGMC() and crd.Clear and _gt:check_teleble(false) then
         if mouse_in_ui then
+          --the pointer is over the window, so the click is aimed at a room and not
+          --at anything in front of the player. The same holds whether TAB is up or
+          --the pin is, and only the held one was ever wired to it
+          if gtconfig.NoShootWhenClick then
+            _gt:player_shoot_cooldown()
+          end
           ---click
           if _gt:IsMouseBtnTriggered(0) then
             if _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-3, -13) * mmsc,mmp_ltpos + Vector(5,-4) * mmsc) then --pin zone
@@ -2427,6 +2496,12 @@ function _gt:step()
           ui_timer = 0
         end
         _gt:draw_minimap()
+      elseif mmp_pin == 1 and not _gt:enableGMC() and _gt:dim_map_only() and not debug then
+        --pinned open into a room that refuses a trip: the same faint inert window
+        --the held one gets, rather than the pin quietly going missing
+        ui_timer = 0
+        mmp_ctrl = false
+        _gt:draw_minimap(true)
       else
         ui_timer = 0
       end
@@ -2516,6 +2591,7 @@ function _gt:new_room()
     kb_active = false
     player = Isaac.GetPlayer(0)
     stage = level:GetStage()
+    tele_draw_back, tele_snap_to = nil, nil
     _gt:land_at_door()
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true

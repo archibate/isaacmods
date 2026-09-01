@@ -14,27 +14,21 @@
 -- and take it out again once that question is answered, so the next run's log and
 -- screen carry only what is being asked now.
 
+-- no restart: the floor already has its rooms walked and its big room found, and a
+-- restart would only make that work be done again. The debug flags and The Mind
+-- from the earlier runs are still on, since only a restart clears them.
 local STEPS = {
     "luamod goodtripfixed",
-    "restart 0", 10,
-    "debug 3",
-    "debug 10",
-    -- the Womb lays big rooms often, and The Mind draws the whole floor, so one can
-    -- be picked off the teleport map instead of hunted for. A trip only routes
-    -- through rooms already walked, so a few have to be cleared before the door it
-    -- lands at means anything
-    "stage 7", 12,
-    "giveitem c333",
 }
 
-local HINT = "trip into the big room from every side, and into small rooms too: any shake left?"
+local HINT = "open the settings and read the new Display option in Chinese"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 60
+local REV = 73
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -51,6 +45,11 @@ local function dump()
     Isaac.DebugString("[SEED] " .. Game():GetSeeds():GetStartSeedString()
         .. " stage " .. Game():GetLevel():GetStage()
         .. "." .. Game():GetLevel():GetStageType())
+    -- whether the loader that owns the only writable camera is actually in, and
+    -- whether Active Cam is on, which its own docs say defeats a camera snap
+    local ok, cam = pcall(function() return Game():GetRoom():GetCamera() end)
+    Isaac.DebugString(string.format("[RGON] repentogon %s  camera %s  camerastyle %s",
+        tostring(REPENTOGON ~= nil), tostring(ok and cam ~= nil), tostring(Options.CameraStyle)))
 end
 
 if pressed == "dump" then dump() end
