@@ -21,6 +21,7 @@ return {
     -- LandAtDoor = true,          -- arrive at the door a walk would have used, familiars along
     -- QuicklyOneRoomMove = false, -- TAB + WASD steps one room
     -- AllowNeighborRoom = true,   -- trip into an uncleared room next to a cleared one
+    -- AllowAnyRoom = false,       -- trip anywhere on the map, no path cleared first
     -- AllowBookmarking = true,    -- TAB + 1~9 marks and returns
     -- LastRoomShortcut = true,    -- TAB + Z returns to the last room
     -- FastTransition = false,     -- skip the room-change animation

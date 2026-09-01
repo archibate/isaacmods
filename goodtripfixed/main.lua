@@ -171,6 +171,7 @@ local gtconfig = {
     LandAtDoor = true,  --arrive at the door a walk would have come in by, carrying familiars along; off leaves everyone wherever the game drops them
     QuicklyOneRoomMove = false, --true = enable / false = disable. quickly move one entire room by TAB+ASWD
     AllowNeighborRoom = true,  --true = enable / false = disable. allow move to uncleaned neighbor room
+    AllowAnyRoom = false,  --trip to any room the map knows, walked to or not; off by default, since it hands out every room on the floor
     AllowBookmarking = true,  --true = enable / false = disable. allow tag bookmarks for rooms using TAB+0~9
     LastRoomShortcut = true,  --true = enable / false = disable. allow TAB+Z to go back to last visited room
     FastTransition = false,  --change room even faster without animation
@@ -348,6 +349,7 @@ if ModConfigMenu then
         { "Map", "CursorOnGameMap", "Put the cursor on the game's own corner map and hide the mod's window (needs REPENTOGON)", REPENTOGON ~= nil },
 
         { "Fairness", "AllowNeighborRoom", "Allow moving into uncleaned neighbor room" },
+        { "Fairness", "AllowAnyRoom", "Allow teleporting to any room on the map, with no path to it cleared first" },
         { "Fairness", "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
         { "Fairness", "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "Fairness", "FollowCurseOfLost", "Disable GoodTrip on curse of lost" },
@@ -646,6 +648,7 @@ if ModConfigMenu then
             { "^KeyboardMapEnable:", "传送小地图:" },
             { "^CursorOnGameMap:", "光标画在原版地图上:" },
             { "^AllowNeighborRoom:", "允许传送到未清的邻居房:" },
+            { "^AllowAnyRoom:", "允许传送到任意房间:" },
             { "^FairTripPath:", "只能传送到已清房连通的房间:" },
             { "^FairTripTime:", "按距离增加游戏时间:" },
             { "^FollowCurseOfLost:", "迷失诅咒下禁用传送:" },
@@ -687,6 +690,7 @@ if ModConfigMenu then
             ["Classic GoodTrip minimap, teleport using TAB + arrow keys. Turn this back on if you dragged it into the trash by accident."] = "经典款 GoodTrip 传送小窗, 按住 TAB 用方向键选房间传送. 若不小心拖进垃圾桶删掉了, 把这项打开就能回来",
             ["Put the cursor on the game's own corner map and hide the mod's window (needs REPENTOGON)"] = "光标直接画在游戏右上角的地图上, 本 mod 自己的小窗不再显示 (需要 REPENTOGON)",
             ["Allow moving into uncleaned neighbor room"] = "允许传送进紧挨着已清房间的未清房间",
+            ["Allow teleporting to any room on the map, with no path to it cleared first"] = "允许传送到地图上任何一个房间, 沿途不必先清干净",
             ["Only allow teleport to rooms reachable through cleared rooms"] = "只允许传送到能经由已清房间走到的房间",
             ["Fairly increase game time according to player move speed and distance"] = "按移动速度和距离折算, 为传送补上应有的游戏时间",
             ["Disable GoodTrip on curse of lost"] = "迷失诅咒下禁用传送, 因为游戏本体就不显示地图",
@@ -1140,6 +1144,13 @@ function _gt:check_teleble(gid)
       local trd = grid_room[gid]
       if trd.ListIndex == crd.ListIndex then --notcurrent
         return false
+      end
+      --the switch that gives up on paths altogether: any room the map knows is a
+      --target, walked to or not, with nothing cleared on the way. Asked after the
+      --two refusals that hold whatever it says -- the room being stood in is not
+      --a trip, and a room the map has never heard of has no place to land
+      if gtconfig.AllowAnyRoom then
+        return true
       end
       --the room to step off from must be on the player's own island, else an
       --Emperor'd boss room would be a free lift back across unexplored rooms.
