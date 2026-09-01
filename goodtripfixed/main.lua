@@ -1010,8 +1010,24 @@ function _gt:land_at_door()
     local side = slot % 4
     if side == 0 then dx = 40 elseif side == 2 then dx = -40
     elseif side == 1 then dy = 40 else dy = -40 end
+    local stand = Vector(door.Position.X + dx, door.Position.Y + dy)
+    --a room wider or taller than the screen shows only the part the player stands
+    --in, and the game picks that part as the room loads, before any of this runs.
+    --Carrying him to a door in another part leaves the view on the old one for the
+    --whole length of the fade and then jumps across. Measured: ten frames of the
+    --wrong half, and the covering animation only makes them last longer. So the
+    --trip keeps the game's own landing whenever the door lies in another part; no
+    --room is more than two screens across, so the line between them is the middle.
+    local mid = room:GetCenterPos()
+    local function part(p)
+      return (room:GetGridWidth() > 15 and p.X < mid.X)
+          , (room:GetGridHeight() > 9 and p.Y < mid.Y)
+    end
+    local lx, ly = part(player.Position)
+    local sx, sy = part(stand)
+    if lx ~= sx or ly ~= sy then return end
     --everyone moves by the same step, so a co-op pair keeps its spacing
-    local shift = Vector(door.Position.X + dx, door.Position.Y + dy) - player.Position
+    local shift = stand - player.Position
     for i = 0, Game():GetNumPlayers() - 1 do
       local p = Isaac.GetPlayer(i)
       p.Position = p.Position + shift
@@ -1251,23 +1267,9 @@ function _gt:teleport_to_grid_index(gid) ----core
       mmp_ctrl_pos = mmp_pos0 + Vector(gx * 8 + 6, gy * 7 + 5) * mmsc
       return
     end
-    local tele_anime
-    local tele_dir
-    if gtconfig.TeleportAnimation then
-      tele_anime = 3
-      tele_dir = Direction.NO_DIRECTION
-    else
-      if gtconfig.FastTransition then
-        tele_anime = 0
-      else
-        tele_anime = 1
-      end
-      tele_dir = Direction.NO_DIRECTION
-    end
-    Game():StartRoomTransition(gid, tele_dir, tele_anime,player,-1)
-    tele_cd = 45
-    if not gtconfig.TeleportAnimation then tele_cd = 10 end
-    if debug or gtconfig.FastTransition then tele_cd = 1 end
+    local tele_anime = gtconfig.TeleportAnimation and 3 or 1
+    Game():StartRoomTransition(gid, Direction.NO_DIRECTION, tele_anime, player, -1)
+    tele_cd = tele_anime == 3 and 45 or 10
 end
 --
 --hit-test against MinimapAPI's own rendered rooms: each room carries its

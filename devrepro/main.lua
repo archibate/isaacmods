@@ -15,28 +15,26 @@
 -- screen carry only what is being asked now.
 
 local STEPS = {
-    "luamod damagemvp",
+    "luamod goodtripfixed",
     "restart 0", 10,
     "debug 3",
-    "debug 8",
-    "stage 1", 10,
-    -- the axe alone, with the mod forced down its plain-Repentance path: the blade is
-    -- the only one of yours out, so it should name its own crushing blow. Soy Milk
-    -- cuts the damage right down, because a diagnosis needs the target to stay alive
-    -- long enough to be hit many times over
-    "giveitem c147",
-    "giveitem c330",
-    "spawn 408.0.0", 10,
+    "debug 10",
+    -- the Womb lays big rooms often, and The Mind draws the whole floor, so one can
+    -- be picked off the teleport map instead of hunted for. A trip only routes
+    -- through rooms already walked, so a few have to be cleared before the door it
+    -- lands at means anything
+    "stage 7", 12,
+    "giveitem c333",
 }
 
-local HINT = "swing the axe at the dummy over and over"
+local HINT = "trip into the big room from every side, and into small rooms too: any shake left?"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 52
+local REV = 60
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
