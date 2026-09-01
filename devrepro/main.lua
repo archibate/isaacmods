@@ -14,23 +14,21 @@
 -- and take it out again once that question is answered, so the next run's log and
 -- screen carry only what is being asked now.
 
--- no restart: the floor already has its rooms walked and its big room found, and a
--- restart would only make that work be done again. The debug flags and The Mind
--- from the earlier runs are still on, since only a restart clears them.
+-- no restart: the floor the hunt turned up is this one, and a restart would throw
+-- it away. Bombs to open the secret room with, and the trinket in question
 local STEPS = {
-    -- nothing granted: the point of the run is a door Flat File has already been
-    -- past, with the trinket now lying on the floor
     "luamod goodtripfixed",
+    "giveitem c190",
 }
 
-local HINT = "walk past the curse door once, Flat File on the ground, then trip in and out"
+local HINT = "from the secret room click the curse room, and from the curse room click back"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 81
+local REV = 84
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -70,10 +68,58 @@ end
 
 if pressed == "dump" then dump() end
 
+-- F3 hunts a floor shaped for the question at hand. No console command asks for a
+-- layout, but reseed redraws the floor and leaves the run otherwise alone, so the
+-- driver loops it and reads the room list each try. Wanted here: a curse room
+-- sharing a wall with a secret room, which is the only way a trip to that secret
+-- room has to pass a curse door.
+local hunting = pressed == "hunt"
+local hunt_wait, hunt_tries = 0, 0
+
+local function floor_wanted()
+    local rooms = Game():GetLevel():GetRooms()
+    local curse, secret = {}, {}
+    for i = 0, rooms.Size - 1 do
+        local d = rooms:Get(i)
+        if d.Data.Type == 10 then curse[#curse + 1] = d.SafeGridIndex end
+        if d.Data.Type == 7 then secret[#secret + 1] = d.SafeGridIndex end
+    end
+    for _, c in ipairs(curse) do
+        for _, s in ipairs(secret) do
+            local samerow = (c - c % 13) == (s - s % 13)
+            if (samerow and math.abs(c - s) == 1) or math.abs(c - s) == 13 then
+                Isaac.DebugString(string.format("[HUNT] curse %d beside secret %d, seed %s",
+                    c, s, Game():GetSeeds():GetStartSeedString()))
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local step = 0
 local waiting = 0
 
 function mod:onUpdate()
+    if hunting then
+        if hunt_wait > 0 then
+            hunt_wait = hunt_wait - 1
+            return
+        end
+        if floor_wanted() then
+            hunting = false
+            return
+        end
+        hunt_tries = hunt_tries + 1
+        if hunt_tries > 300 then
+            hunting = false
+            Isaac.DebugString("[HUNT] gave up after " .. hunt_tries .. " reseeds")
+            return
+        end
+        Isaac.ExecuteCommand("reseed")
+        hunt_wait = 5
+        return
+    end
     if not running then return end
     if waiting > 0 then
         waiting = waiting - 1
@@ -95,7 +141,8 @@ function mod:onUpdate()
 end
 
 function mod:onRender()
-    for key, intent in pairs({ [Keyboard.KEY_F1] = "run", [Keyboard.KEY_F2] = "dump" }) do
+    for key, intent in pairs({ [Keyboard.KEY_F1] = "run", [Keyboard.KEY_F2] = "dump",
+                               [Keyboard.KEY_F3] = "hunt" }) do
         if Input.IsButtonTriggered(key, 0) then
             DevReproPending = intent
             Isaac.ExecuteCommand("luamod devrepro")
@@ -103,7 +150,11 @@ function mod:onRender()
         end
     end
 
-    if running then
+    if hunting then
+        Isaac.RenderText(string.format("hunting a floor  %d reseeds", hunt_tries), 25, 25, 1, 0.9, 0.3, 1)
+    elseif pressed == "hunt" then
+        Isaac.RenderText("floor found, see the log", 25, 25, 0.6, 0.9, 0.6, 1)
+    elseif running then
         Isaac.RenderText(string.format("running  %d/%d", step, #STEPS), 25, 25, 1, 0.9, 0.3, 1)
     elseif pressed == "dump" then
         Isaac.RenderText("dumped to log", 25, 25, 0.6, 0.9, 0.6, 1)

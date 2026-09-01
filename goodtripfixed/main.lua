@@ -1194,18 +1194,22 @@ end
 function _gt:check_curse_room(gid)
     if debug then return end
     ----
+    --a secret room is opened with a bomb, and the hole that leaves has no spikes
+    --on it, so a step between a secret room and the room guarding it is free
+    --whichever way it is taken -- including when the room guarding it is the curse
+    --room, which is the whole of what used to be paid for here. (The two tests
+    --that stood here asked this same question the wrong way round: the table is
+    --keyed by secret rooms and they looked up curse rooms in it, so they never
+    --found anything and never let anyone through.)
+    if secret_pre_room_id[crid] == gid or secret_pre_room_id[gid] == crid then
+      return
+    end
     local trd = grid_room[gid]
     if crd.Data.Type == 10 then --from curse room
-      if secret_pre_room_id[crid] and (secret_pre_room_id[crid] == gid or (secret_pre_room_id[secret_pre_room_id[crid]] and secret_pre_room_id[secret_pre_room_id[crid]] ~= crid)) then
-        return
-      end
       if not _gt:curse_toll_free(crsid, true) then
         _gt:hurt(1)
       end
     elseif trd.Data.Type == 10 and not player:IsFlying() then --target to curse room
-      if secret_pre_room_id[gid] and (secret_pre_room_id[gid] == crid or (secret_pre_room_id[secret_pre_room_id[gid]] and secret_pre_room_id[secret_pre_room_id[gid]] ~= gid)) then
-        return
-      end
       if not _gt:curse_toll_free(trd.SafeGridIndex) then
         _gt:hurt(1)
       end
