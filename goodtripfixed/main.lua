@@ -1181,14 +1181,20 @@ end
 --at all where the door has been seen, because it acts on the door and not on the
 --player; only for a side that has never been laid down does the trinket in hand
 --decide, and that is right, because that side is about to be laid down under it.
-function _gt:curse_toll_free(gid, leaving)
+function _gt:curse_toll_free(gid, by_inner_door, room_reloads)
     if player:HasCollectible(276) or player:HasCollectible(663) then
       return true
     end
+    --Flat File takes spikes off, it never puts them back, and it does the taking
+    --off as the room is laid down. So the trinket in hand answers for any door
+    --about to be laid down again -- which is every one of these but the door of
+    --the room already being stood in, whose spikes are whatever they are now.
+    if room_reloads and player:HasTrinket(151) then
+      return true
+    end
     local bare = curse_bare_outside[gid]
-    if leaving then bare = curse_bare_inside[gid] end
-    if bare ~= nil then return bare end
-    return player:HasTrinket(151)
+    if by_inner_door then bare = curse_bare_inside[gid] end
+    return bare == true
 end
 --
 function _gt:check_curse_room(gid)
@@ -1206,11 +1212,11 @@ function _gt:check_curse_room(gid)
     end
     local trd = grid_room[gid]
     if crd.Data.Type == 10 then --from curse room
-      if not _gt:curse_toll_free(crsid, true) then
+      if not _gt:curse_toll_free(crsid, true, false) then
         _gt:hurt(1)
       end
     elseif trd.Data.Type == 10 and not player:IsFlying() then --target to curse room
-      if not _gt:curse_toll_free(trd.SafeGridIndex) then
+      if not _gt:curse_toll_free(trd.SafeGridIndex, false, true) then
         _gt:hurt(1)
       end
     end
@@ -1275,7 +1281,7 @@ function _gt:teleport_to_grid_index(gid) ----core
         --the hole a bomb made into the secret room carries no spikes, so this toll
         --is not for coming in; it is for the real door being left by on the far
         --side, which is the curse room's own
-        if from_prd.Data.Type == 10 and not _gt:curse_toll_free(from_prd.SafeGridIndex, true) then
+        if from_prd.Data.Type == 10 and not _gt:curse_toll_free(from_prd.SafeGridIndex, true, true) then
           _gt:hurt(1)
         end
         Game():ChangeRoom(from_pre,-1)
@@ -1293,7 +1299,7 @@ function _gt:teleport_to_grid_index(gid) ----core
         --check_curse_room
         elseif not (crd.Data.Type == 10 and secret_pre_room_id[crid] and secret_pre_room_id[crid] == gid) then
           if to_prd.Data.Type == 10 and not player:IsFlying()
-              and not _gt:curse_toll_free(to_prd.SafeGridIndex) then
+              and not _gt:curse_toll_free(to_prd.SafeGridIndex, false, true) then
             _gt:hurt(1)
           end
           Game():ChangeRoom(to_pre,-1)
