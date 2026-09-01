@@ -125,7 +125,6 @@ local mmp_1step_mgid = -1
 --
 local tele_maze = false
 local tele_door_slot = -1 --the door a trip means to arrive by
-local gon_snap_to --or, with a writable camera in hand, where to hold the view instead
 --the real door graph, learned one room at a time. Grid adjacency alone cannot
 --tell a doorway from a secret room's unbombed wall, so a trip that crosses one
 --hands out a bomb nobody spent. Kept per dimension: the mirror world reuses the
@@ -178,7 +177,6 @@ local gtconfig = {
     -- AllowRightClick = false,  --mouse right click on bigmap to teleport
     FasterCursorMove = false,  --move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them
     CursorOnGameMap = false,  --draw the cursor on the game's own corner map instead of the draggable window; needs REPENTOGON, see _gt:gon_map_cursor
-    SnapViewOnLanding = true,  --move the view to the door yourself instead of letting the fade catch up with it; needs REPENTOGON, so it does nothing without one, see _gt:gon_view_snap
     DimMapInCombat = true,  --while the room is uncleared and no trip is possible, draw the window faint and inert instead of hiding it
     DimMapAlpha = 35,  --how faint that is, in percent; floored at 5 so a mistyped 0 cannot erase the window the way MinimapScale once did
     DangerCautionCompat = true,  --weather to work with my other mod 'Dangerous room! Caution' by indicate dangerous room by colors
@@ -216,19 +214,6 @@ local gtconfig = {
 --replaces is hidden, which is how the mode broke players before
 function _gt:gon_map_cursor()
     return REPENTOGON ~= nil and gtconfig.CursorOnGameMap
-end
---
---the same shape for the one writable camera there is, which REPENTOGON hands over
-function _gt:gon_view_snap()
-    return REPENTOGON ~= nil and gtconfig.SnapViewOnLanding
-end
---
---and the call itself, which exists only under REPENTOGON: asked for again here so
---that a game without one walks out rather than indexing a camera that is not
---there. It is the only place in the mod that names it.
-function _gt:gon_snap_view(pos)
-    if REPENTOGON == nil then return end
-    Game():GetRoom():GetCamera():SnapToPosition(pos)
 end
 ----
 --gtconfig.lua is the config surface for players without Mod Config Menu: it is
@@ -362,7 +347,6 @@ if ModConfigMenu then
         { "Display", "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
         { "Display", "TeleportAnimation", "Play cool animation on teleport" },
         { "Display", "FastTransition", "Even faster transition without animation" },
-        { "Display", "SnapViewOnLanding", "Move the view to the door on arrival instead of letting the transition catch up with it (needs REPENTOGON)", REPENTOGON ~= nil },
         { "Display", "DimMapInCombat", "While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it" },
 
         { "Controls", "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
@@ -659,7 +643,6 @@ if ModConfigMenu then
             { "^TeleportAnimation:", "传送动画:" },
             { "^LandAtDoor:", "传送后站在门口:" },
             { "^FastTransition:", "更快的过场:" },
-            { "^SnapViewOnLanding:", "落地时镜头直接跟到门口:" },
             { "^FasterCursorMove:", "光标整格移动:" },
             { "^IgnoreMovementKeys:", "走路时不打断瞄准:" },
             { "^QuicklyOneRoomMove:", "TAB+ASWD 走一格:" },
@@ -700,7 +683,6 @@ if ModConfigMenu then
             ["Play cool animation on teleport"] = "传送时播放动画",
             ["Arrive standing at the exact door a walk would have come in by"] = "传送后站在正常走过去会进来的那道门边",
             ["Even faster transition without animation"] = "连过场动画也省掉, 房间切换更快",
-            ["Move the view to the door on arrival instead of letting the transition catch up with it (needs REPENTOGON)"] = "传进比屏幕大的房间时, 镜头立刻跟到门口, 而不是等过场结束才滑过去 (需要 REPENTOGON)",
             ["Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them"] = "方向键按一下光标就跳一整格, 按住则连续跳, 不必一直按着慢慢挪",
             ["Keep moving the map cursor while you walk, instead of pausing it until you let go"] = "走路时光标继续跟着方向键动, 而不是等你松手",
             ["Quickly teleport using TAB + ASWD"] = "按住 TAB 用 ASWD 一次走一个房间",
@@ -1080,37 +1062,10 @@ function _gt:land_at_door()
     local side = slot % 4
     if side == 0 then dx = 40 elseif side == 2 then dx = -40
     elseif side == 1 then dy = 40 else dy = -40 end
-    local stand = Vector(door.Position.X + dx, door.Position.Y + dy)
-    local was = player.Position
     --everyone moves by the same step, so a co-op pair keeps its spacing
-    local shift = stand - was
-    local party = _gt:landed_party()
-    for _, e in ipairs(party) do
+    local shift = Vector(door.Position.X + dx, door.Position.Y + dy) - player.Position
+    for _, e in ipairs(_gt:landed_party()) do
       e.Position = e.Position + shift
-    end
-    --a room bigger than the screen shows only the part of itself the player stands
-    --in, and the game fixes that part as the room loads, from where it laid him
-    --rather than from the door, then holds it for the whole fade and snaps at the
-    --end. So a landing across that line watches a stretch of room nobody stands in
-    --and then jumps. With REPENTOGON the view can simply be put on the door and
-    --none of it happens; without one there is no way to move the view at all, and
-    --every way of working around it that was tried cost more than the jump did, so
-    --a plain game is left with the jump, as it was before any of this.
-    if not _gt:gon_view_snap() then return end
-    local tl, br = room:GetTopLeftPos(), room:GetBottomRightPos()
-    local midx, midy = (tl.X + br.X) / 2, (tl.Y + br.Y) / 2
-    local function part(p)
-      return (room:GetGridWidth() > 15 and p.X < midx)
-          , (room:GetGridHeight() > 9 and p.Y < midy)
-    end
-    local lx, ly = part(was)
-    local sx, sy = part(stand)
-    if lx ~= sx or ly ~= sy then
-      --the snap loses to Active Cam, which puts the view back on every update --
-      --but the fade runs no updates at all, so it stands for exactly the frames it
-      --is wanted for, and the game has the view back by the first update
-      gon_snap_to = stand
-      _gt:gon_snap_view(stand)
     end
 end
 --
@@ -2427,17 +2382,6 @@ function _gt:check_and_tele_room(tgid)
     end
 end
 function _gt:step()
-    --the view lets go of its part inside the fade's own run of frames, with no
-    --update anywhere near it, so this is the only place the moment can be caught
-    --a snap has to be renewed every frame it is wanted, and is wanted until the
-    --room starts counting its own frames, which is the game taking the view back
-    if REPENTOGON ~= nil and gon_snap_to then
-      if room:GetFrameCount() > 0 then
-        gon_snap_to = nil
-      else
-        _gt:gon_snap_view(gon_snap_to)
-      end
-    end
     draw_warns()
     if n_room_num == 0 then
         print('GoodTrip [Fixed] luamod reload detected')
@@ -2642,7 +2586,6 @@ function _gt:new_room()
     kb_active = false
     player = Isaac.GetPlayer(0)
     stage = level:GetStage()
-    gon_snap_to = nil
     _gt:land_at_door()
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true
