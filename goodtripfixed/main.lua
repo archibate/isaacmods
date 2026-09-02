@@ -57,9 +57,6 @@ cursor:SetFrame("Idle", 0)
 local trash = Sprite()
 trash:Load("sprite/gt/gt_exit.anm2", true)
 local mouse_pressed = {false, false, false, false, false}
-local key = {ButtonAction.ACTION_SHOOTUP,ButtonAction.ACTION_SHOOTLEFT,ButtonAction.ACTION_SHOOTRIGHT,ButtonAction.ACTION_SHOOTDOWN}
-local movkey = {ButtonAction.ACTION_UP,ButtonAction.ACTION_LEFT,ButtonAction.ACTION_RIGHT,ButtonAction.ACTION_DOWN}
-local dir = {Vector(0, -1),Vector(-1, 0),Vector(1, 0),Vector(0, 1)}
 local icon_room = {"RoomOutline", "RoomVisited", "RoomUnvisited", "RoomCurrent"}
 local icon_flag = {"1_IconNormal", "IconShop", "3_IconError", "IconTreasureRoom", "IconBoss",
                   "IconMiniboss", "IconSecretRoom", "IconSuperSecretRoom", "IconArcade", "IconCurseRoom",
@@ -145,93 +142,25 @@ local n_room_num = 0
 	Controller.STICK_RIGHT = 13
 	Controller.BUTTON_BACK = 14
 	Controller.BUTTON_START = 15
---defaults only; see gtconfig.lua for what each one does
-local gtconfig = {
-    KeyboardMapEnable = true,
-    FastRestartEnable = true,
-    FollowCurseOfLost = true,
-    TeleportAnimation = false,
-    LandAtDoor = true,
-    QuicklyOneRoomMove = false,
-    AllowNeighborRoom = true,
-    AllowAnyRoom = false,
-    AllowBookmarking = true,
-    LastRoomShortcut = true,
-    FastTransition = false,
-    NoShootWhenClick = true,
-    FasterCursorMove = false,
-    CursorOnGameMap = false,
-    DimMapInCombat = true,
-    DimMapAlpha = 35,
-    DangerCautionCompat = true,
-    FairTripTime = false,
-    FairTripPath = true,
-    ShowSpecialIcons = true,
-    ControllerAlternateZ = nil,
-    ControllerAlternateR = nil,
-    MinimapScale = 10,
-    OverlayKey = nil,
-    OverlayKeyController = nil,
-    SwapAnalogSticks = false,
-    IgnoreMovementKeys = false,
-    CalibMainX = 0,
-    CalibMirrorX = 0,
-    CalibMainY = 0,
-    CalibMirrorY = 0,
-}
+--modules. Only main.lua includes, each file once, at load: include re-reads the
+--file on every luamod (require would cache it) and never resolves into another
+--mod's folder. Modules never include each other; what one needs is passed in.
+--gtconfig.lua is the hand-edited pins table; include, not require, so an edit
+--shows on the next luamod and the old GoodTrip's copy of the file can never be
+--the one found. A broken file is no pins
+local pins_ok, pins = pcall(include, "gtconfig")
+if not pins_ok or type(pins) ~= "table" then
+    pins = nil
+end
+local config = include("scripts.config")({ gt = _gt, pins = pins })
+local gtconfig = config.cfg
+_gt.save_config = config.save --so the console can make a hand-edited config stick
 --gon_ functions check REPENTOGON themselves: on a plain game every gon_ test is
 --false and every gon_ action is a no-op. Nothing else may call a REPENTOGON-only API.
 --(without REPENTOGON a cursor on the game's map draws behind it)
 function _gt:gon_map_cursor()
     return REPENTOGON ~= nil and gtconfig.CursorOnGameMap
 end
---gtconfig.lua is applied after the saved config and its keys are left out of
---the save, so a hand-edited setting wins on every launch. include, not require:
---require caches, so luamod never re-read the file, and it searches every mod's
---folder, so the old GoodTrip's gtconfig.lua could be the one found. include is
---read fresh on every load and only ever from this mod. A broken file is no pins
-local pins_ok, pins = pcall(include, "gtconfig")
-if not pins_ok or type(pins) ~= "table" then
-    pins = nil
-end
-local overrides = {}
-local function apply_overrides()
-    overrides = {}
-    if not pins then
-        return
-    end
-    for k, v in pairs(pins) do
-        overrides[k] = true
-        gtconfig[k] = v
-    end
-end
-apply_overrides()
---saved here, not in the MCM block: dragging, zoom and the trash work without MCM
-local cfgdata_written = nil
-local cfgdata_loaded = false
-local function save_config()
-    --never write before the first read: a luamod reload resets the locals, and
-    --the next exit save would bury the real config under them
-    if not cfgdata_loaded then return end
-    local json = require('json')
-    gtconfig.TopLeftX = mmp_ltpos.X
-    gtconfig.TopLeftY = mmp_ltpos.Y
-    local payload = gtconfig
-    if next(overrides) then --pinned keys belong to gtconfig.lua
-        payload = {}
-        for k, v in pairs(gtconfig) do
-            if not overrides[k] then
-                payload[k] = v
-            end
-        end
-    end
-    local dat = json.encode(payload)
-    if not cfgdata_written or dat ~= cfgdata_written then
-        cfgdata_written = dat
-        _gt:SaveData(dat)
-    end
-end
-_gt.save_config = save_config --so the console can make a hand-edited config stick
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
 local function update_mmscale()
     --hand-edited, so it can arrive as anything; a scale of 0 draws nothing
@@ -261,19 +190,9 @@ local function cycle_mmscale() --zoom button: x1.0 -> x1.5 -> x2.0 -> x1.0
     end
     update_mmscale()
     prep_alarm = true
-    save_config()
+    config.save()
 end
 
-local function update_analog_mappings()
-    if gtconfig.SwapAnalogSticks then
-        key = {ButtonAction.ACTION_UP, ButtonAction.ACTION_LEFT, ButtonAction.ACTION_RIGHT, ButtonAction.ACTION_DOWN}
-        movkey = {ButtonAction.ACTION_SHOOTUP, ButtonAction.ACTION_SHOOTLEFT, ButtonAction.ACTION_SHOOTRIGHT, ButtonAction.ACTION_SHOOTDOWN}
-    else
-        key = {ButtonAction.ACTION_SHOOTUP, ButtonAction.ACTION_SHOOTLEFT, ButtonAction.ACTION_SHOOTRIGHT, ButtonAction.ACTION_SHOOTDOWN}
-        movkey = {ButtonAction.ACTION_UP, ButtonAction.ACTION_LEFT, ButtonAction.ACTION_RIGHT, ButtonAction.ACTION_DOWN}
-    end
-end
-update_analog_mappings() --also needed without MCM
 local hudoffset = Options.HUDOffset * 10
 local debug = false
 local tele_cd = 0
@@ -366,6 +285,7 @@ if ModConfigMenu then
         end,
         OnChange = function(b)
           mmp_ltpos.X = b
+          gtconfig.TopLeftX = b --the window position rides in the settings
         end,
         Info = { "Keyboard minimap top-left X coordinate" },
       }
@@ -385,6 +305,7 @@ if ModConfigMenu then
         end,
         OnChange = function(b)
           mmp_ltpos.Y = b
+          gtconfig.TopLeftY = b
         end,
         Info = { "Keyboard minimap top-left Y coordinate" },
       }
@@ -449,7 +370,7 @@ if ModConfigMenu then
         end,
         OnChange = function(b)
           gtconfig["SwapAnalogSticks"] = b
-          update_analog_mappings()
+          config.update_analog_mappings()
         end,
         Info = { "Swap the left and right analog sticks" },
       }
@@ -659,40 +580,13 @@ if ModConfigMenu then
     end
 end
 _gt:AddPriorityCallback(ModCallbacks.MC_POST_GAME_STARTED, CallbackPriority.EARLY, function(_, isContined)
-    --a bad save must not throw: the window position and scale are set below
-    local cfg
-    if _gt:HasData() then
-        local dat = _gt:LoadData()
-        cfgdata_written = dat
-        local json = require('json')
-        local ok, read = pcall(json.decode, dat)
-        if ok and type(read) == "table" then
-          cfg = read
-        else
-          print("GoodTrip [Fixed]: the saved settings could not be read, starting from defaults")
-        end
-    end
-    if cfg then
-        for k, v in pairs(cfg) do
-            gtconfig[k] = v
-        end
-        --one-shot migration: FairTripTime was inert unless the retired
-        --MinimapAPICompat switch was on, yet old saves store it true
-        if not cfg.FairTripMigrated then
-            gtconfig.FairTripMigrated = true
-            if not cfg.MinimapAPICompat then
-                gtconfig.FairTripTime = false
-            end
-        end
-    end
-    apply_overrides() --last word goes to the hand-edited file
+    config.load_saved()
     mmp_ltpos = Vector(gtconfig.TopLeftX or 100, gtconfig.TopLeftY or 100)
+    gtconfig.TopLeftX, gtconfig.TopLeftY = mmp_ltpos.X, mmp_ltpos.Y --the window position rides in the settings
     update_mmscale()
-    update_analog_mappings()
-    cfgdata_loaded = true --a first-time player has nothing on disk, yet still gets saved
 end)
 _gt:AddPriorityCallback(ModCallbacks.MC_PRE_GAME_EXIT, CallbackPriority.EARLY, function(_, shouldSave)
-    save_config()
+    config.save()
 end)
 --console helper: lua print(gt.dump(...))
 function _gt.dump(o)
@@ -1834,8 +1728,8 @@ end
 function _gt:mmp_ctrl_move()
     for i = 1,4 do
       if gtconfig.QuicklyOneRoomMove then
-        if Input.IsActionTriggered(movkey[i], player.ControllerIndex) then
-          local npos = clamp_ctrl_pos(mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i] * Vector(8, 7) * mmsc))
+        if Input.IsActionTriggered(config.movkey[i], player.ControllerIndex) then
+          local npos = clamp_ctrl_pos(mmp_ctrl_pos + _gt:mirror_mmp_dir(config.dir[i] * Vector(8, 7) * mmsc))
           if npos.X ~= mmp_ctrl_pos.X or npos.Y ~= mmp_ctrl_pos.Y then
             mmp_ctrl_pos = npos
             local nmgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
@@ -1848,9 +1742,9 @@ function _gt:mmp_ctrl_move()
       end
       if gtconfig.FasterCursorMove then
         --a tap jumps at once; held, it repeats a room at a time
-        if Input.IsActionPressed(key[i], player.ControllerIndex) then
+        if Input.IsActionPressed(config.key[i], player.ControllerIndex) then
           if fast_move_cd[i] <= 0 then
-            mmp_ctrl_pos = clamp_ctrl_pos(mmp_ctrl_pos + _gt:mirror_mmp_dir(dir[i]) * Vector(8, 7) * mmsc)
+            mmp_ctrl_pos = clamp_ctrl_pos(mmp_ctrl_pos + _gt:mirror_mmp_dir(config.dir[i]) * Vector(8, 7) * mmsc)
             fast_move_cd[i] = FAST_MOVE_REPEAT_FRAMES
           else
             fast_move_cd[i] = fast_move_cd[i] - 1
@@ -1859,8 +1753,8 @@ function _gt:mmp_ctrl_move()
           fast_move_cd[i] = 0
         end
       else
-        if Input.IsActionPressed(key[i], player.ControllerIndex) then
-          local step = _gt:mirror_mmp_dir(dir[i]) * mmsc
+        if Input.IsActionPressed(config.key[i], player.ControllerIndex) then
+          local step = _gt:mirror_mmp_dir(config.dir[i]) * mmsc
           if _gt:gon_map_cursor() then
             step = step * Vector(8 / 17, 7 / 15) --game-map cells are 17x15, the widget's 8x7
           end
@@ -1911,16 +1805,16 @@ function _gt:tab_action()
     elseif (gtconfig.KeyboardMapEnable and _gt:check_teleble(false)) or debug then
       local movement_pressed = false
       for i = 1, 4 do
-        if Input.IsActionPressed(movkey[i], player.ControllerIndex) then
+        if Input.IsActionPressed(config.movkey[i], player.ControllerIndex) then
           movement_pressed = true
           break
         end
       end
       if not movement_pressed or gtconfig.QuicklyOneRoomMove or gtconfig.IgnoreMovementKeys then
-        local arrowdown = Input.IsActionPressed(key[1],player.ControllerIndex)
-            or Input.IsActionPressed(key[2],player.ControllerIndex)
-            or Input.IsActionPressed(key[3],player.ControllerIndex)
-            or Input.IsActionPressed(key[4],player.ControllerIndex)
+        local arrowdown = Input.IsActionPressed(config.key[1],player.ControllerIndex)
+            or Input.IsActionPressed(config.key[2],player.ControllerIndex)
+            or Input.IsActionPressed(config.key[3],player.ControllerIndex)
+            or Input.IsActionPressed(config.key[4],player.ControllerIndex)
         --the region where the mouse takes the cursor over: the widget, or the
         --game's map under the game-map cursor mode
         local in_ui
@@ -2080,8 +1974,9 @@ function _gt:mouse_action()
         mmp_ltpos = mmp_pos0 + mmp_ltpos_
         _gt:prep_minimap()
       end
+      gtconfig.TopLeftX, gtconfig.TopLeftY = mmp_ltpos.X, mmp_ltpos.Y --the window position rides in the settings
       if drag_ended then --alt-F4 and TAB+R never reach MC_PRE_GAME_EXIT
-        save_config()
+        config.save()
       end
     end
 end
