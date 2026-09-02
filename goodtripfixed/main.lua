@@ -2797,7 +2797,20 @@ end)
 _gt:AddCallback(ModCallbacks.MC_USE_ITEM, _gt.itemused)
 _gt:AddCallback(ModCallbacks.MC_USE_CARD, _gt.itemused)
 _gt:AddCallback(ModCallbacks.MC_USE_PILL, _gt.itemused)
-_gt:AddCallback(ModCallbacks.MC_POST_RENDER, _gt.step)
+--the drawing goes in ahead of the ordinary crowd. The game hands a render to each
+--mod in turn and stops the moment one of them hands something back or throws, and
+--everything behind it that frame is simply never drawn -- which is how another mod
+--returning a value from its own render took this map off the screen entirely, with
+--nothing in the log to say so. Mods are handed the callback in the order they were
+--loaded, which is alphabetical, and this one is late in the alphabet. Asking for
+--the early tier puts it in front of every mod that asks for nothing in particular,
+--the same shelter MinimapAPI takes. The cost is that a HUD drawn later can now
+--cover the window, which is a great deal better than the window never being drawn.
+if CallbackPriority then
+  _gt:AddPriorityCallback(ModCallbacks.MC_POST_RENDER, CallbackPriority.EARLY, _gt.step)
+else
+  _gt:AddCallback(ModCallbacks.MC_POST_RENDER, _gt.step)
+end
 _gt:AddCallback(ModCallbacks.MC_POST_UPDATE, _gt.step2)
 _gt:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, _gt.new_room)
 _gt:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, _gt.new_level)
