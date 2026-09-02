@@ -965,11 +965,16 @@ function _gt:linked(a, b)
 end
 --
 --the door a trip should put the player down at, in the room being arrived in.
---The game is no help here: StartRoomTransition ignores its own Direction
---argument and works the side out from the two grid numbers, which is right for
---neighbours and arbitrary for anything further, so a long trip can land against
---a blank wall. The room's own doors are known from the sweep, so pick the one
---facing the room being left, and failing that the one on the side it lies on.
+--The game is only half a help here. It ignores the Direction it is handed --
+--measured twice, the second time by passing the side of the door the trip means
+--to use and watching the same landing come out -- and works the wall out from the
+--two grid numbers instead, which is right for neighbours and arbitrary for
+--anything further, so a long trip can land against a blank wall. The cell it is
+--handed does count, but only to choose among the doors on that wall; see
+--_gt:landing_route. So the wall is bought by leaving from the right room and the
+--door by naming the right cell, and this, which reads the room's own doors off
+--the sweep, is what says which door that is: the one facing the room being left,
+--and failing that the one on the side it lies on.
 --the room a walk would have arrived from: the step before the target on the
 --shortest way there through rooms already walked. A trip stands in for that
 --walk, so it should come in by the same door -- straight-line direction is not
@@ -1073,10 +1078,13 @@ function _gt:landing_route(from, to)
     return _gt:touching_cell(walked, to), walked
 end
 --
---and then put the player there by hand, because the game offers no lever that
---works: StartRoomTransition ignores its Direction, EnterDoor ignores writes,
---and LeaveDoor was measured changing nothing at all. One step inside the
---doorway is where walking in leaves you, so that is where a trip leaves you.
+--and then put the player there by hand, for whatever the levers above did not
+--reach. Of the levers the game does offer, Direction is ignored, EnterDoor
+--ignores writes, and LeaveDoor was measured changing nothing at all; the cell and
+--the room left from are the two that work, and between them they cover a room
+--bigger than the screen, which is the case that mattered. What is left over lands
+--here. One step inside the doorway is where walking in leaves you, so that is
+--where a trip leaves you.
 --everyone a landing has to carry: the players, and everything the game laid down
 --alongside them where it thought they came in. Familiars by their type, the rest
 --by who owns them, which is how Mom's Knife -- an entity in its own right, not a
