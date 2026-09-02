@@ -19,19 +19,19 @@ local STEPS = {
     "restart 0", 10,
     "debug 3",
     "debug 10",
-    "stage 12", 12,
-    "giveitem c333",
+    "stage 7", 12,
+    "lua gt:get_config().SnapViewOnLanding = false",
     "lua gt:get_config().AllowAnyRoom = true",
 }
 
-local HINT = "F3 redraws the floor; hover and click Delirium each time"
+local HINT = "click every half of the J room, then of the tall 1x2 room; watch for slide"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 106
+local REV = 112
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
@@ -45,41 +45,24 @@ local running = pressed == "run"
 -- for whatever needs enumerating; it beats reading a wiki, which is where
 -- hallucinated ids come from.
 local function dump()
-    -- every boss room the Void lays out, with the shape the game gave it. The 2x2
-    -- one is Delirium's, so if the mod treats it differently from its 1x2 and 2x1
-    -- neighbours, a refused trip names it
+    -- every room on this floor that is bigger than one screen, since those are the
+    -- only ones the view has to choose a part of. Shapes 4 and up are all of them:
+    -- the two tall ones, the two wide ones, the square and the four L's
     for i = 0, Game():GetLevel():GetRooms().Size - 1 do
         local d = Game():GetLevel():GetRooms():Get(i)
-        if d.Data.Type == 5 then
-            local ok = gt and gt.check_teleble and gt:check_teleble(d.SafeGridIndex)
-            Isaac.DebugString(string.format(
-                "[VOID] boss room grid %d safe %d shape %d visited %d display %d tripable %s",
-                d.GridIndex, d.SafeGridIndex, d.Data.Shape, d.VisitedCount, d.DisplayFlags,
-                tostring(ok)))
+        if d.Data.Shape >= 4 then
+            Isaac.DebugString(string.format("[BIG] room grid %d safe %d shape %d type %d",
+                d.GridIndex, d.SafeGridIndex, d.Data.Shape, d.Data.Type))
         end
     end
 end
 
 if pressed == "dump" then dump() end
 
--- F3 redraws this floor once and lists its boss rooms. The Void joins Delirium's
--- 2x2 at a different one of its cells every layout, and that cell is what the map
--- files it under, so pressing F3 a few times walks through the shapes the fix has
--- to hold for.
+-- F3 redraws this floor and lists what it laid out, for when the floor that came
+-- up has no room bigger than the screen to trip into.
 local hunting = pressed == "hunt"
 local hunt_wait, hunt_tries = 0, 0
-
-local function floor_wanted()
-    local rooms = Game():GetLevel():GetRooms()
-    for i = 0, rooms.Size - 1 do
-        local d = rooms:Get(i)
-        if d.Data.Type == 5 then
-            Isaac.DebugString(string.format("[VOID] boss room grid %d safe %d shape %d",
-                d.GridIndex, d.SafeGridIndex, d.Data.Shape))
-        end
-    end
-    return true
-end
 
 local step = 0
 local waiting = 0
@@ -92,7 +75,7 @@ function mod:onUpdate()
         end
         if hunt_tries > 0 then
             hunting = false
-            floor_wanted()
+            dump()
             return
         end
         hunt_tries = hunt_tries + 1
