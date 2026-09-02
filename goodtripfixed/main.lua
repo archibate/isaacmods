@@ -34,14 +34,6 @@ local function draw_warns()
     end
 end
 
-local player = Isaac.GetPlayer(0)
-local level = Game():GetLevel()
-local stage = level:GetStage()
-local stageeffect = 0
-local room = Game():GetRoom()
-local crd = level:GetCurrentRoomDesc()
-local crid = crd.GridIndex
-local crsid = crd.SafeGridIndex
 local sfx = SFXManager()
 local mmp = Sprite()
 mmp:Load("sprite/gt/minimap0.anm2", true)
@@ -65,29 +57,12 @@ local icon_flag = {"1_IconNormal", "IconShop", "3_IconError", "IconTreasureRoom"
                   "IconDiceRoom", "22_IconBlackMarket", "23_IconGreedExit","IconPlanetarium","TeleporterRoom","TeleporterRoom","27_SecretExit","28_Blue","IconUltraSecretRoom"}
 local icon_flag2 = {"IconLockedRoom", "IconTreasureRoomGreed", "IconBossAmbushRoom","IconTreasureRoomRed","IconMirrorRoom", "IconWhiteFireRoom","IconTintSkullRoom","IconMinecartRoom","IconMineButtonRoom"}
 local scpos = Vector(0, 0)
-local grid_room = {}
-local grid_room_mark = {}
-local room_neighbours = {}
 local draw_room_id = {}
 local draw_room_pos = {}
 local draw_room_shape = {}
 local draw_icon_pos = {Vector(0, 0),Vector(0, 0),Vector(0, 0),Vector(0,3),
                       Vector(0,3),Vector(4, 0),Vector(4, 0),Vector(4,3),
                       Vector(8, 7),Vector(0, 7),Vector(8, 0),Vector(0, 0),}
-local neighlut = {
-    {-1, 1, -13, 13},
-    {-1, 1},
-    {-13, 13},
-    {-1, 1, -1+13, 1+13, -13, 13+13},
-    {-13, 13+13},
-    {-1, 2, -13, 13, -13+1, 13+1},
-    {-1, 2},
-    {-1, 2, -1+13, 2+13, -13, 13+13, -13+1, 13+13+1},
-    {-1, 1, -13, -2+13, 1+13, 13+13-1, 13+13},
-    {-13, -1, 1, -1+13, 2+13, 13+13, 13+13+1},
-    {-13, -13+1, -1, 2, 13, 13+2, 13+13+1},
-    {-13, -13+1, -1, 2, 13-1, 13+1, 13+13},
-}
 local ltroom = Vector(6, 6)
 local rbroom = Vector(6, 6)
 local ctrl_ltroom = Vector(6, 6) --the same two corners before the widget's 3x3 padding widens them
@@ -114,15 +89,6 @@ local mmp_1step_tp = false
 local mmp_1step_mgid = -1
 local tele_maze = false
 local tele_door_slot = -1 --the door a trip means to arrive by
---door graph, learned one room at a time: grid adjacency alone cannot tell a
---doorway from a secret room's unbombed wall. Per dimension: the mirror world
---reuses the same grid numbers for different rooms.
-local door_link = {}  --door_link[dim][a][b]: a passage, seen from either end
-local door_swept = {} --door_swept[dim][a]: a's own walls were read
-local secret_pre_room_id = {}
---curse-room door spikes seen from outside / inside; Flat File strips only the
---side it was used on, so the two are kept apart
-local curse_bare_outside, curse_bare_inside = {}, {}
 local prep_alarm = false
 local n_room_num = 0
 --modules. Only main.lua includes, each file once, at load: include re-reads the
@@ -138,6 +104,7 @@ end
 local config = include("scripts.config")({ gt = _gt, pins = pins })
 local gtconfig = config.cfg
 _gt.save_config = config.save --so the console can make a hand-edited config stick
+local floor = include("scripts.floor")({ cfg = gtconfig })
 --gon_ functions check REPENTOGON themselves: on a plain game every gon_ test is
 --false and every gon_ action is a no-op. Nothing else may call a REPENTOGON-only API.
 --(without REPENTOGON a cursor on the game's map draws behind it)
@@ -243,7 +210,7 @@ end
 function _gt:check_room_open()
     local door = nil
     for i =0, 7 do
-      door = room:GetDoor(i)
+      door = floor.room:GetDoor(i)
       if door then
         if door:IsOpen() then
           return true
@@ -261,7 +228,7 @@ function _gt:check_neigh_connected(trd, cond)
         trd.Flags & RoomDescriptor.FLAG_RED_ROOM == 0 and
         trd.Data.Type ~= 1 and trd.Data.Type ~= 5 and
         trd.Data.Type ~= 6 and trd.Data.Type ~= 13 and
-        not (((stage == 1 and level:GetStageType() < StageType.STAGETYPE_REPENTANCE) or room:IsMirrorWorld())
+        not (((floor.stage == 1 and floor.level:GetStageType() < StageType.STAGETYPE_REPENTANCE) or floor.room:IsMirrorWorld())
                 and ((not Game():IsGreedMode() and trd.Data.Type == 4) or trd.Data.Type == 2)) then --free: stage-1 normal floor, or Downpour/Dross mirror world
         return false
       end
@@ -275,11 +242,11 @@ function _gt:check_neigh_connected(trd, cond)
         if (tid % 13) + dcol ~= id % 13 then
           return false
         end
-        local rd = grid_room[id]
+        local rd = floor.grid_room[id]
         return rd ~= nil and cond(rd)
       end
       local near_room = {check_grid(-13), check_grid(13), check_grid(-1), check_grid(1)}
-      if stage == 12 and trd.Data.Type == 5 and trd.Data.Shape > 3 then
+      if floor.stage == 12 and trd.Data.Type == 5 and trd.Data.Shape > 3 then
         --void bossrooms--type4=1x2/type6=2x1/type8=2x2=Delirium
         if (near_room[1] and near_room[4])
           or (near_room[2] and near_room[3])
@@ -292,7 +259,7 @@ function _gt:check_neigh_connected(trd, cond)
         if near_room[1] or near_room[4] or near_room[2] or near_room[3] then
           return true
         end
-        for _, off in ipairs(neighlut[trd.Data.Shape]) do
+        for _, off in ipairs(floor.neighlut[trd.Data.Shape]) do
             if check_grid(off) then
                 return true
             end
@@ -305,20 +272,20 @@ end
 function _gt:get_reachable_rooms()
     --flood from the current room through visited+cleared rooms; each step needs
     --a door too, else a secret room counts as a corridor on all four sides
-    local start = crd.SafeGridIndex
-    _gt:sweep_doors() --a wall bombed since entering would still read as solid
+    local start = floor.crd.SafeGridIndex
+    floor.sweep_doors() --a wall bombed since entering would still read as solid
     local reach = {[start] = true}
     local queue = {start}
     local head = 1
     while queue[head] do
       local cur = queue[head]
-      local node = room_neighbours[cur]
+      local node = floor.room_neighbours[cur]
       head = head + 1
       if node then
         for _, adj in ipairs(node.Neighbors) do
-          local rd = grid_room[adj]
+          local rd = floor.grid_room[adj]
           if rd and not reach[adj] and rd.VisitedCount > 0 and rd.Clear
-              and _gt:linked(cur, adj) then
+              and floor.linked(cur, adj) then
             reach[adj] = true
             queue[#queue + 1] = adj
           end
@@ -326,56 +293,6 @@ function _gt:get_reachable_rooms()
       end
     end
     return reach
-end
-
---the door graph for the side of the mirror being stood on. Read off the live
---room, not the cached one: a trip hops through an antechamber mid-call
-function _gt:door_graph()
-    local d = Game():GetRoom():IsMirrorWorld() and 1 or 0
-    door_link[d] = door_link[d] or {}
-    door_swept[d] = door_swept[d] or {}
-    return door_link[d], door_swept[d]
-end
-
---read the current room's doors (the only room the game answers for) into the
---graph both ways. DOOR_HIDDEN is an unbombed wall, so no passage; everything
---else, locked included, is walkable. All read live so nothing is from different moments.
-function _gt:sweep_doors()
-    local live = Game():GetRoom()
-    local lvl = Game():GetLevel()
-    local here = lvl:GetCurrentRoomDesc().SafeGridIndex
-    local link, swept = _gt:door_graph()
-    link[here] = link[here] or {}
-    swept[here] = true
-    for i = 0, 7 do
-      local door = live:GetDoor(i)
-      if door and door.Desc.Variant ~= DoorVariant.DOOR_HIDDEN then
-        local there = lvl:GetRoomByIdx(door.TargetRoomIndex, -1).SafeGridIndex
-        --curse-room spikes are read off the door itself: Flat File strips them
-        --once and for good, so the trinket in hand says nothing about this door
-        if door.TargetRoomType == RoomType.ROOM_CURSE then
-          curse_bare_outside[there] = door.VarData ~= 0
-        elseif live:GetType() == RoomType.ROOM_CURSE then
-          curse_bare_inside[here] = door.VarData ~= 0
-        end
-        if there ~= here then
-          --this end knows its slot; the far end gets a bare mark until its own turn
-          link[here][there] = i
-          link[there] = link[there] or {}
-          if link[there][here] == nil then link[there][here] = true end
-        end
-      end
-    end
-end
-
---may a trip step between these rooms? A passage seen from either end: yes. A
---swept room saying nothing: no. Neither swept (mod loaded mid-run): grid adjacency stands.
-function _gt:linked(a, b)
-    local link, swept = _gt:door_graph()
-    if link[a] and link[a][b] ~= nil then
-      return true
-    end
-    return not (swept[a] or swept[b])
 end
 
 --which door of the target room to land at: the one facing the room a walk would
@@ -390,12 +307,12 @@ function _gt:route_parent(from, to)
       local cur = queue[head]
       head = head + 1
       if cur == to then break end
-      local node = room_neighbours[cur]
+      local node = floor.room_neighbours[cur]
       if node then
         for _, adj in ipairs(node.Neighbors) do
-          local rd = grid_room[adj]
+          local rd = floor.grid_room[adj]
           --the target may be an uncleared neighbour: a landing, not a pass-through
-          if rd and not parent[adj] and _gt:linked(cur, adj)
+          if rd and not parent[adj] and floor.linked(cur, adj)
               and (adj == to or (rd.VisitedCount > 0 and rd.Clear)) then
             parent[adj] = cur
             queue[#queue + 1] = adj
@@ -408,7 +325,7 @@ function _gt:route_parent(from, to)
 end
 
 function _gt:landing_slot(from, to)
-    local link = _gt:door_graph()
+    local link = floor.door_graph()
     local slots = link[to]
     if not slots then return -1 end
     if type(slots[from]) == "number" then --neighbours: the door between them
@@ -441,35 +358,16 @@ function _gt:landing_slot(from, to)
       or on_side(nil) or -1
 end
 
---the target cell a walk from `from` would step into. Read off the grid, not the
---door sweep, so a room nobody has been inside yet answers too
-function _gt:touching_cell(from, to)
-    local src, dst = grid_room[from], grid_room[to]
-    if not (src and dst) then return nil end
-    for cell, d in pairs(grid_room) do
-      if d.ListIndex == src.ListIndex then
-        local col = cell % 13
-        for _, step in ipairs({ -13, 13, -1, 1 }) do
-          if not ((step == -1 and col == 0) or (step == 1 and col == 12)) then --column guard
-            local nd = grid_room[cell + step]
-            if nd and nd.ListIndex == dst.ListIndex then return cell + step end
-          end
-        end
-      end
-    end
-    return nil
-end
-
 --the cell to hand the transition, and the room to leave from to make it stick.
 --The game reads the cell to pick among the doors on one wall, and the wall from
 --the room the trip starts in; so next door the cell is enough, further off the
 --trip must also start from the room the walk would have come from
 function _gt:landing_route(from, to)
-    local cell = _gt:touching_cell(from, to)
+    local cell = floor.touching_cell(from, to)
     if cell then return cell, nil end
     local walked = _gt:route_parent(from, to)
     if not walked then return nil, nil end
-    return _gt:touching_cell(walked, to), walked
+    return floor.touching_cell(walked, to), walked
 end
 
 --everyone a landing carries: players, familiars by type, and anything owned by
@@ -495,7 +393,7 @@ function _gt:land_at_door()
     local slot = tele_door_slot
     tele_door_slot = -1
     if slot < 0 then return end
-    local door = room:GetDoor(slot)
+    local door = floor.room:GetDoor(slot)
     if not door then return end
     local dx, dy = 0, 0
     local side = slot % 4
@@ -503,20 +401,21 @@ function _gt:land_at_door()
     elseif side == 1 then dy = 40 else dy = -40 end
     local stand = Vector(door.Position.X + dx, door.Position.Y + dy)
     --one shift for all, so a co-op pair keeps its spacing
-    local shift = stand - player.Position
+    local shift = stand - floor.player.Position
     for _, e in ipairs(_gt:landed_party()) do
       e.Position = e.Position + shift
     end
 end
 
 function _gt:check_teleble(gid)
-    if gid == -99 or (gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
+    if gid == -99 or (gtconfig.FollowCurseOfLost and floor.level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
       return false
-    elseif debug and grid_room[gid] then
+    elseif debug and floor.grid_room[gid] then
       return true
     end
+    local crd = floor.crd
     local cid = crd.SafeGridIndex
-    if grid_room[cid] == nil or not crd.Clear then
+    if floor.grid_room[cid] == nil or not crd.Clear then
       return false
     elseif (crd.Data.Type == 6 or crd.Data.Type == 11) then --miniboss/challengeroom
       if not _gt:check_room_open() then
@@ -524,10 +423,10 @@ function _gt:check_teleble(gid)
       end
     end
     if gid == false then return true end --current room only
-    if grid_room[gid] == nil then
+    if floor.grid_room[gid] == nil then
       return false
     else
-      local trd = grid_room[gid]
+      local trd = floor.grid_room[gid]
       if trd.ListIndex == crd.ListIndex then
         return false
       end
@@ -548,13 +447,14 @@ function _gt:check_teleble(gid)
       return _gt:check_neigh_connected(trd, function(rd)
           return (rd.DisplayFlags & 1 ~= 0) and rd.VisitedCount > 0 and rd.Clear
             and (not reach or (reach[rd.SafeGridIndex]
-              and _gt:linked(rd.SafeGridIndex, trd.SafeGridIndex)))
+              and floor.linked(rd.SafeGridIndex, trd.SafeGridIndex)))
       end)
     end
     return true
 end
 
 function _gt:hurt(n)
+  local player = floor.player
   player:TakeDamage(n, DamageFlag.DAMAGE_CURSED_DOOR | DamageFlag.DAMAGE_NO_PENALTIES, EntityRef(player), 0)
 end
 
@@ -566,36 +466,40 @@ end
 --Flat File acts on the door as the room is laid down, so the trinket in hand
 --only answers for a door about to be laid down again, not the one stood beside
 function _gt:curse_toll_free(gid, by_inner_door, room_reloads)
+    local player = floor.player
     if player:HasCollectible(276) or player:HasCollectible(663) then
       return true
     end
     if room_reloads and player:HasTrinket(151) then
       return true
     end
-    local bare = curse_bare_outside[gid]
-    if by_inner_door then bare = curse_bare_inside[gid] end
+    local bare = floor.curse_bare_outside[gid]
+    if by_inner_door then bare = floor.curse_bare_inside[gid] end
     return bare == true
 end
 
 function _gt:check_curse_room(gid)
     if debug then return end
+    local crid = floor.crid
     --a bombed secret-room wall has no spikes, so secret<->guard room is free
     --both ways, even when the guard is the curse room
-    if secret_pre_room_id[crid] == gid or secret_pre_room_id[gid] == crid then
+    if floor.secret_pre_room_id[crid] == gid or floor.secret_pre_room_id[gid] == crid then
       return
     end
-    local trd = grid_room[gid]
-    if crd.Data.Type == 10 then
-      if not _gt:curse_toll_free(crsid, true, false) then
+    local trd = floor.grid_room[gid]
+    if floor.crd.Data.Type == 10 then
+      if not _gt:curse_toll_free(floor.crsid, true, false) then
         _gt:hurt(1)
       end
-    elseif trd.Data.Type == 10 and not player:IsFlying() then
+    elseif trd.Data.Type == 10 and not floor.player:IsFlying() then
       if not _gt:curse_toll_free(trd.SafeGridIndex, false, true) then
         _gt:hurt(1)
       end
     end
 end
 
+--floor.* is read at each use, never copied at the top: an antechamber hop
+--mid-call changes the room, and with it the descriptor and the grid
 function _gt:teleport_to_grid_index(gid)
     for _,en in pairs(Isaac.GetRoomEntities()) do
 			if en.Type == 867 then
@@ -603,33 +507,33 @@ function _gt:teleport_to_grid_index(gid)
         return
 			end
 		end
-    if crd.Data.Name == "Mom" or crd.Data.Name == "Ultra Greed" then
+    if floor.crd.Data.Name == "Mom" or floor.crd.Data.Name == "Ultra Greed" then
       _gt:tele_failed()
       return
-    elseif grid_room[gid].Data.Type == 11 and not grid_room[gid].ChallengeDone then
-      if stage%2 == 0 and stage ~= 10 then
-        if player:GetHearts()+player:GetSoulHearts()+ player:GetBlackHearts() > 2 then
+    elseif floor.grid_room[gid].Data.Type == 11 and not floor.grid_room[gid].ChallengeDone then
+      if floor.stage%2 == 0 and floor.stage ~= 10 then
+        if floor.player:GetHearts()+floor.player:GetSoulHearts()+ floor.player:GetBlackHearts() > 2 then
           _gt:tele_failed()
           return
         end
       else
-        if player:GetHearts() + player:GetSoulHearts() + player:GetBlackHearts() < player:GetMaxHearts() then
+        if floor.player:GetHearts() + floor.player:GetSoulHearts() + floor.player:GetBlackHearts() < floor.player:GetMaxHearts() then
           _gt:tele_failed()
           return
         end
       end
     end
     _gt:check_curse_room(gid)
-    level.EnterDoor = -1
-    level.LeaveDoor = -1
-    if level:GetCurses() & LevelCurse.CURSE_OF_MAZE ~= 0 then
-      level:RemoveCurses(LevelCurse.CURSE_OF_MAZE)
+    floor.level.EnterDoor = -1
+    floor.level.LeaveDoor = -1
+    if floor.level:GetCurses() & LevelCurse.CURSE_OF_MAZE ~= 0 then
+      floor.level:RemoveCurses(LevelCurse.CURSE_OF_MAZE)
       tele_maze = true
     end
 
     local dist = 0
     if gtconfig.FairTripTime then
-      dist = _gt:fair_trip(crd.SafeGridIndex, gid)
+      dist = _gt:fair_trip(floor.crd.SafeGridIndex, gid)
       if dist == 999 then
         _gt:tele_failed()
         return
@@ -637,12 +541,12 @@ function _gt:teleport_to_grid_index(gid)
     end
 
     --an L room's anchor cell is not in grid_room, so the antechamber may be missing
-    local from_pre = crd.Data.Type == 7 and secret_pre_room_id[crid] or nil
-    local from_prd = from_pre and grid_room[from_pre] or nil
+    local from_pre = floor.crd.Data.Type == 7 and floor.secret_pre_room_id[floor.crid] or nil
+    local from_prd = from_pre and floor.grid_room[from_pre] or nil
     if from_prd then --from secret room
-      if from_prd.ListIndex == grid_room[gid].ListIndex then
+      if from_prd.ListIndex == floor.grid_room[gid].ListIndex then
         gid = from_pre
-      elseif not (grid_room[gid].Data.Type == 10 and secret_pre_room_id[gid] and secret_pre_room_id[gid] == crid) then
+      elseif not (floor.grid_room[gid].Data.Type == 10 and floor.secret_pre_room_id[gid] and floor.secret_pre_room_id[gid] == floor.crid) then
         --the toll is for the curse room's own door on the far side, not the bombed hole
         if from_prd.Data.Type == 10 and not _gt:curse_toll_free(from_prd.SafeGridIndex, true, true) then
           _gt:hurt(1)
@@ -650,16 +554,16 @@ function _gt:teleport_to_grid_index(gid)
         Game():ChangeRoom(from_pre,-1)
       end
     end
-    if grid_room[gid].Data.Type == 7 then --to secret room
-      local to_pre = secret_pre_room_id[gid]
-      local to_prd = to_pre and grid_room[to_pre] or nil
+    if floor.grid_room[gid].Data.Type == 7 then --to secret room
+      local to_pre = floor.secret_pre_room_id[gid]
+      local to_prd = to_pre and floor.grid_room[to_pre] or nil
       if to_prd then
-        if to_prd.ListIndex == crd.ListIndex then --crd, since grid_room[crid] is nil in an L room
-          if crd.Data.Shape > 3 then
+        if to_prd.ListIndex == floor.crd.ListIndex then --crd, since grid_room[crid] is nil in an L room
+          if floor.crd.Data.Shape > 3 then
             Game():ChangeRoom(to_pre,-1)
           end
-        elseif not (crd.Data.Type == 10 and secret_pre_room_id[crid] and secret_pre_room_id[crid] == gid) then
-          if to_prd.Data.Type == 10 and not player:IsFlying()
+        elseif not (floor.crd.Data.Type == 10 and floor.secret_pre_room_id[floor.crid] and floor.secret_pre_room_id[floor.crid] == gid) then
+          if to_prd.Data.Type == 10 and not floor.player:IsFlying()
               and not _gt:curse_toll_free(to_prd.SafeGridIndex, false, true) then
             _gt:hurt(1)
           end
@@ -668,7 +572,7 @@ function _gt:teleport_to_grid_index(gid)
       end
     end
     --read here, not up top: an antechamber hop may have moved the player
-    local trd = grid_room[gid]
+    local trd = floor.grid_room[gid]
     local here = Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex
     local there = trd and trd.SafeGridIndex or gid
     tele_door_slot = -1
@@ -688,7 +592,7 @@ function _gt:teleport_to_grid_index(gid)
       Game():ChangeRoom(arrive,-1)
     else
         if dist ~= 0 then
-          local speed = player.MoveSpeed
+          local speed = floor.player.MoveSpeed
           local addTime = math.floor((60.0*dist/speed)+0.5)
           Game().TimeCounter = Game().TimeCounter + addTime --boss rush reads TimeCounter; Hush does not
         end
@@ -700,8 +604,8 @@ function _gt:teleport_to_grid_index(gid)
       Game():ChangeRoom(arrive,-1)
       Game():GetRoom():PlayMusic()
       mmp_ctrl = true
-      local gx = crsid % 13
-      local gy = (crsid - gx)/ 13
+      local gx = floor.crsid % 13
+      local gy = (floor.crsid - gx)/ 13
         if mmp_1step_mgid >= 0 then
             gx = mmp_1step_mgid % 13
             gy = (mmp_1step_mgid - gx)/ 13
@@ -711,7 +615,7 @@ function _gt:teleport_to_grid_index(gid)
       return
     end
     local tele_anime = gtconfig.TeleportAnimation and 3 or 1
-    Game():StartRoomTransition(arrive, Direction.NO_DIRECTION, tele_anime, player, -1) --direction is ignored, measured twice
+    Game():StartRoomTransition(arrive, Direction.NO_DIRECTION, tele_anime, floor.player, -1) --direction is ignored, measured twice
     tele_cd = tele_anime == 3 and 45 or 10
 end
 
@@ -753,23 +657,23 @@ end
 --screen anchors of the vanilla corner map, shared by the click hit test and
 --cell_to_screen; mirrorsum is the mirror flip: flipped_x = mirrorsum - x
 local function vanilla_map_anchors()
-    local rtr = _gt:get_corner_room(2)
+    local rtr = floor.get_corner_room(2)
     local ltx = scpos.X - (rtr.X + 1) * 17 - 4 - hudoffset * 2.4 --calibrated
     local lty = - (rtr.Y) * 15 + 5 + hudoffset * 1.3
     local mirrorsum = nil
-    if room:IsMirrorWorld() then
+    if floor.room:IsMirrorWorld() then
       --the mirrored map keeps its box and flips the drawing about the box's middle
-      local ltr = _gt:get_corner_room(3)
+      local ltr = floor.get_corner_room(3)
       mirrorsum = 2 * ltx + (ltr.X + rtr.X + 1) * 17
     end
     return ltx, lty, mirrorsum
 end
 
 function _gt:get_pos_grid_index(pos)
-    if (not gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
+    if (not gtconfig.FollowCurseOfLost and floor.level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
       return -99
     end
-    local mir = room:IsMirrorWorld()
+    local mir = floor.room:IsMirrorWorld()
     local calibx = mir and (gtconfig.CalibMirrorX or 0) or (gtconfig.CalibMainX or 0)
     local caliby = mir and (gtconfig.CalibMirrorY or 0) or (gtconfig.CalibMainY or 0)
     pos = Vector(pos.X + calibx, pos.Y + caliby) --fresh Vector: the caller's mouse position stays untouched
@@ -813,7 +717,7 @@ function _gt:cell_to_screen(mgid, fcol, frow)
       --reference room for the cell->screen affine map: the room under the
       --cursor if any, else a 1x1 room (unambiguous anchor)
       local ref = nil
-      local target = grid_room[mgid]
+      local target = floor.grid_room[mgid]
       for _, mroom in ipairs(mlevel) do
         if mroom.RenderOffset and mroom.Descriptor and mroom:IsVisible() then
           if target and mroom.Descriptor.SafeGridIndex == target.SafeGridIndex then
@@ -842,7 +746,7 @@ function _gt:cell_to_screen(mgid, fcol, frow)
       return Vector(x0 + pw * sx / 2, y0 + ph / 2), (large and 2 or 1)
     end
     local ltx, lty, mirrorsum = vanilla_map_anchors()
-    local mir = room:IsMirrorWorld()
+    local mir = floor.room:IsMirrorWorld()
     local calibx = mir and (gtconfig.CalibMirrorX or 0) or (gtconfig.CalibMainX or 0)
     local caliby = mir and (gtconfig.CalibMirrorY or 0) or (gtconfig.CalibMainY or 0)
     local px = ltx + fcol * 17 + 8.5
@@ -865,172 +769,13 @@ function _gt:get_pos_grid_index_mmp(pos)
     end
 end
 
-function _gt:get_grid_room()
-    grid_room = {}
-    grid_room_mark = {}
-    local all_room = level:GetRooms()
-    for i = 0, all_room.Size do
-      local des = all_room:Get(i)
-      if des then
-        local gid = des.GridIndex
-        if gtconfig.DangerCautionCompat and DangerCaution then
-            local danger = DangerCaution:roomDangerFlags(des)
-            if danger ~= 0 then
-                grid_room_mark[des.SafeGridIndex] = DangerCaution:dangerFlagToColor(danger)
-            end
-        end
-        for jx=0, 1 do
-          for jy=0, 1 do
-            local tgid = gid + jx + jy * 13
-            local tdes = level:GetRoomByIdx(tgid,-1)
-            if tdes.ListIndex == des.ListIndex then
-              grid_room[tgid] = des
-            end
-          end
-        end
-      end
-    end
-end
-
-function _gt:get_room_neighbours()
-    room_neighbours = {}
-    local all_room = level:GetRooms()
-    for i = 0, all_room.Size do
-      local des = all_room:Get(i)
-      if des then
-            room_neighbours[des.SafeGridIndex] = {
-          Descriptor = des,
-          Neighbors = {}
-        }
-    end
-    end
-
-      local offsets = {
-        -13,
-        13,
-        -1,
-        1
-      }
-      for _, room in pairs(room_neighbours) do
-        local safeIndex = room.Descriptor.SafeGridIndex
-
-        for gridIndex, cellRoom in pairs(grid_room) do
-          if cellRoom.SafeGridIndex == safeIndex then
-              for _, offset in ipairs(offsets) do
-                  --column guard, as in check_neigh_connected
-                  local wrapped = (offset == -1 and gridIndex % 13 == 0)
-                               or (offset == 1 and gridIndex % 13 == 12)
-                  local other = not wrapped and grid_room[gridIndex + offset] or nil
-
-                  if other and other.SafeGridIndex ~= safeIndex then
-                      room.Neighbors[other.SafeGridIndex] = true
-                  end
-              end
-          end
-        end
-      end
-      for _, room in pairs(room_neighbours) do
-        local list = {}
-
-        for id in pairs(room.Neighbors) do
-          list[#list + 1] = id
-        end
-
-        room.Neighbors = list
-      end
-
-end
-
---the outermost drawn column and row on the side `num` names (1 left-top,
---2 right-top, 3 left-bottom, 4 right-bottom). All 13 are scanned: in the
---mirror world every drawn room can sit on one side of column 6
-function _gt:get_corner_room(num)
-    local corner_room = Vector(6, 6)
-    local fx = {1, -1, 1, -1}
-    local fy = {1, 1, -1, -1}
-    local ffx = fx[num]
-    local ffy = fy[num]
-    for i = 6 - 6 * ffx, 6 + 6 * ffx, ffx do
-      local found = false
-      for j = 0, 12 do
-        if grid_room[i+j*13] then
-          if grid_room[i+j*13].DisplayFlags > 0 then
-            found = true
-            break
-          end
-        end
-      end
-      if found then
-        corner_room.X = i
-        break
-      end
-    end
-    for j = 6 - 6 * ffy, 6 + 6 * ffy, ffy do
-      local found = false
-      for i = 0, 12 do
-        if grid_room[i+j*13] then
-          if grid_room[i+j*13].DisplayFlags > 0 then
-            found = true
-            break
-          end
-        end
-      end
-      if found then
-        corner_room.Y = j
-        break
-      end
-    end
-    return corner_room
-end
-
-function _gt:pre_secret_room()
-  local door = nil
-  for i =0, 7 do
-    door = room:GetDoor(i)
-    if door then
-      local id = door.TargetRoomIndex
-      if door.Desc.Variant == 8 then
-        if door.TargetRoomType == 10 then
-          if not secret_pre_room_id[crid] then
-            secret_pre_room_id[crid] = id
-          end
-        elseif grid_room[id].VisitedCount == 0 then
-          secret_pre_room_id[crid] = id
-        else
-          secret_pre_room_id[crid] = id
-          break
-        end
-      end
-    end
-  end
-end
-
-function _gt:pre_secret_curse_room()
-  local door = nil
-  for i =0, 7 do
-    door = room:GetDoor(i)
-    if door then
-      local id = door.TargetRoomIndex
-      if door.Desc.Variant == 8 then
-        if door.TargetRoomType == 7 then
-          if secret_pre_room_id[id] and secret_pre_room_id[id] ~= crid then
-            secret_pre_room_id[crid] = id
-            break
-          else
-            secret_pre_room_id[crid] = id
-          end
-        end
-      end
-    end
-  end
-end
-
 function _gt:prep_minimap()
+    local grid_room = floor.grid_room
     draw_room_id = {}
     draw_room_pos = {}
     draw_room_shape = {}
-    ltroom = _gt:get_corner_room(1)
-    rbroom = _gt:get_corner_room(4)
+    ltroom = floor.get_corner_room(1)
+    rbroom = floor.get_corner_room(4)
     --the cursor's range is the drawn rooms, before the padding below
     ctrl_ltroom = Vector(ltroom.X, ltroom.Y)
     ctrl_rbroom = Vector(rbroom.X, rbroom.Y)
@@ -1052,8 +797,8 @@ function _gt:prep_minimap()
     if mmp_ctrl then
       if mmp_1step_mgid == -2 then
       else
-        local gx = crsid % 13
-        local gy = (crsid - gx)/ 13
+        local gx = floor.crsid % 13
+        local gy = (floor.crsid - gx)/ 13
         mmp_ctrl_pos = mmp_pos0 + Vector(gx * 8 + 6, gy * 7 + 5) * mmsc
       end
     end
@@ -1062,7 +807,7 @@ function _gt:prep_minimap()
         local drd = grid_room[i * 13 + j]
         if drd then
           if drd.DisplayFlags > 0 then
-            if drd.Data.Type == 5 and drd.Data.Shape > 3 and stage == 12 then
+            if drd.Data.Type == 5 and drd.Data.Shape > 3 and floor.stage == 12 then
               --void bossrooms--type4=1x2/type6=2x1/type8=2x2=Delirium
               local near_room = {grid_room[i * 13 + j - 13] ~= nil, grid_room[i * 13 + j - 1] and j > 0, grid_room[i * 13 + j + 1] and j < 12, grid_room[i * 13 + j + 13] ~= nil}
               if (near_room[1] and near_room[4])
@@ -1087,7 +832,7 @@ function _gt:prep_minimap()
         end
       end
     end
-    if room:IsMirrorWorld() then
+    if floor.room:IsMirrorWorld() then
       for i = 1, #draw_room_pos do
         local p = draw_room_pos[i]
         p.X = mmp_pos0.X + 8 * ltroom.X * mmsc + (mmp_pos0.X + 8 * rbroom.X * mmsc - p.X)
@@ -1190,7 +935,7 @@ function _gt:gon_draw_map_cursor()
     end
     --(1, 9): cursor.anm2's pivot is the pointer's hotspot, not its centre.
     --gmcoff: residual measured in-game under REPENTOGON, X flips with the mirror
-    local gmcoff = room:IsMirrorWorld() and Vector(9, 2) or Vector(-8, 2)
+    local gmcoff = floor.room:IsMirrorWorld() and Vector(9, 2) or Vector(-8, 2)
     cursor.Scale = Vector(scale, scale)
     cursor:Render(center - Vector(1, 9) * scale + gmcoff, Vector(0, 0), Vector(0, 0))
     cursor.Scale = Vector(1, 1)
@@ -1208,13 +953,15 @@ function _gt:draw_minimap(faint)
     end
     --faint: uncleared room, window drawn dim without chrome or cursor
     local alpha = faint and math.min(math.max(gtconfig.DimMapAlpha or 35, 5), 100) / 100 or 1
+    local grid_room, stage, stageeffect = floor.grid_room, floor.stage, floor.stageeffect
+    local mirror = floor.room:IsMirrorWorld()
     mic.Color = Color(1, 1, 1, alpha, 0, 0, 0)
     select.Color = Color(1, 1, 1, alpha, 0, 0, 0)
     mmp.Color = Color(1, 1, 1, alpha, 0, 0, 0)
     mmp:SetFrame(icon_room[1], 0)
     for i = 1, #draw_room_id do
       local s = grid_room[draw_room_id[i]].Data.Shape
-      if (not room:IsMirrorWorld() and s == RoomShape.ROOMSHAPE_LTL) or (room:IsMirrorWorld() and s >= RoomShape.ROOMSHAPE_2x1 and s ~= RoomShape.ROOMSHAPE_LTL) then
+      if (not mirror and s == RoomShape.ROOMSHAPE_LTL) or (mirror and s >= RoomShape.ROOMSHAPE_2x1 and s ~= RoomShape.ROOMSHAPE_LTL) then
         mmp:Render(draw_room_pos[i] + Vector(8 * mmsc, 0), Vector(0, 0), Vector(0, 0))
       else
         mmp:Render(draw_room_pos[i], Vector(0, 0), Vector(0, 0))
@@ -1225,7 +972,7 @@ function _gt:draw_minimap(faint)
       if rd.Flags & RoomDescriptor.FLAG_RED_ROOM ~= 0 then
         mmp.Color = Color(1, 0.3, 0.3, alpha, 0, 0, 0)
       else
-        local markclr = grid_room_mark[rd.SafeGridIndex]
+        local markclr = floor.grid_room_mark[rd.SafeGridIndex]
         if markclr ~= nil then
             mmp.Color = Color(markclr.Red, markclr.Green, markclr.Blue, alpha, 0, 0, 0)
         else
@@ -1233,7 +980,7 @@ function _gt:draw_minimap(faint)
         end
       end
       if rd.SafeGridIndex == draw_room_id[i] or (rd.Data.Type == 5 and stage == 12) then
-        if crd.ListIndex == rd.ListIndex then
+        if floor.crd.ListIndex == rd.ListIndex then
           mmp:SetFrame(icon_room[4], draw_room_shape[i] - 1)
           mmp:Render(draw_room_pos[i], Vector(0, 0), Vector(0, 0))
         elseif rd.VisitedCount > 0 and rd.Clear then
@@ -1250,7 +997,7 @@ function _gt:draw_minimap(faint)
           elseif rd.Data.Type == 4 then
             if Game():IsGreedMode() and rd.GridIndex == 98 then
               mic:SetFrame(icon_flag2[2], 0)
-            elseif player:HasTrinket(146) then
+            elseif floor.player:HasTrinket(146) then
               mic:SetFrame(icon_flag2[4], 0)
             else
               mic:SetFrame(icon_flag[4], 0)
@@ -1343,6 +1090,7 @@ local function clamp_ctrl_pos(pos)
 end
 
 function _gt:mmp_ctrl_move()
+    local player = floor.player
     for i = 1,4 do
       if gtconfig.QuicklyOneRoomMove then
         if Input.IsActionTriggered(config.movkey[i], player.ControllerIndex) then
@@ -1387,6 +1135,7 @@ function _gt:prep()
     end
 end
 function _gt:player_shoot_cooldown()
+    local player = floor.player
     player:SetShootingCooldown(2)
     local twin = player:GetOtherTwin()
     if twin then
@@ -1399,11 +1148,12 @@ end
 function _gt:dim_map_only()
     return gtconfig.KeyboardMapEnable and gtconfig.DimMapInCombat
         and not _gt:check_teleble(false)
-        and grid_room[crd.SafeGridIndex] ~= nil
-        and not (gtconfig.FollowCurseOfLost and level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0)
+        and floor.grid_room[floor.crd.SafeGridIndex] ~= nil
+        and not (gtconfig.FollowCurseOfLost and floor.level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0)
 end
 
 function _gt:tab_action()
+    local player = floor.player
     local cp = Isaac.WorldToRenderPosition(Vector(320,280))
     scpos = cp + cp
     hudoffset = Options.HUDOffset * 10 --live: the map moves the moment the slider moves
@@ -1413,7 +1163,7 @@ function _gt:tab_action()
       print('GoodTrip [Fixed] !!!FAST RESTARTING!!!')
       Isaac.ExecuteCommand("restart")
     end
-    if gtconfig.QuicklyOneRoomMove and crd.Clear and player.ControlsCooldown < 2 then
+    if gtconfig.QuicklyOneRoomMove and floor.crd.Clear and player.ControlsCooldown < 2 then
       player.ControlsCooldown = player.ControlsCooldown + 1
     end
     if _gt:dim_map_only() and not debug then
@@ -1448,8 +1198,8 @@ function _gt:tab_action()
         if kb_active or not in_ui then --keyboard owns the cursor
           if not mmp_ctrl then
             mmp_ctrl = true
-            local gx = crsid % 13
-            local gy = (crsid - gx)/ 13
+            local gx = floor.crsid % 13
+            local gy = (floor.crsid - gx)/ 13
             if mmp_1step_mgid >= 0 then
               gx = mmp_1step_mgid % 13
               gy = (mmp_1step_mgid - gx)/ 13
@@ -1478,7 +1228,7 @@ function _gt:tab_action()
 end
 
 function _gt:mirror_mmp_pos(p)
-    if room:IsMirrorWorld() then
+    if floor.room:IsMirrorWorld() then
       return Vector(mmp_pos0.X + 8 * ltroom.X * mmsc + (mmp_pos0.X + 8 * rbroom.X * mmsc - p.X) + 12 * mmsc, p.Y)
     else
       return p
@@ -1486,7 +1236,7 @@ function _gt:mirror_mmp_pos(p)
 end
 
 function _gt:mirror_mmp_dir(p)
-    if room:IsMirrorWorld() then
+    if floor.room:IsMirrorWorld() then
       return Vector(-p.X, p.Y)
     else
       return p
@@ -1497,25 +1247,26 @@ end
 function _gt:is_overlay_triggerd()
     if gtconfig.OverlayKey or gtconfig.OverlayKeyController then
       return (gtconfig.OverlayKey ~= nil and Input.IsButtonTriggered(gtconfig.OverlayKey, 0))
-          or (gtconfig.OverlayKeyController ~= nil and Input.IsButtonTriggered(gtconfig.OverlayKeyController, player.ControllerIndex))
+          or (gtconfig.OverlayKeyController ~= nil and Input.IsButtonTriggered(gtconfig.OverlayKeyController, floor.player.ControllerIndex))
     end
-    return Input.IsActionTriggered(ButtonAction.ACTION_MAP, player.ControllerIndex)
+    return Input.IsActionTriggered(ButtonAction.ACTION_MAP, floor.player.ControllerIndex)
 end
 
 function _gt:is_overlay_pressed()
     if gtconfig.OverlayKey or gtconfig.OverlayKeyController then
       return (gtconfig.OverlayKey ~= nil and Input.IsButtonPressed(gtconfig.OverlayKey, 0))
-          or (gtconfig.OverlayKeyController ~= nil and Input.IsButtonPressed(gtconfig.OverlayKeyController, player.ControllerIndex))
+          or (gtconfig.OverlayKeyController ~= nil and Input.IsButtonPressed(gtconfig.OverlayKeyController, floor.player.ControllerIndex))
     end
-    return Input.IsActionPressed(ButtonAction.ACTION_MAP, player.ControllerIndex)
+    return Input.IsActionPressed(ButtonAction.ACTION_MAP, floor.player.ControllerIndex)
 end
 
 function _gt:mouse_action()
     if _gt:IsMouseBtnTriggered(0) then
+      local crd = floor.crd
       if crd.Data.Type == 7 or (crd.Data.Type == 8 and Game():IsGreedMode()) then
-        _gt:pre_secret_room()
+        floor.pre_secret_room()
       elseif crd.Data.Type == 10 then
-        _gt:pre_secret_curse_room()
+        floor.pre_secret_curse_room()
       end
       local mgid = _gt:get_pos_grid_index(mpos)
       if (_gt:check_teleble(mgid) and tele_cd < 1) then
@@ -1548,8 +1299,8 @@ function _gt:mouse_action()
         mmp_pos0 = mmp_ltpos - mmp_ltpos_
         mmp_rbpos = mmp_pos0 + mmp_rbpos_
         _gt:prep_minimap()
-        player:SetShootingCooldown(2)
-        local twin = player:GetOtherTwin()
+        floor.player:SetShootingCooldown(2)
+        local twin = floor.player:GetOtherTwin()
         if twin then
           twin:SetShootingCooldown(2)
         end
@@ -1600,16 +1351,17 @@ end
 
 function _gt:itemused()
     mmp_ctrl = false
-    _gt:get_grid_room()
-    _gt:get_room_neighbours()
+    floor.get_grid_room()
+    floor.get_room_neighbours()
     _gt:prep()
 end
 function _gt:check_and_tele_room(tgid)
+    local crd = floor.crd
     if (_gt:check_teleble(tgid) and tele_cd < 1) then
         if crd.Data.Type == 7 or (crd.Data.Type == 8 and Game():IsGreedMode()) then
-            _gt:pre_secret_room()
+            floor.pre_secret_room()
         elseif crd.Data.Type == 10 then
-            _gt:pre_secret_curse_room()
+            floor.pre_secret_curse_room()
         end
         _gt:teleport_to_grid_index(tgid)
         mmp_ctrl = false
@@ -1625,12 +1377,13 @@ function _gt:step()
         _gt:new_room()
         _gt:new_level()
     end
+    local player = floor.player
     mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
     mouse_moved = (mpos - last_mpos):LengthSquared() > 4 --every frame, so the baseline is fresh at TAB-open
     last_mpos = mpos
 
     if _gt:is_overlay_triggerd() then
-      _gt:get_grid_room()
+      floor.get_grid_room()
       _gt:prep()
       kb_active = false --every opening starts as a read; an arrow key claims it
     end
@@ -1640,13 +1393,13 @@ function _gt:step()
         if Input.IsButtonTriggered(Keyboard.KEY_Z, player.ControllerIndex)
         or (gtconfig.ControllerAlternateZ and Input.IsButtonTriggered(
                     gtconfig.ControllerAlternateZ, player.ControllerIndex)) then
-         _gt:check_and_tele_room(level:GetLastRoomDesc().SafeGridIndex)
+         _gt:check_and_tele_room(floor.level:GetLastRoomDesc().SafeGridIndex)
         end
       end
       if gtconfig.AllowBookmarking then
         --whatever is aimed at: keyboard cursor, else mouse (game map, then
         --widget, the order a click resolves in), else the current room
-        local mgid = crd.SafeGridIndex
+        local mgid = floor.crd.SafeGridIndex
         if gtconfig.KeyboardMapEnable and mmp_ctrl then
             mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
         else
@@ -1683,10 +1436,11 @@ function _gt:step()
           local mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
           mmp_1step_mgid = mgid
           if (_gt:check_teleble(mgid) and tele_cd < 1) then
+            local crd = floor.crd
             if crd.Data.Type == 7 or (crd.Data.Type == 8 and Game():IsGreedMode()) then
-              _gt:pre_secret_room()
+              floor.pre_secret_room()
             elseif crd.Data.Type == 10 then
-              _gt:pre_secret_curse_room()
+              floor.pre_secret_curse_room()
             end
             _gt:teleport_to_grid_index(mgid)
             mmp_ctrl = false
@@ -1698,7 +1452,7 @@ function _gt:step()
       end
     elseif (gtconfig.KeyboardMapEnable) or debug then
       --pinned window without TAB
-      if mmp_pin == 1 and not _gt:gon_map_cursor() and crd.Clear and _gt:check_teleble(false) then
+      if mmp_pin == 1 and not _gt:gon_map_cursor() and floor.crd.Clear and _gt:check_teleble(false) then
         if mouse_in_ui then
           if gtconfig.NoShootWhenClick then
             _gt:player_shoot_cooldown()
@@ -1731,10 +1485,11 @@ function _gt:step()
         mmp_ctrl = false
         local mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
         if (_gt:check_teleble(mgid) and tele_cd < 1) then
+          local crd = floor.crd
           if crd.Data.Type == 7 or (crd.Data.Type == 8 and Game():IsGreedMode()) then
-            _gt:pre_secret_room()
+            floor.pre_secret_room()
           elseif crd.Data.Type == 10 then
-            _gt:pre_secret_curse_room()
+            floor.pre_secret_curse_room()
           end
           _gt:teleport_to_grid_index(mgid)
         end
@@ -1752,8 +1507,8 @@ end
 function _gt:step2()
     --a wall can open under the player's feet (bomb, red key), so sweep every
     --tick; but not mid-transition, when the live room and the cached descriptor disagree
-    if level:GetCurrentRoomDesc().SafeGridIndex == crsid then
-      _gt:sweep_doors()
+    if floor.level:GetCurrentRoomDesc().SafeGridIndex == floor.crsid then
+      floor.sweep_doors()
     end
     if mmp_pin == 1 and gtconfig.KeyboardMapEnable then
       mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
@@ -1767,70 +1522,31 @@ end
 
 function _gt:new_room()
     warn_in_run = true
-    local last_crd = crd
-    _gt:get_grid_room()
-    _gt:get_room_neighbours()
-    room = Game():GetRoom()
-    crd = level:GetCurrentRoomDesc()
-    crid = crd.GridIndex
-    crsid = crd.SafeGridIndex
-    _gt:sweep_doors()
+    floor.refresh_room()
     mmp_ctrl = false
     kb_active = false
-    player = Isaac.GetPlayer(0)
-    stage = level:GetStage()
     _gt:land_at_door()
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true
       _gt:prep_minimap()
     end
     if tele_maze then
-      level:AddCurse(LevelCurse.CURSE_OF_MAZE,false)
+      floor.level:AddCurse(LevelCurse.CURSE_OF_MAZE,false)
       tele_maze = false
     end
-    if last_crd.Data then
-      if last_crd.Data.Type == 7 or (last_crd.Data.Type == 8 and Game():IsGreedMode()) then
-        if not secret_pre_room_id[last_crd.GridIndex] then
-          if (level:GetRoomByIdx(last_crd.GridIndex + 1,-1)).ListIndex == crd.ListIndex then
-            secret_pre_room_id[last_crd.GridIndex] = last_crd.GridIndex + 1
-          elseif (level:GetRoomByIdx(last_crd.GridIndex - 1,-1)).ListIndex == crd.ListIndex then
-            secret_pre_room_id[last_crd.GridIndex] = last_crd.GridIndex - 1
-          elseif (level:GetRoomByIdx(last_crd.GridIndex + 13,-1)).ListIndex == crd.ListIndex then
-            secret_pre_room_id[last_crd.GridIndex] = last_crd.GridIndex + 13
-          elseif (level:GetRoomByIdx(last_crd.GridIndex - 13,-1)).ListIndex == crd.ListIndex then
-            secret_pre_room_id[last_crd.GridIndex] = last_crd.GridIndex - 13
-          end
-        end
-      end
-    end
+    local crd = floor.crd
     if crd.Data.Type == 7 or (crd.Data.Type == 8 and Game():IsGreedMode()) then
-      _gt:pre_secret_room()
+      floor.pre_secret_room()
     elseif crd.Data.Type == 10 then
-      _gt:pre_secret_curse_room()
+      floor.pre_secret_curse_room()
     end
 end
 
 function _gt:new_level()
     hudoffset = Options.HUDOffset * 10
     bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
-    curse_bare_outside, curse_bare_inside = {}, {}
-    level = Game():GetLevel()
-    _gt:get_grid_room()
-    _gt:get_room_neighbours()
-    n_room_num = level:GetRooms().Size
-    stageeffect = 0
-    if not level:IsAscent() then
-        if level:GetStage() == 2 or (level:GetStage() == 1 and level:GetCurses() & LevelCurse.CURSE_OF_LABYRINTH ~= 0) and level:GetStageType() >= StageType.STAGETYPE_REPENTANCE then
-            stageeffect = 1
-        elseif level:GetStage() == 4 or (level:GetStage() == 3 and level:GetCurses() & LevelCurse.CURSE_OF_LABYRINTH ~= 0) and level:GetStageType() >= StageType.STAGETYPE_REPENTANCE then
-            stageeffect = 2
-        elseif level:GetStage() == 6 or (level:GetStage() == 5 and level:GetCurses() & LevelCurse.CURSE_OF_LABYRINTH ~= 0) and level:GetStageType() < StageType.STAGETYPE_REPENTANCE then
-            stageeffect = 3
-        end
-end
-    secret_pre_room_id = {}
-    door_link = {}
-    door_swept = {}
+    floor.refresh_level()
+    n_room_num = floor.level:GetRooms().Size
     if gtconfig.KeyboardMapEnable then
       prep_alarm = true
       _gt:prep_minimap()
@@ -1842,6 +1558,7 @@ end
 
 --BFS distance through cleared rooms; any room connected to the target is the last hop
 function _gt:fair_trip(roomIndex, target)
+	local grid_room, room_neighbours = floor.grid_room, floor.room_neighbours
 	local startRoom = grid_room[roomIndex]
 	local targetRoom = grid_room[target]
 	if not startRoom or not targetRoom then
@@ -1860,7 +1577,7 @@ function _gt:fair_trip(roomIndex, target)
 		end
 		if _gt:check_neigh_connected(targetRoom, function(rd)
 			return rd.SafeGridIndex == safeIndex
-				and (not gtconfig.FairTripPath or _gt:linked(safeIndex, safeTarget))
+				and (not gtconfig.FairTripPath or floor.linked(safeIndex, safeTarget))
 		end) then
 			return cur.dist + 1
 		end
@@ -1869,7 +1586,7 @@ function _gt:fair_trip(roomIndex, target)
         local adj_dsc = grid_room[adj]
 				local sid = adj_dsc.SafeGridIndex
 				if not visited[sid]
-					and (not gtconfig.FairTripPath or _gt:linked(safeIndex, sid)) then
+					and (not gtconfig.FairTripPath or floor.linked(safeIndex, sid)) then
 					visited[sid] = true
 					queue[#queue+1] = {room = adj_dsc, dist = cur.dist + 1}
 				end
