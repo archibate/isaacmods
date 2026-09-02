@@ -20,18 +20,18 @@ local STEPS = {
     "debug 3",
     "debug 10",
     "stage 7", 12,
-    "lua gt:get_config().SnapViewOnLanding = false",
+    "giveitem c333",
     "lua gt:get_config().AllowAnyRoom = true",
 }
 
-local HINT = "click every half of the J room, then of the tall 1x2 room; watch for slide"
+local HINT = "trip into far big rooms, uncleared ones and past the curse room; watch your hearts"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 112
+local REV = 118
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a
