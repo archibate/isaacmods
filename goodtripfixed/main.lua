@@ -1051,6 +1051,44 @@ function _gt:landing_slot(from, to)
       or on_side(nil) or -1
 end
 --
+--the cell of the room being arrived in that a walk would have stepped into: the
+--two rooms touch somewhere on the floor grid, and the cell on the far side of
+--that touch is the one whose door faces the walk. Read off the grid rather than
+--off the door sweep, so a room nobody has been inside yet answers too.
+function _gt:touching_cell(from, to)
+    local src, dst = grid_room[from], grid_room[to]
+    if not (src and dst) then return nil end
+    for cell, d in pairs(grid_room) do
+      if d.ListIndex == src.ListIndex then
+        local col = cell % 13
+        for _, step in ipairs({ -13, 13, -1, 1 }) do
+          --a step sideways has to stay in the same row; the grid is 13 wide and
+          --the ends of one row sit next to the ends of the next
+          if not ((step == -1 and col == 0) or (step == 1 and col == 12)) then
+            local nd = grid_room[cell + step]
+            if nd and nd.ListIndex == dst.ListIndex then return cell + step end
+          end
+        end
+      end
+    end
+    return nil
+end
+--
+--and which cell to hand the transition. The game ignores the direction it is
+--given but it does read the cell: a room laid over several of them has a door
+--for each, and the player is put down at the door belonging to the cell handed
+--over. Hand it the cell the map was clicked on and a trip can arrive at the far
+--end of the room -- the wrong door, and in a room wider or taller than the
+--screen the wrong screen too, since the game fixes the part of the room to show
+--from where it laid him. Hand it the cell the walk would have used and the game
+--gets both right by itself, with no view to move afterwards.
+function _gt:landing_cell(from, to)
+    local cell = _gt:touching_cell(from, to)
+    if cell then return cell end
+    local walked = _gt:route_parent(from, to)
+    return walked and _gt:touching_cell(walked, to) or nil
+end
+--
 --and then put the player there by hand, because the game offers no lever that
 --works: StartRoomTransition ignores its Direction, EnterDoor ignores writes,
 --and LeaveDoor was measured changing nothing at all. One step inside the
@@ -1331,10 +1369,21 @@ function _gt:teleport_to_grid_index(gid) ----core
       end
     end
     --
+    --named here rather than up top: an antechamber hop may have moved the
+    --player since, and the door to arrive by faces wherever they stand now
+    local trd = grid_room[gid]
+    local here = Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex
+    local there = trd and trd.SafeGridIndex or gid
+    tele_door_slot = -1 --off means the game's own landing, so nothing to aim for
+    local arrive = gid --the cell handed over, which is the one clicked unless a
+                       --better one is known; see _gt:landing_cell
+    if gtconfig.LandAtDoor then
+      tele_door_slot = _gt:landing_slot(here, there)
+      arrive = _gt:landing_cell(here, there) or gid
+    end
     if debug then
-      Game():ChangeRoom(gid,-1)
+      Game():ChangeRoom(arrive,-1)
     else
-      --Game():ChangeRoom(gid,-1)
         if dist ~= 0 then
           local speed = player.MoveSpeed
           local addTime = math.floor((60.0*dist/speed)+0.5)
@@ -1351,19 +1400,8 @@ function _gt:teleport_to_grid_index(gid) ----core
       if not gtconfig.TeleportAnimation then tele_cd = 10 end
       if debug or gtconfig.FastTransition then tele_cd = 1 end
     end
-    -- print('goto', gid)
-    -- local cid = crd.SafeGridIndex
-    --named here rather than up top: an antechamber hop may have moved the
-    --player since, and the door to arrive by faces wherever they stand now
-    local trd = grid_room[gid]
-    tele_door_slot = -1 --off means the game's own landing, so nothing to aim for
-    if gtconfig.LandAtDoor then
-      tele_door_slot = _gt:landing_slot(
-        Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex,
-        trd and trd.SafeGridIndex or gid)
-    end
     if gtconfig.FastTransition or debug then
-      Game():ChangeRoom(gid,-1)
+      Game():ChangeRoom(arrive,-1)
       Game():GetRoom():PlayMusic()
       mmp_ctrl = true
       local gx = crsid % 13
@@ -1377,7 +1415,7 @@ function _gt:teleport_to_grid_index(gid) ----core
       return
     end
     local tele_anime = gtconfig.TeleportAnimation and 3 or 1
-    Game():StartRoomTransition(gid, Direction.NO_DIRECTION, tele_anime, player, -1)
+    Game():StartRoomTransition(arrive, Direction.NO_DIRECTION, tele_anime, player, -1)
     tele_cd = tele_anime == 3 and 45 or 10
 end
 --
