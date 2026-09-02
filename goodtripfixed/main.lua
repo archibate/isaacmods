@@ -186,18 +186,21 @@ function _gt:gon_map_cursor()
     return REPENTOGON ~= nil and gtconfig.CursorOnGameMap
 end
 --gtconfig.lua is applied after the saved config and its keys are left out of
---the save, so a hand-edited setting wins on every launch
+--the save, so a hand-edited setting wins on every launch. include, not require:
+--require caches, so luamod never re-read the file, and it searches every mod's
+--folder, so the old GoodTrip's gtconfig.lua could be the one found. include is
+--read fresh on every load and only ever from this mod. A broken file is no pins
+local pins_ok, pins = pcall(include, "gtconfig")
+if not pins_ok or type(pins) ~= "table" then
+    pins = nil
+end
 local overrides = {}
 local function apply_overrides()
-    local ok, over = pcall(function()
-        if package and package.loaded then package.loaded["gtconfig"] = nil end
-        return require("gtconfig")
-    end)
     overrides = {}
-    if not ok or type(over) ~= "table" then
+    if not pins then
         return
     end
-    for k, v in pairs(over) do
+    for k, v in pairs(pins) do
         overrides[k] = true
         gtconfig[k] = v
     end

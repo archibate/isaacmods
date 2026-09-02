@@ -50,6 +50,7 @@
         "Game",
         "GameStateFlag",
         "GetPtrHash",
+        "include",
         "GridCollisionClass",
         "GridEntity",
         "GridEntityDesc",
