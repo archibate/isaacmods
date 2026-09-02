@@ -1511,29 +1511,6 @@ function _gt:pre_secret_curse_room()
   end
 end
 
-function _gt:print_center_map()
-    local cp = scpos / 2
-    for i = 0, 12 do
-      for j = 0, 12 do
-        if grid_room[i * 13 + j] == nil then
-          Isaac.RenderText(0, cp.X + 17 * (j-6) - 2, cp.Y + 15 * (i-6) - 5, 1, 1, 1, 0.1)
-        else
-          local color = {}
-          if crd.ListIndex == grid_room[i * 13 + j].ListIndex then
-            color = {1 , 0.5 , 0.5 , 1}
-          elseif grid_room[i * 13 + j].VisitedCount > 0 and grid_room[i * 13 + j].Clear then
-            color = {1 , 1 , 1 , 1}
-          elseif grid_room[i * 13 + j].DisplayFlags > 0 then
-            color = {1 , 1 , 1 , 0.5}
-          else
-            color = {0.5 , 0.5 , 1 , 0.5}
-          end
-          Isaac.RenderText(grid_room[i * 13 + j].Data.Type.."/"..grid_room[i * 13 + j].DisplayFlags, cp.X + 17 * (j-6) - 3, cp.Y + 15 * (i-6) - 6, color[1] ,color[2] ,color[3] ,color[4])
-        end
-      end
-    end
-end
-
 function _gt:prep_minimap()
     draw_room_id = {}
     draw_room_pos = {}
@@ -2254,8 +2231,6 @@ function _gt:step()
     end
     if tele_cd > 0 then
       tele_cd = tele_cd - 1
-    end
-    if debug then
     end
 end
 
