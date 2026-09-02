@@ -57,7 +57,6 @@ local icon_flag = {"1_IconNormal", "IconShop", "3_IconError", "IconTreasureRoom"
                   "16_IconDungeon", "17_IconBossRush", "IconIsaacsRoom", "IconBarrenRoom", "IconChestRoom",
                   "IconDiceRoom", "22_IconBlackMarket", "23_IconGreedExit","IconPlanetarium","TeleporterRoom","TeleporterRoom","27_SecretExit","28_Blue","IconUltraSecretRoom"}
 local icon_flag2 = {"IconLockedRoom", "IconTreasureRoomGreed", "IconBossAmbushRoom","IconTreasureRoomRed","IconMirrorRoom", "IconWhiteFireRoom","IconTintSkullRoom","IconMinecartRoom","IconMineButtonRoom"}
-local scpos = Vector(0, 0)
 local draw_room_id = {}
 local draw_room_pos = {}
 local draw_room_shape = {}
@@ -107,12 +106,7 @@ local gtconfig = config.cfg
 _gt.save_config = config.save --so the console can make a hand-edited config stick
 local floor = include("scripts.floor")({ cfg = gtconfig })
 local rules = include("scripts.rules")({ gt = _gt, cfg = gtconfig, floor = floor })
---gon_ functions check REPENTOGON themselves: on a plain game every gon_ test is
---false and every gon_ action is a no-op. Nothing else may call a REPENTOGON-only API.
---(without REPENTOGON a cursor on the game's map draws behind it)
-function _gt:gon_map_cursor()
-    return REPENTOGON ~= nil and gtconfig.CursorOnGameMap
-end
+local gamemap = include("scripts.gamemap")({ cfg = gtconfig, floor = floor })
 local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
 local function update_mmscale()
     --hand-edited, so it can arrive as anything; a scale of 0 draws nothing
@@ -145,7 +139,6 @@ local function cycle_mmscale() --zoom button: x1.0 -> x1.5 -> x2.0 -> x1.0
     config.save()
 end
 
-local hudoffset = Options.HUDOffset * 10
 local tele_cd = 0
 local bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
 if ModConfigMenu then
@@ -395,143 +388,6 @@ function _gt:teleport_to_grid_index(gid)
     tele_cd = tele_anime == 3 and 45 or 10
 end
 
---hit-test against MinimapAPI's own rendered rooms: RenderOffset has position,
---display mode, pitch and the mirror flip baked in, so invert that
-function _gt:get_pos_grid_index_minimapapi(pos)
-    local sx = MinimapAPI.GlobalScaleX or 1
-    if sx ~= 1 and sx ~= -1 then
-      return -99 --mid mirror-flip animation
-    end
-    local mlevel = MinimapAPI:GetLevel()
-    if not mlevel then
-      return -99
-    end
-    local large = MinimapAPI:IsLarge()
-    local pw, ph = large and 17 or 8, large and 15 or 7
-    local pivot = large and Vector(-4, -4) or Vector(-2, -2)
-    for _, mroom in ipairs(mlevel) do
-      if mroom.RenderOffset and mroom.Descriptor and mroom:IsVisible() then
-        local ox = mroom.RenderOffset.X - pivot.X
-        if sx == -1 then
-          ox = ox + pivot.X * 2 --the sprite flips around its anm2 pivot (measured)
-        end
-        local oy = mroom.RenderOffset.Y - pivot.Y
-        for _, c in ipairs(MinimapAPI:GetRoomShapePositions(mroom.Shape)) do
-          local x0 = ox + c.X * pw * sx
-          local x1 = x0 + pw * sx
-          local y0 = oy + c.Y * ph
-          if pos.X >= math.min(x0, x1) and pos.X < math.max(x0, x1)
-              and pos.Y >= y0 and pos.Y < y0 + ph then
-            return mroom.Descriptor.SafeGridIndex
-          end
-        end
-      end
-    end
-    return -99
-end
-
---screen anchors of the vanilla corner map, shared by the click hit test and
---cell_to_screen; mirrorsum is the mirror flip: flipped_x = mirrorsum - x
-local function vanilla_map_anchors()
-    local rtr = floor.get_corner_room(2)
-    local ltx = scpos.X - (rtr.X + 1) * 17 - 4 - hudoffset * 2.4 --calibrated
-    local lty = - (rtr.Y) * 15 + 5 + hudoffset * 1.3
-    local mirrorsum = nil
-    if floor.room:IsMirrorWorld() then
-      --the mirrored map keeps its box and flips the drawing about the box's middle
-      local ltr = floor.get_corner_room(3)
-      mirrorsum = 2 * ltx + (ltr.X + rtr.X + 1) * 17
-    end
-    return ltx, lty, mirrorsum
-end
-
-function _gt:get_pos_grid_index(pos)
-    if (not gtconfig.FollowCurseOfLost and floor.level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0) then
-      return -99
-    end
-    local mir = floor.room:IsMirrorWorld()
-    local calibx = mir and (gtconfig.CalibMirrorX or 0) or (gtconfig.CalibMainX or 0)
-    local caliby = mir and (gtconfig.CalibMirrorY or 0) or (gtconfig.CalibMainY or 0)
-    pos = Vector(pos.X + calibx, pos.Y + caliby) --fresh Vector: the caller's mouse position stays untouched
-    if MinimapAPI then
-      return _gt:get_pos_grid_index_minimapapi(pos)
-    end
-    local ltx, lty, mirrorsum = vanilla_map_anchors()
-    if pos.X > ltx and pos.Y > lty and pos.X < ltx + 222 and pos.Y < lty + 196 then
-      local px = pos.X
-      if mirrorsum then
-        px = mirrorsum - px
-      end
-      local mgid = math.floor((px - ltx)/ 17) + math.floor((pos.Y - lty)/ 15) * 13
-      return mgid
-    else
-      return -99
-    end
-end
-
---inverse of get_pos_grid_index: screen centre of a grid cell on the game's own
---map, plus its cell scale; nil when the geometry is unavailable. fcol/frow are
---an optional fractional column/row (both branches are affine), mgid still
---keys the reference-room lookup
-function _gt:cell_to_screen(mgid, fcol, frow)
-    local col = mgid % 13
-    local row = (mgid - col) / 13
-    fcol = fcol or col
-    frow = frow or row
-    if MinimapAPI then
-      local sx = MinimapAPI.GlobalScaleX or 1
-      if sx ~= 1 and sx ~= -1 then
-        return nil
-      end
-      local mlevel = MinimapAPI:GetLevel()
-      if not mlevel then
-        return nil
-      end
-      local large = MinimapAPI:IsLarge()
-      local pw, ph = large and 17 or 8, large and 15 or 7
-      local pivot = large and Vector(-4, -4) or Vector(-2, -2)
-      --reference room for the cell->screen affine map: the room under the
-      --cursor if any, else a 1x1 room (unambiguous anchor)
-      local ref = nil
-      local target = floor.grid_room[mgid]
-      for _, mroom in ipairs(mlevel) do
-        if mroom.RenderOffset and mroom.Descriptor and mroom:IsVisible() then
-          if target and mroom.Descriptor.SafeGridIndex == target.SafeGridIndex then
-            ref = mroom
-            break
-          end
-          if not ref or (ref.Shape ~= RoomShape.ROOMSHAPE_1x1 and mroom.Shape == RoomShape.ROOMSHAPE_1x1) then
-            ref = mroom
-          end
-        end
-      end
-      if not ref then
-        return nil
-      end
-      local ox = ref.RenderOffset.X - pivot.X
-      if sx == -1 then
-        --the sprite flips around its anm2 pivot, same as in the hit test
-        ox = ox + pivot.X * 2
-      end
-      local oy = ref.RenderOffset.Y - pivot.Y
-      local gi = ref.Descriptor.GridIndex
-      local gcol = gi % 13
-      local grow = (gi - gcol) / 13
-      local x0 = ox + (fcol - gcol) * pw * sx
-      local y0 = oy + (frow - grow) * ph
-      return Vector(x0 + pw * sx / 2, y0 + ph / 2), (large and 2 or 1)
-    end
-    local ltx, lty, mirrorsum = vanilla_map_anchors()
-    local mir = floor.room:IsMirrorWorld()
-    local calibx = mir and (gtconfig.CalibMirrorX or 0) or (gtconfig.CalibMainX or 0)
-    local caliby = mir and (gtconfig.CalibMirrorY or 0) or (gtconfig.CalibMainY or 0)
-    local px = ltx + fcol * 17 + 8.5
-    if mirrorsum then
-      px = mirrorsum - px
-    end
-    return Vector(px - calibx, lty + frow * 15 + 7.5 - caliby), 1
-end
-
 function _gt:get_pos_grid_index_mmp(pos)
     if _gt:check_pos_en_box(pos,mmp_ltpos + Vector(1, 1) * mmsc, mmp_rbpos + Vector(11, 10) * mmsc) then
       local cx = math.floor((pos.X - mmp_pos0.X - 2 * mmsc)/ (8 * mmsc))
@@ -637,7 +493,7 @@ function _gt:prep_minimap()
 end
 
 function _gt:draw_minimap_ui()
-    if _gt:gon_map_cursor() then
+    if gamemap.gon_map_cursor() then
       return
     end
     if not ((gtconfig.KeyboardMapEnable and rules.check_teleble(false)) or _gt.debug) then
@@ -685,7 +541,7 @@ end
 --the keyboard cursor drawn on the game's own map; selection and teleport logic untouched
 function _gt:gon_draw_map_cursor()
     --checked here too: under REPENTOGON this also runs from MC_POST_HUD_RENDER
-    if not _gt:gon_map_cursor() or not mmp_ctrl then
+    if not gamemap.gon_map_cursor() or not mmp_ctrl then
       return
     end
     --the game's map is always on screen, so draw nothing until an arrow key is
@@ -700,7 +556,7 @@ function _gt:gon_draw_map_cursor()
     --fractional cell position, so the sprite glides instead of snapping
     local fcol = (mmp_ctrl_pos.X - mmp_pos0.X - 2 * mmsc) / (8 * mmsc)
     local frow = (mmp_ctrl_pos.Y - mmp_pos0.Y - 2 * mmsc) / (7 * mmsc)
-    local center, scale = _gt:cell_to_screen(mgid, fcol, frow)
+    local center, scale = gamemap.cell_to_screen(mgid, fcol, frow)
     if not center then
       return
     end
@@ -719,7 +575,7 @@ function _gt:gon_draw_map_cursor()
 end
 
 function _gt:draw_minimap(faint)
-    if _gt:gon_map_cursor() then
+    if gamemap.gon_map_cursor() then
       --under REPENTOGON the game's map is drawn in MC_HUD_RENDER, so the cursor
       --goes in MC_POST_HUD_RENDER instead
       if not REPENTOGON then
@@ -896,7 +752,7 @@ function _gt:mmp_ctrl_move()
       else
         if Input.IsActionPressed(config.key[i], player.ControllerIndex) then
           local step = _gt:mirror_mmp_dir(config.dir[i]) * mmsc
-          if _gt:gon_map_cursor() then
+          if gamemap.gon_map_cursor() then
             step = step * Vector(8 / 17, 7 / 15) --game-map cells are 17x15, the widget's 8x7
           end
           mmp_ctrl_pos = clamp_ctrl_pos(mmp_ctrl_pos + step)
@@ -930,9 +786,7 @@ end
 
 function _gt:tab_action()
     local player = floor.player
-    local cp = Isaac.WorldToRenderPosition(Vector(320,280))
-    scpos = cp + cp
-    hudoffset = Options.HUDOffset * 10 --live: the map moves the moment the slider moves
+    gamemap.refresh_screen()
     if gtconfig.FastRestartEnable
         and (Input.IsButtonTriggered(Keyboard.KEY_R, player.ControllerIndex)
             or (gtconfig.ControllerAlternateR and Input.IsButtonTriggered(gtconfig.ControllerAlternateR, player.ControllerIndex))) then
@@ -961,8 +815,8 @@ function _gt:tab_action()
         --the region where the mouse takes the cursor over: the widget, or the
         --game's map under the game-map cursor mode
         local in_ui
-        if _gt:gon_map_cursor() then
-          in_ui = _gt:get_pos_grid_index(mpos) >= 0
+        if gamemap.gon_map_cursor() then
+          in_ui = gamemap.get_pos_grid_index(mpos) >= 0
         else
           in_ui = _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
         end
@@ -1044,10 +898,10 @@ function _gt:mouse_action()
       elseif crd.Data.Type == 10 then
         floor.pre_secret_curse_room()
       end
-      local mgid = _gt:get_pos_grid_index(mpos)
+      local mgid = gamemap.get_pos_grid_index(mpos)
       if (rules.check_teleble(mgid) and tele_cd < 1) then
         _gt:teleport_to_grid_index(mgid)
-      elseif gtconfig.KeyboardMapEnable and not _gt:gon_map_cursor() then --widget zones, only while it is visible
+      elseif gtconfig.KeyboardMapEnable and not gamemap.gon_map_cursor() then --widget zones, only while it is visible
         mgid = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
         if (rules.check_teleble(mgid) and tele_cd < 1) then
           _gt:teleport_to_grid_index(mgid)
@@ -1068,6 +922,7 @@ function _gt:mouse_action()
       end
     end
     if not gtconfig.KeyboardMapEnable then return end
+    local scpos = gamemap.scpos
     local cp = scpos / 2
     if Input.IsMouseBtnPressed(0) then
       if mouse_magnet then
@@ -1179,7 +1034,7 @@ function _gt:step()
         if gtconfig.KeyboardMapEnable and mmp_ctrl then
             mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
         else
-            local aim = _gt:get_pos_grid_index(mpos)
+            local aim = gamemap.get_pos_grid_index(mpos)
             if aim < 0 and gtconfig.KeyboardMapEnable then
                 aim = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
             end
@@ -1228,7 +1083,7 @@ function _gt:step()
       end
     elseif (gtconfig.KeyboardMapEnable) or _gt.debug then
       --pinned window without TAB
-      if mmp_pin == 1 and not _gt:gon_map_cursor() and floor.crd.Clear and rules.check_teleble(false) then
+      if mmp_pin == 1 and not gamemap.gon_map_cursor() and floor.crd.Clear and rules.check_teleble(false) then
         if mouse_in_ui then
           if gtconfig.NoShootWhenClick then
             _gt:player_shoot_cooldown()
@@ -1250,7 +1105,7 @@ function _gt:step()
           ui_timer = 0
         end
         _gt:draw_minimap()
-      elseif mmp_pin == 1 and not _gt:gon_map_cursor() and _gt:dim_map_only() and not _gt.debug then
+      elseif mmp_pin == 1 and not gamemap.gon_map_cursor() and _gt:dim_map_only() and not _gt.debug then
         ui_timer = 0
         mmp_ctrl = false
         _gt:draw_minimap(true)
@@ -1319,7 +1174,7 @@ function _gt:new_room()
 end
 
 function _gt:new_level()
-    hudoffset = Options.HUDOffset * 10
+    gamemap.refresh_screen()
     bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
     floor.refresh_level()
     n_room_num = floor.level:GetRooms().Size
