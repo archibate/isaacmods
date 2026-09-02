@@ -36,60 +36,13 @@ local function draw_warns()
 end
 
 local sfx = SFXManager()
-local mmp = Sprite()
-mmp:Load("sprite/gt/minimap0.anm2", true)
-local mic = Sprite()
-mic:Load("sprite/gt/minimap_icons.anm2", true)
-local gtui = Sprite()
-gtui:Load("sprite/gt/gt_ui.anm2", true)
-local select = Sprite()
-select:Load("sprite/gt/gt_ui.anm2", true)
-local cursor = Sprite()
-cursor:Load("sprite/gt/cursor.anm2", true)
-cursor:SetFrame("Idle", 0)
-local trash = Sprite()
-trash:Load("sprite/gt/gt_exit.anm2", true)
 local mouse_pressed = {false, false, false, false, false}
-local icon_room = {"RoomOutline", "RoomVisited", "RoomUnvisited", "RoomCurrent"}
-local icon_flag = {"1_IconNormal", "IconShop", "3_IconError", "IconTreasureRoom", "IconBoss",
-                  "IconMiniboss", "IconSecretRoom", "IconSuperSecretRoom", "IconArcade", "IconCurseRoom",
-                  "IconAmbushRoom", "IconLibrary", "IconSacrificeRoom", "IconDevilRoom", "IconAngelRoom",
-                  "16_IconDungeon", "17_IconBossRush", "IconIsaacsRoom", "IconBarrenRoom", "IconChestRoom",
-                  "IconDiceRoom", "22_IconBlackMarket", "23_IconGreedExit","IconPlanetarium","TeleporterRoom","TeleporterRoom","27_SecretExit","28_Blue","IconUltraSecretRoom"}
-local icon_flag2 = {"IconLockedRoom", "IconTreasureRoomGreed", "IconBossAmbushRoom","IconTreasureRoomRed","IconMirrorRoom", "IconWhiteFireRoom","IconTintSkullRoom","IconMinecartRoom","IconMineButtonRoom"}
-local draw_room_id = {}
-local draw_room_pos = {}
-local draw_room_shape = {}
-local draw_icon_pos = {Vector(0, 0),Vector(0, 0),Vector(0, 0),Vector(0,3),
-                      Vector(0,3),Vector(4, 0),Vector(4, 0),Vector(4,3),
-                      Vector(8, 7),Vector(0, 7),Vector(8, 0),Vector(0, 0),}
-local ltroom = Vector(6, 6)
-local rbroom = Vector(6, 6)
-local ctrl_ltroom = Vector(6, 6) --the same two corners before the widget's 3x3 padding widens them
-local ctrl_rbroom = Vector(6, 6)
-local mmp_pos0 = Vector(0, 0)
-local mmp_ltpos_ = Vector(0, 0)
-local mmp_ltpos = Vector(100, 100)
-local mmp_rbpos_ = Vector(0, 0)
-local mmp_rbpos = Vector(0, 0)
-local d_pos = Vector(0, 0)
-local mmp_pin = 0
-local mouse_magnet = false
 local mpos = Vector(0, 0)
-local ui_timer = 0
-local mmp_ctrl = false
-local mmp_ctrl_pos = Vector(0, 0)
-local fast_move_cd = {0, 0, 0, 0} --FasterCursorMove: per-direction hold-to-repeat cooldown
-local FAST_MOVE_REPEAT_FRAMES = 6 --frames between room-jumps while a key stays held
 local last_mpos = Vector(0, 0)
 local mouse_moved = false --physical mouse motion this frame (tracked every frame in step)
-local kb_active = false --keyboard is the active map-cursor device, for this opening of the map
 local mouse_in_ui = false
-local mmp_1step_tp = false
-local mmp_1step_mgid = -1
 local tele_maze = false
 local tele_door_slot = -1 --the door a trip means to arrive by
-local prep_alarm = false
 local n_room_num = 0
 --modules. Only main.lua includes, each file once, at load: include re-reads the
 --file on every luamod (require would cache it) and never resolves into another
@@ -107,61 +60,16 @@ _gt.save_config = config.save --so the console can make a hand-edited config sti
 local floor = include("scripts.floor")({ cfg = gtconfig })
 local rules = include("scripts.rules")({ gt = _gt, cfg = gtconfig, floor = floor })
 local gamemap = include("scripts.gamemap")({ cfg = gtconfig, floor = floor })
-local mmsc = 1.0 --keyboard minimap scale factor (gtconfig.MinimapScale / 10)
-local function update_mmscale()
-    --hand-edited, so it can arrive as anything; a scale of 0 draws nothing
-    local scale = gtconfig.MinimapScale
-    if type(scale) ~= "number" or scale < 5 then
-        scale = 5
-    elseif scale > 25 then
-        scale = 25
-    end
-    gtconfig.MinimapScale = scale
-    mmsc = scale / 10
-    mmp.Scale = Vector(mmsc, mmsc)
-    mic.Scale = Vector(mmsc, mmsc)
-    gtui.Scale = Vector(mmsc, mmsc)
-    select.Scale = Vector(mmsc, mmsc)
-    cursor.Scale = Vector(mmsc, mmsc)
-end
-update_mmscale()
-local function cycle_mmscale() --zoom button: x1.0 -> x1.5 -> x2.0 -> x1.0
-    local cur = gtconfig.MinimapScale or 10
-    if cur < 15 then
-        gtconfig.MinimapScale = 15
-    elseif cur < 20 then
-        gtconfig.MinimapScale = 20
-    else
-        gtconfig.MinimapScale = 10
-    end
-    update_mmscale()
-    prep_alarm = true
-    config.save()
-end
+local widget = include("scripts.widget")({ gt = _gt, cfg = gtconfig, config = config, floor = floor, rules = rules, gamemap = gamemap })
 
 local tele_cd = 0
 local bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
 if ModConfigMenu then
-    include("scripts.mcm")({ cfg = gtconfig, config = config, widget = {
-        --stand-ins until the widget is a module of its own
-        rescale = function()
-            update_mmscale()
-            prep_alarm = true
-        end,
-        get_top_left = function()
-            return mmp_ltpos.X, mmp_ltpos.Y
-        end,
-        set_top_left = function(x, y)
-            mmp_ltpos = Vector(x, y)
-            gtconfig.TopLeftX, gtconfig.TopLeftY = x, y --the window position rides in the settings
-        end,
-    } })
+    include("scripts.mcm")({ cfg = gtconfig, config = config, widget = widget })
 end
 _gt:AddPriorityCallback(ModCallbacks.MC_POST_GAME_STARTED, CallbackPriority.EARLY, function(_, isContined)
     config.load_saved()
-    mmp_ltpos = Vector(gtconfig.TopLeftX or 100, gtconfig.TopLeftY or 100)
-    gtconfig.TopLeftX, gtconfig.TopLeftY = mmp_ltpos.X, mmp_ltpos.Y --the window position rides in the settings
-    update_mmscale()
+    widget.apply_config()
 end)
 _gt:AddPriorityCallback(ModCallbacks.MC_PRE_GAME_EXIT, CallbackPriority.EARLY, function(_, shouldSave)
     config.save()
@@ -179,14 +87,6 @@ function _gt.dump(o)
    else
       return tostring(o)
    end
-end
-
-function _gt:check_pos_en_box(pos,ltpos,rbpos)
-  if pos.X > ltpos.X and pos.X < rbpos.X and pos.Y > ltpos.Y and pos.Y < rbpos.Y then
-    return true
-  else
-    return false
-  end
 end
 
 function _gt:IsMouseBtnTriggered(m)
@@ -372,15 +272,7 @@ function _gt:teleport_to_grid_index(gid)
     if gtconfig.FastTransition or _gt.debug then
       Game():ChangeRoom(arrive,-1)
       Game():GetRoom():PlayMusic()
-      mmp_ctrl = true
-      local gx = floor.crsid % 13
-      local gy = (floor.crsid - gx)/ 13
-        if mmp_1step_mgid >= 0 then
-            gx = mmp_1step_mgid % 13
-            gy = (mmp_1step_mgid - gx)/ 13
-            mmp_1step_mgid = -2
-        end
-      mmp_ctrl_pos = mmp_pos0 + Vector(gx * 8 + 6, gy * 7 + 5) * mmsc
+      widget.take_cursor()
       return
     end
     local tele_anime = gtconfig.TeleportAnimation and 3 or 1
@@ -388,382 +280,9 @@ function _gt:teleport_to_grid_index(gid)
     tele_cd = tele_anime == 3 and 45 or 10
 end
 
-function _gt:get_pos_grid_index_mmp(pos)
-    if _gt:check_pos_en_box(pos,mmp_ltpos + Vector(1, 1) * mmsc, mmp_rbpos + Vector(11, 10) * mmsc) then
-      local cx = math.floor((pos.X - mmp_pos0.X - 2 * mmsc)/ (8 * mmsc))
-      local cy = math.floor((pos.Y - mmp_pos0.Y - 2 * mmsc)/ (7 * mmsc))
-      if cx < 0 or cx > 12 or cy < 0 or cy > 12 then --padding cells would wrap to another row
-        return -99
-      end
-      return cx + cy * 13
-    else
-      return -99
-    end
-end
-
-function _gt:prep_minimap()
-    local grid_room = floor.grid_room
-    draw_room_id = {}
-    draw_room_pos = {}
-    draw_room_shape = {}
-    ltroom = floor.get_corner_room(1)
-    rbroom = floor.get_corner_room(4)
-    --the cursor's range is the drawn rooms, before the padding below
-    ctrl_ltroom = Vector(ltroom.X, ltroom.Y)
-    ctrl_rbroom = Vector(rbroom.X, rbroom.Y)
-    --minimum 3x3 window (the top bar must fit the pin + zoom buttons), centred
-    local padx = 2 - (rbroom.X - ltroom.X)
-    if padx > 0 then
-      ltroom.X = ltroom.X - math.floor(padx / 2)
-      rbroom.X = rbroom.X + math.ceil(padx / 2)
-    end
-    local pady = 2 - (rbroom.Y - ltroom.Y)
-    if pady > 0 then
-      ltroom.Y = ltroom.Y - math.floor(pady / 2)
-      rbroom.Y = rbroom.Y + math.ceil(pady / 2)
-    end
-    mmp_ltpos_ = Vector(ltroom.X * 8, ltroom.Y * 7) * mmsc
-    mmp_rbpos_ = Vector(rbroom.X * 8, rbroom.Y * 7) * mmsc
-    mmp_pos0 = mmp_ltpos - mmp_ltpos_
-    mmp_rbpos = mmp_pos0 + mmp_rbpos_
-    if mmp_ctrl then
-      if mmp_1step_mgid == -2 then
-      else
-        local gx = floor.crsid % 13
-        local gy = (floor.crsid - gx)/ 13
-        mmp_ctrl_pos = mmp_pos0 + Vector(gx * 8 + 6, gy * 7 + 5) * mmsc
-      end
-    end
-    for i = 0, 12 do
-      for j = 0, 12 do
-        local drd = grid_room[i * 13 + j]
-        if drd then
-          if drd.DisplayFlags > 0 then
-            if drd.Data.Type == 5 and drd.Data.Shape > 3 and floor.stage == 12 then
-              --void bossrooms--type4=1x2/type6=2x1/type8=2x2=Delirium
-              local near_room = {grid_room[i * 13 + j - 13] ~= nil, grid_room[i * 13 + j - 1] and j > 0, grid_room[i * 13 + j + 1] and j < 12, grid_room[i * 13 + j + 13] ~= nil}
-              if (near_room[1] and near_room[4])
-                or (near_room[2] and near_room[3])
-                or (drd.Data.Shape == 6 and (near_room[1] or near_room[4]))
-                or (drd.Data.Shape == 4 and (near_room[2] or near_room[3]))
-              then
-                table.insert(draw_room_id, i * 13 + j)
-                table.insert(draw_room_shape, 1)
-                table.insert(draw_room_pos, Vector(mmp_pos0.X + 8 * j * mmsc, mmp_pos0.Y + 7 * i * mmsc))
-              end
-            elseif drd.Data.Shape == RoomShape.ROOMSHAPE_LTL then
-              table.insert(draw_room_id, i * 13 + j)
-              table.insert(draw_room_shape, drd.Data.Shape)
-              table.insert(draw_room_pos, Vector(mmp_pos0.X + 8 * (j - 1) * mmsc, mmp_pos0.Y + 7 * i * mmsc))
-            else
-              table.insert(draw_room_id, i * 13 + j)
-              table.insert(draw_room_shape, drd.Data.Shape)
-              table.insert(draw_room_pos, Vector(mmp_pos0.X + 8 * j * mmsc, mmp_pos0.Y + 7 * i * mmsc))
-            end
-          end
-        end
-      end
-    end
-    if floor.room:IsMirrorWorld() then
-      for i = 1, #draw_room_pos do
-        local p = draw_room_pos[i]
-        p.X = mmp_pos0.X + 8 * ltroom.X * mmsc + (mmp_pos0.X + 8 * rbroom.X * mmsc - p.X)
-        local s = draw_room_shape[i]
-        local need = true
-        if s == RoomShape.ROOMSHAPE_LTL then
-          s = RoomShape.ROOMSHAPE_LTR
-        elseif s == RoomShape.ROOMSHAPE_LBL then
-          s = RoomShape.ROOMSHAPE_LBR
-        elseif s == RoomShape.ROOMSHAPE_LTR then
-          s = RoomShape.ROOMSHAPE_LTL
-        elseif s == RoomShape.ROOMSHAPE_LBR then
-          s = RoomShape.ROOMSHAPE_LBL
-        elseif s ~= RoomShape.ROOMSHAPE_2x2
-          and s ~= RoomShape.ROOMSHAPE_2x1
-          and s ~= RoomShape.ROOMSHAPE_IIH then
-          need = false
-        end
-        if need then
-          p.X = p.X - 8 * mmsc
-          draw_room_shape[i] = s
-        end
-        draw_room_pos[i] = p
-      end
-    end
-end
-
-function _gt:draw_minimap_ui()
-    if gamemap.gon_map_cursor() then
-      return
-    end
-    if not ((gtconfig.KeyboardMapEnable and rules.check_teleble(false)) or _gt.debug) then
-      ui_timer = 0
-      return
-    elseif ui_timer < 10 then
-      ui_timer = ui_timer + 1
-    end
-    gtui:SetFrame("ui1", ui_timer)
-    gtui:Render(Vector(mmp_ltpos.X, mmp_ltpos.Y), Vector(0, 0), Vector(0, 0))
-    gtui:SetFrame("ui3", ui_timer)
-    gtui:Render(Vector(mmp_rbpos.X, mmp_ltpos.Y), Vector(0, 0), Vector(0, 0))
-    gtui:SetFrame("ui7", ui_timer)
-    gtui:Render(Vector(mmp_ltpos.X, mmp_rbpos.Y), Vector(0, 0), Vector(0, 0))
-    gtui:SetFrame("ui9", ui_timer)
-    gtui:Render(Vector(mmp_rbpos.X, mmp_rbpos.Y), Vector(0, 0), Vector(0, 0))
-    for i = ltroom.X, rbroom.X do
-      gtui:SetFrame("ui2", ui_timer)
-      gtui:Render(mmp_pos0 + Vector(i * 8, ltroom.Y * 7) * mmsc, Vector(0, 0), Vector(0, 0))
-      gtui:SetFrame("ui8", ui_timer)
-      gtui:Render(mmp_pos0 + Vector(i * 8, rbroom.Y * 7) * mmsc, Vector(0, 0), Vector(0, 0))
-    end
-    for j = ltroom.Y, rbroom.Y do
-      gtui:SetFrame("ui4", ui_timer)
-      gtui:Render(mmp_pos0 + Vector(ltroom.X * 8, j * 7) * mmsc, Vector(0, 0), Vector(0, 0))
-      gtui:SetFrame("ui6", ui_timer)
-      gtui:Render(mmp_pos0 + Vector(rbroom.X * 8, j * 7) * mmsc, Vector(0, 0), Vector(0, 0))
-    end
-    gtui:SetFrame("ui5", ui_timer)
-    for i = ltroom.X, rbroom.X do
-      for j = ltroom.Y, rbroom.Y do
-        gtui:Render(mmp_pos0 + Vector(i * 8, j * 7) * mmsc, Vector(0, 0), Vector(0, 0))
-      end
-    end
-    if mmp_pin == 1 then
-      gtui:SetFrame("pin1", ui_timer)
-    else
-      gtui:SetFrame("pin0", ui_timer)
-    end
-    gtui:Render(mmp_ltpos, Vector(0, 0), Vector(0, 0))
-    gtui:SetFrame("zoom", ui_timer)
-    gtui:Render(mmp_ltpos + Vector(12, 0) * mmsc, Vector(0, 0), Vector(0, 0))
-end
-
---the keyboard cursor drawn on the game's own map; selection and teleport logic untouched
-function _gt:gon_draw_map_cursor()
-    --checked here too: under REPENTOGON this also runs from MC_POST_HUD_RENDER
-    if not gamemap.gon_map_cursor() or not mmp_ctrl then
-      return
-    end
-    --the game's map is always on screen, so draw nothing until an arrow key is
-    --used: a red cursor on the current room would greet anyone just reading it
-    if not kb_active then
-      return
-    end
-    local mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
-    if mgid < 0 then
-      return
-    end
-    --fractional cell position, so the sprite glides instead of snapping
-    local fcol = (mmp_ctrl_pos.X - mmp_pos0.X - 2 * mmsc) / (8 * mmsc)
-    local frow = (mmp_ctrl_pos.Y - mmp_pos0.Y - 2 * mmsc) / (7 * mmsc)
-    local center, scale = gamemap.cell_to_screen(mgid, fcol, frow)
-    if not center then
-      return
-    end
-    if rules.check_teleble(mgid) then
-      cursor.Color = Color(1, 1, 1, 1, 0, 0, 0)
-    else
-      cursor.Color = Color(1, 0.3, 0.3, 1, 0, 0, 0) --not teleportable
-    end
-    --(1, 9): cursor.anm2's pivot is the pointer's hotspot, not its centre.
-    --gmcoff: residual measured in-game under REPENTOGON, X flips with the mirror
-    local gmcoff = floor.room:IsMirrorWorld() and Vector(9, 2) or Vector(-8, 2)
-    cursor.Scale = Vector(scale, scale)
-    cursor:Render(center - Vector(1, 9) * scale + gmcoff, Vector(0, 0), Vector(0, 0))
-    cursor.Scale = Vector(1, 1)
-    cursor.Color = Color(1, 1, 1, 1, 0, 0, 0)
-end
-
-function _gt:draw_minimap(faint)
-    if gamemap.gon_map_cursor() then
-      --under REPENTOGON the game's map is drawn in MC_HUD_RENDER, so the cursor
-      --goes in MC_POST_HUD_RENDER instead
-      if not REPENTOGON then
-        _gt:gon_draw_map_cursor()
-      end
-      return
-    end
-    --faint: uncleared room, window drawn dim without chrome or cursor
-    local alpha = faint and math.min(math.max(gtconfig.DimMapAlpha or 35, 5), 100) / 100 or 1
-    local grid_room, stage, stageeffect = floor.grid_room, floor.stage, floor.stageeffect
-    local mirror = floor.room:IsMirrorWorld()
-    mic.Color = Color(1, 1, 1, alpha, 0, 0, 0)
-    select.Color = Color(1, 1, 1, alpha, 0, 0, 0)
-    mmp.Color = Color(1, 1, 1, alpha, 0, 0, 0)
-    mmp:SetFrame(icon_room[1], 0)
-    for i = 1, #draw_room_id do
-      local s = grid_room[draw_room_id[i]].Data.Shape
-      if (not mirror and s == RoomShape.ROOMSHAPE_LTL) or (mirror and s >= RoomShape.ROOMSHAPE_2x1 and s ~= RoomShape.ROOMSHAPE_LTL) then
-        mmp:Render(draw_room_pos[i] + Vector(8 * mmsc, 0), Vector(0, 0), Vector(0, 0))
-      else
-        mmp:Render(draw_room_pos[i], Vector(0, 0), Vector(0, 0))
-      end
-    end
-    for i = 1, #draw_room_id do
-      local rd = grid_room[draw_room_id[i]]
-      if rd.Flags & RoomDescriptor.FLAG_RED_ROOM ~= 0 then
-        mmp.Color = Color(1, 0.3, 0.3, alpha, 0, 0, 0)
-      else
-        local markclr = floor.grid_room_mark[rd.SafeGridIndex]
-        if markclr ~= nil then
-            mmp.Color = Color(markclr.Red, markclr.Green, markclr.Blue, alpha, 0, 0, 0)
-        else
-            mmp.Color = Color(1, 1, 1, alpha, 0, 0, 0)
-        end
-      end
-      if rd.SafeGridIndex == draw_room_id[i] or (rd.Data.Type == 5 and stage == 12) then
-        if floor.crd.ListIndex == rd.ListIndex then
-          mmp:SetFrame(icon_room[4], draw_room_shape[i] - 1)
-          mmp:Render(draw_room_pos[i], Vector(0, 0), Vector(0, 0))
-        elseif rd.VisitedCount > 0 and rd.Clear then
-          mmp:SetFrame(icon_room[2], draw_room_shape[i] - 1)
-          mmp:Render(draw_room_pos[i], Vector(0, 0), Vector(0, 0))
-        elseif rd.Data.Type ~= 7 and rd.Data.Type ~= 8 then
-          mmp:SetFrame(icon_room[3], draw_room_shape[i] - 1)
-          mmp:Render(draw_room_pos[i], Vector(0, 0), Vector(0, 0))
-        end
-        mmp.Color = Color(1, 1, 1, alpha, 0, 0, 0)
-        if rd.Data.Type > 1 and rd.DisplayFlags > 1 and (rd.DisplayFlags ~= 3 or (rd.Data.Type ~= 6 and rd.Data.Type ~= 13)) and rd.Data.Type ~= 23 then
-          if (rd.Data.Type == 2 or rd.Data.Type == 12 or (rd.Data.Type > 17 and rd.Data.Type < 22)) and rd.DisplayFlags == 3 then
-            mic:SetFrame(icon_flag2[1], 0)
-          elseif rd.Data.Type == 4 then
-            if Game():IsGreedMode() and rd.GridIndex == 98 then
-              mic:SetFrame(icon_flag2[2], 0)
-            elseif floor.player:HasTrinket(146) then
-              mic:SetFrame(icon_flag2[4], 0)
-            else
-              mic:SetFrame(icon_flag[4], 0)
-            end
-          elseif rd.Data.Type == 11 and stage%2 == 0 and stage ~= 10 then
-            mic:SetFrame(icon_flag2[3], 0)
-          else
-            mic:SetFrame(icon_flag[rd.Data.Type], 0)
-          end
-          mic:Render(draw_room_pos[i] + draw_icon_pos[draw_room_shape[i]] * mmsc, Vector(0, 0), Vector(0, 0))
-        --visited only: read from the spawn list, so drawing early spoils the floor
-        elseif gtconfig.ShowSpecialIcons and rd.Data.Type == 1 and rd.VisitedCount > 0 then
-          local iid = 0
-          local spawns = rd.Data.Spawns
-          if stageeffect == 1 then -- downpour
-            for j = 0, spawns.Size - 1 do
-                local e = spawns:Get(j):PickEntry(0)
-                if e.Type == 970 and e.Variant == 2 then
-                    iid = 5
-                    break
-                elseif e.Type == 33 and e.Variant == 4 then
-                    iid = 6
-                    break
-                end
-            end
-          elseif stageeffect == 2 then -- mines
-            for j = 0, spawns.Size - 1 do
-                local e = spawns:Get(j):PickEntry(0)
-                if e.Type == 965 and e.Variant == 10 then
-                    iid = 8
-                    break
-                elseif e.Type == 4500 and e.Variant == 3 then
-                    iid = 9
-                end
-            end
-          elseif stageeffect == 3 then -- depths
-            for j = 0, spawns.Size - 1 do
-                local e = spawns:Get(j):PickEntry(0)
-                if e.Type == 1008 then
-                    iid = 7
-                    break
-                end
-            end
-          end
-          if iid ~= 0 then
-            mic:SetFrame(icon_flag2[iid], 0)
-            mic:Render(draw_room_pos[i] + draw_icon_pos[draw_room_shape[i]] * mmsc, Vector(0, 0), Vector(0, 0))
-          end
-        end
-      end
-    end
-    local checkid = nil
-    if mmp_ctrl then
-      checkid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
-    else
-      checkid = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
-    end
-    if grid_room[checkid] then
-      --hit = the cell under the pointer (any cell the room was drawn on);
-      --anchor = the room's top-left entry, where the outline goes. Void boss
-      --rooms have no top-left entry, so fall back to hit
-      local hit, anchor
-      for i = 1, #draw_room_id do
-        if checkid == draw_room_id[i] then hit = i end
-        if grid_room[checkid].SafeGridIndex == draw_room_id[i] then anchor = i end
-      end
-      if hit then
-        local at = anchor or hit
-        if rules.check_teleble(checkid) then
-          select:SetFrame("select", draw_room_shape[at])
-        else
-          select:SetFrame("select_false", draw_room_shape[at])
-        end
-        select:Render(draw_room_pos[at], Vector(0, 0), Vector(0, 0))
-      end
-    end
-    if mmp_ctrl and not faint then
-      cursor:Render(_gt:mirror_mmp_pos(mmp_ctrl_pos), Vector(0, 0), Vector(0, 0))
-    end
-end
---cursor range is the drawn rooms' rectangle; clamping (not per-step gating)
---means a held key stops on the edge room without bouncing. The position is
---unmirrored, only key direction flips, so one rectangle serves both worlds
-local function clamp_ctrl_pos(pos)
-    local minx = mmp_pos0.X + (ctrl_ltroom.X * 8 + 6) * mmsc
-    local maxx = mmp_pos0.X + (ctrl_rbroom.X * 8 + 6) * mmsc
-    local miny = mmp_pos0.Y + (ctrl_ltroom.Y * 7 + 5) * mmsc
-    local maxy = mmp_pos0.Y + (ctrl_rbroom.Y * 7 + 5) * mmsc
-    return Vector(math.min(math.max(pos.X, minx), maxx), math.min(math.max(pos.Y, miny), maxy))
-end
-
-function _gt:mmp_ctrl_move()
-    local player = floor.player
-    for i = 1,4 do
-      if gtconfig.QuicklyOneRoomMove then
-        if Input.IsActionTriggered(config.movkey[i], player.ControllerIndex) then
-          local npos = clamp_ctrl_pos(mmp_ctrl_pos + _gt:mirror_mmp_dir(config.dir[i] * Vector(8, 7) * mmsc))
-          if npos.X ~= mmp_ctrl_pos.X or npos.Y ~= mmp_ctrl_pos.Y then
-            mmp_ctrl_pos = npos
-            local nmgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
-            if rules.check_teleble(nmgid) and tele_cd < 1 then
-              mmp_1step_tp = true
-              mmp_1step_mgid = nmgid
-            end
-          end
-        end
-      end
-      if gtconfig.FasterCursorMove then
-        --a tap jumps at once; held, it repeats a room at a time
-        if Input.IsActionPressed(config.key[i], player.ControllerIndex) then
-          if fast_move_cd[i] <= 0 then
-            mmp_ctrl_pos = clamp_ctrl_pos(mmp_ctrl_pos + _gt:mirror_mmp_dir(config.dir[i]) * Vector(8, 7) * mmsc)
-            fast_move_cd[i] = FAST_MOVE_REPEAT_FRAMES
-          else
-            fast_move_cd[i] = fast_move_cd[i] - 1
-          end
-        else
-          fast_move_cd[i] = 0
-        end
-      else
-        if Input.IsActionPressed(config.key[i], player.ControllerIndex) then
-          local step = _gt:mirror_mmp_dir(config.dir[i]) * mmsc
-          if gamemap.gon_map_cursor() then
-            step = step * Vector(8 / 17, 7 / 15) --game-map cells are 17x15, the widget's 8x7
-          end
-          mmp_ctrl_pos = clamp_ctrl_pos(mmp_ctrl_pos + step)
-        end
-      end
-    end
-end
-
 function _gt:prep()
     if gtconfig.KeyboardMapEnable then
-      _gt:prep_minimap()
+      widget.prep_minimap()
     end
 end
 function _gt:player_shoot_cooldown()
@@ -797,8 +316,8 @@ function _gt:tab_action()
       player.ControlsCooldown = player.ControlsCooldown + 1
     end
     if _gt:dim_map_only() and not _gt.debug then
-      mmp_ctrl = false --no cursor while inert
-      _gt:draw_minimap(true)
+      widget.mmp_ctrl = false --no cursor while inert
+      widget.draw_minimap(mpos, true)
     elseif (gtconfig.KeyboardMapEnable and rules.check_teleble(false)) or _gt.debug then
       local movement_pressed = false
       for i = 1, 4 do
@@ -818,59 +337,35 @@ function _gt:tab_action()
         if gamemap.gon_map_cursor() then
           in_ui = gamemap.get_pos_grid_index(mpos) >= 0
         else
-          in_ui = _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) --ui zone
+          in_ui = widget.in_ui_zone(mpos)
         end
         if arrowdown then
-          kb_active = true
+          widget.kb_active = true
         elseif mouse_moved and in_ui then
-          kb_active = false
+          widget.kb_active = false
         end
-        if kb_active or not in_ui then --keyboard owns the cursor
-          if not mmp_ctrl then
-            mmp_ctrl = true
-            local gx = floor.crsid % 13
-            local gy = (floor.crsid - gx)/ 13
-            if mmp_1step_mgid >= 0 then
-              gx = mmp_1step_mgid % 13
-              gy = (mmp_1step_mgid - gx)/ 13
-              mmp_1step_mgid = -2
-            end
-            mmp_ctrl_pos = mmp_pos0 + Vector(gx * 8 + 6, gy * 7 + 5) * mmsc
+        if widget.kb_active or not in_ui then --keyboard owns the cursor
+          if not widget.mmp_ctrl then
+            widget.take_cursor()
           else
-            _gt:mmp_ctrl_move()
+            widget.mmp_ctrl_move(tele_cd < 1)
             _gt:player_shoot_cooldown()
           end
         else --mouse owns the cursor
-          mmp_ctrl = false
+          widget.mmp_ctrl = false
         end
-        _gt:draw_minimap_ui()
+        widget.draw_minimap_ui()
       else
         --a movement key only pauses the cursor; dropping mmp_ctrl would lose the aimed room
-        if mmp_pin == 1 or _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) then --ui zone
-          _gt:draw_minimap_ui()
+        if widget.mmp_pin == 1 or widget.in_ui_zone(mpos) then
+          widget.draw_minimap_ui()
         else
-          ui_timer = 0
+          widget.ui_timer = 0
         end
       end
-      _gt:draw_minimap()
+      widget.draw_minimap(mpos)
     end
     _gt:mouse_action()
-end
-
-function _gt:mirror_mmp_pos(p)
-    if floor.room:IsMirrorWorld() then
-      return Vector(mmp_pos0.X + 8 * ltroom.X * mmsc + (mmp_pos0.X + 8 * rbroom.X * mmsc - p.X) + 12 * mmsc, p.Y)
-    else
-      return p
-    end
-end
-
-function _gt:mirror_mmp_dir(p)
-    if floor.room:IsMirrorWorld() then
-      return Vector(-p.X, p.Y)
-    else
-      return p
-    end
 end
 
 --nil follows the vanilla map key; a custom binding replaces it (dodges EID's TAB overlay)
@@ -902,86 +397,19 @@ function _gt:mouse_action()
       if (rules.check_teleble(mgid) and tele_cd < 1) then
         _gt:teleport_to_grid_index(mgid)
       elseif gtconfig.KeyboardMapEnable and not gamemap.gon_map_cursor() then --widget zones, only while it is visible
-        mgid = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
+        mgid = widget.get_pos_grid_index_mmp(widget.mirror_mmp_pos(mpos))
         if (rules.check_teleble(mgid) and tele_cd < 1) then
           _gt:teleport_to_grid_index(mgid)
-        elseif _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-6, -15) * mmsc,Vector(mmp_rbpos.X + 18 * mmsc, mmp_ltpos.Y - 1 * mmsc)) then --magnet zone
-          if _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-3, -13) * mmsc,mmp_ltpos + Vector(5,-4) * mmsc) then --pin zone
-            if mmp_pin == 1 then
-              mmp_pin = 0
-            else
-              mmp_pin = 1
-            end
-          elseif _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(8, -13) * mmsc,mmp_ltpos + Vector(19, -3) * mmsc) then --zoom button
-            cycle_mmscale()
-          elseif mmp_pin == 0 then
-            mouse_magnet = true
-            d_pos = mmp_ltpos - mpos
-          end
-        end
-      end
-    end
-    if not gtconfig.KeyboardMapEnable then return end
-    local scpos = gamemap.scpos
-    local cp = scpos / 2
-    if Input.IsMouseBtnPressed(0) then
-      if mouse_magnet then
-        mmp_ltpos = mpos + d_pos
-        mmp_pos0 = mmp_ltpos - mmp_ltpos_
-        mmp_rbpos = mmp_pos0 + mmp_rbpos_
-        _gt:prep_minimap()
-        floor.player:SetShootingCooldown(2)
-        local twin = floor.player:GetOtherTwin()
-        if twin then
-          twin:SetShootingCooldown(2)
-        end
-        if _gt:check_pos_en_box(mpos, cp + Vector(-16, -16), cp + Vector(16, 116)) then
-          trash:SetFrame("trash", 1)
-          trash:Render(cp, Vector(0, 0), Vector(0, 0))
         else
-          trash:SetFrame("trash", 0)
-          trash:Render(cp, Vector(0, 0), Vector(0, 0))
+          widget.click_chrome(mpos)
         end
-      end
-    else
-      local drag_ended = mouse_magnet --saved only after the edge clamps below
-      if mouse_magnet then
-        mouse_magnet = false
-        if _gt:check_pos_en_box(mpos, cp + Vector(-16, -16), cp + Vector(16, 16)) then
-          gtconfig.KeyboardMapEnable = false
-        end
-      end
-      if mmp_ltpos.X < 5 then
-        mmp_ltpos.X = 5
-        mmp_pos0 = mmp_ltpos - mmp_ltpos_
-        mmp_rbpos = mmp_pos0 + mmp_rbpos_
-        _gt:prep_minimap()
-      elseif mmp_rbpos.X > scpos.X - 17 * mmsc then
-        mmp_rbpos.X = scpos.X - 17 * mmsc
-        mmp_pos0 = mmp_rbpos - mmp_rbpos_
-        mmp_ltpos = mmp_pos0 + mmp_ltpos_
-        _gt:prep_minimap()
-      end
-      if mmp_ltpos.Y < 14 * mmsc then
-        mmp_ltpos.Y = 14 * mmsc
-        mmp_pos0 = mmp_ltpos - mmp_ltpos_
-        mmp_rbpos = mmp_pos0 + mmp_rbpos_
-        _gt:prep_minimap()
-      elseif mmp_rbpos.Y > scpos.Y - 16 * mmsc then
-        mmp_rbpos.Y = scpos.Y - 16 * mmsc
-        mmp_pos0 = mmp_rbpos - mmp_rbpos_
-        mmp_ltpos = mmp_pos0 + mmp_ltpos_
-        _gt:prep_minimap()
-      end
-      gtconfig.TopLeftX, gtconfig.TopLeftY = mmp_ltpos.X, mmp_ltpos.Y --the window position rides in the settings
-      if drag_ended then --alt-F4 and TAB+R never reach MC_PRE_GAME_EXIT
-        config.save()
       end
     end
+    widget.drag(mpos)
 end
 
 function _gt:itemused()
-    mmp_ctrl = false
+    widget.mmp_ctrl = false
     floor.get_grid_room()
     floor.get_room_neighbours()
     _gt:prep()
@@ -995,7 +423,7 @@ function _gt:check_and_tele_room(tgid)
             floor.pre_secret_curse_room()
         end
         _gt:teleport_to_grid_index(tgid)
-        mmp_ctrl = false
+        widget.mmp_ctrl = false
     elseif tgid ~= crd.SafeGridIndex then
         _gt:tele_failed()
     end
@@ -1016,7 +444,7 @@ function _gt:step()
     if _gt:is_overlay_triggerd() then
       floor.get_grid_room()
       _gt:prep()
-      kb_active = false --every opening starts as a read; an arrow key claims it
+      widget.kb_active = false --every opening starts as a read; an arrow key claims it
     end
 
     if _gt:is_overlay_pressed() then
@@ -1031,12 +459,12 @@ function _gt:step()
         --whatever is aimed at: keyboard cursor, else mouse (game map, then
         --widget, the order a click resolves in), else the current room
         local mgid = floor.crd.SafeGridIndex
-        if gtconfig.KeyboardMapEnable and mmp_ctrl then
-            mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
+        if gtconfig.KeyboardMapEnable and widget.mmp_ctrl then
+            mgid = widget.cursor_cell()
         else
             local aim = gamemap.get_pos_grid_index(mpos)
             if aim < 0 and gtconfig.KeyboardMapEnable then
-                aim = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
+                aim = widget.get_pos_grid_index_mmp(widget.mirror_mmp_pos(mpos))
             end
             if aim >= 0 then
                 mgid = aim
@@ -1060,12 +488,12 @@ function _gt:step()
       if gtconfig.NoShootWhenClick then
         _gt:player_shoot_cooldown()
       end
-      if mmp_1step_tp then
-        mmp_1step_tp = false
-        if mmp_ctrl and rules.check_teleble(false) then
-          mmp_ctrl = false
-          local mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
-          mmp_1step_mgid = mgid
+      if widget.mmp_1step_tp then
+        widget.mmp_1step_tp = false
+        if widget.mmp_ctrl and rules.check_teleble(false) then
+          widget.mmp_ctrl = false
+          local mgid = widget.cursor_cell()
+          widget.mmp_1step_mgid = mgid
           if (rules.check_teleble(mgid) and tele_cd < 1) then
             local crd = floor.crd
             if crd.Data.Type == 7 or (crd.Data.Type == 8 and Game():IsGreedMode()) then
@@ -1074,47 +502,44 @@ function _gt:step()
               floor.pre_secret_curse_room()
             end
             _gt:teleport_to_grid_index(mgid)
-            mmp_ctrl = false
+            widget.mmp_ctrl = false
           end
         end
-        _gt:draw_minimap_ui()
+        widget.draw_minimap_ui()
       else
         _gt:tab_action()
       end
     elseif (gtconfig.KeyboardMapEnable) or _gt.debug then
       --pinned window without TAB
-      if mmp_pin == 1 and not gamemap.gon_map_cursor() and floor.crd.Clear and rules.check_teleble(false) then
+      if widget.mmp_pin == 1 and not gamemap.gon_map_cursor() and floor.crd.Clear and rules.check_teleble(false) then
         if mouse_in_ui then
           if gtconfig.NoShootWhenClick then
             _gt:player_shoot_cooldown()
           end
           if _gt:IsMouseBtnTriggered(0) then
-            if _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-3, -13) * mmsc,mmp_ltpos + Vector(5,-4) * mmsc) then --pin zone
-            mmp_pin = 0
-            elseif _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(8, -13) * mmsc,mmp_ltpos + Vector(19, -3) * mmsc) then --zoom button
-              cycle_mmscale()
-            else
-              local mgid = _gt:get_pos_grid_index_mmp(_gt:mirror_mmp_pos(mpos))
+            --pinned, so the bar's pin unpins and its zoom cycles, and no drag can start
+            if not widget.click_chrome(mpos) then
+              local mgid = widget.get_pos_grid_index_mmp(widget.mirror_mmp_pos(mpos))
               if (rules.check_teleble(mgid) and tele_cd < 1) then
                 _gt:teleport_to_grid_index(mgid)
               end
             end
           end
-          _gt:draw_minimap_ui()
+          widget.draw_minimap_ui()
         else
-          ui_timer = 0
+          widget.ui_timer = 0
         end
-        _gt:draw_minimap()
-      elseif mmp_pin == 1 and not gamemap.gon_map_cursor() and _gt:dim_map_only() and not _gt.debug then
-        ui_timer = 0
-        mmp_ctrl = false
-        _gt:draw_minimap(true)
+        widget.draw_minimap(mpos)
+      elseif widget.mmp_pin == 1 and not gamemap.gon_map_cursor() and _gt:dim_map_only() and not _gt.debug then
+        widget.ui_timer = 0
+        widget.mmp_ctrl = false
+        widget.draw_minimap(mpos, true)
       else
-        ui_timer = 0
+        widget.ui_timer = 0
       end
-      if mmp_ctrl and rules.check_teleble(false) then
-        mmp_ctrl = false
-        local mgid = _gt:get_pos_grid_index_mmp(mmp_ctrl_pos)
+      if widget.mmp_ctrl and rules.check_teleble(false) then
+        widget.mmp_ctrl = false
+        local mgid = widget.cursor_cell()
         if (rules.check_teleble(mgid) and tele_cd < 1) then
           local crd = floor.crd
           if crd.Data.Type == 7 or (crd.Data.Type == 8 and Game():IsGreedMode()) then
@@ -1126,9 +551,9 @@ function _gt:step()
         end
       end
     end
-    if prep_alarm then
-      _gt:prep_minimap()
-      prep_alarm = false
+    if widget.prep_alarm then
+      widget.prep_minimap()
+      widget.prep_alarm = false
     end
     if tele_cd > 0 then
       tele_cd = tele_cd - 1
@@ -1141,9 +566,9 @@ function _gt:step2()
     if floor.level:GetCurrentRoomDesc().SafeGridIndex == floor.crsid then
       floor.sweep_doors()
     end
-    if mmp_pin == 1 and gtconfig.KeyboardMapEnable then
+    if widget.mmp_pin == 1 and gtconfig.KeyboardMapEnable then
       mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
-      if _gt:check_pos_en_box(mpos,mmp_ltpos + Vector(-8, -18) * mmsc,mmp_rbpos + Vector(20, 20) * mmsc) then --ui zone
+      if widget.in_ui_zone(mpos) then
         mouse_in_ui = true
       else
         mouse_in_ui = false
@@ -1154,12 +579,12 @@ end
 function _gt:new_room()
     warn_in_run = true
     floor.refresh_room()
-    mmp_ctrl = false
-    kb_active = false
+    widget.mmp_ctrl = false
+    widget.kb_active = false
     _gt:land_at_door()
     if gtconfig.KeyboardMapEnable then
-      prep_alarm = true
-      _gt:prep_minimap()
+      widget.prep_alarm = true
+      widget.prep_minimap()
     end
     if tele_maze then
       floor.level:AddCurse(LevelCurse.CURSE_OF_MAZE,false)
@@ -1179,8 +604,8 @@ function _gt:new_level()
     floor.refresh_level()
     n_room_num = floor.level:GetRooms().Size
     if gtconfig.KeyboardMapEnable then
-      prep_alarm = true
-      _gt:prep_minimap()
+      widget.prep_alarm = true
+      widget.prep_minimap()
     end
 end
 function _gt:get_config()
@@ -1202,5 +627,5 @@ _gt:AddPriorityCallback(ModCallbacks.MC_POST_UPDATE, CallbackPriority.EARLY, _gt
 _gt:AddPriorityCallback(ModCallbacks.MC_POST_NEW_ROOM, CallbackPriority.EARLY, _gt.new_room)
 _gt:AddPriorityCallback(ModCallbacks.MC_POST_NEW_LEVEL, CallbackPriority.EARLY, _gt.new_level)
 if REPENTOGON then
-  _gt:AddCallback(ModCallbacks.MC_POST_HUD_RENDER, _gt.gon_draw_map_cursor)
+  _gt:AddCallback(ModCallbacks.MC_POST_HUD_RENDER, widget.gon_draw_map_cursor)
 end
