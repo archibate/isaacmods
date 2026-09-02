@@ -24,14 +24,14 @@ local STEPS = {
     "lua gt:get_config().AllowAnyRoom = true",
 }
 
-local HINT = "trip into far big rooms, uncleared ones and past the curse room; watch your hearts"
+local HINT = "hold TAB: the map should be there even with the route planner spitting errors"
 
 local mod = RegisterMod("devrepro", 1)
 
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 118
+local REV = 119
 Isaac.DebugString("[DEVREPRO] rev " .. REV)
 
 -- carries which key was pressed across the reload that brought this copy in; a

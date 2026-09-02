@@ -2,6 +2,18 @@ local hasoldgoodtrip = (gt and not gt.isgtfixed)
 local _gt = RegisterMod("GoodTrip [Fixed]", 1)
 gt = _gt
 _gt.isgtfixed = true
+--the game hands each callback round to one mod after another and stops the moment
+--one of them hands something back -- everything behind it in that round is simply
+--never called, and since a returned value is not an error, nothing says so. On the
+--rounds where a return means nothing at all, a mod that returns one is a bug that
+--takes every mod after it down with it, which is how this map went missing from a
+--plain game. Mods are called in load order, which is alphabetical, and this one is
+--late in the alphabet, so the rounds it cannot work without ask for the early tier
+--instead -- the same shelter MinimapAPI takes. Nothing here ever returns anything,
+--so this mod is not doing the same to anyone else.
+--
+--Not for the item, card and pill rounds: a return there is the game's own way of
+--saying the use was handled, so going early would mean answering for other mods.
 --these are conditions, not events: they stay on screen until the player fixes
 --them. the old code faded out after five seconds counted from load, and since
 --render callbacks run on the menus too, those seconds were spent at the title
@@ -717,7 +729,7 @@ if ModConfigMenu then
         end
     end
 end
-_gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
+_gt:AddPriorityCallback(ModCallbacks.MC_POST_GAME_STARTED, CallbackPriority.EARLY, function(_, isContined)
     --a saved config that will not read back is worth losing on its own; it is not
     --worth the rest of this callback, which is where the window's own position and
     --scale are set, and where a throw would leave the run with neither
@@ -758,7 +770,7 @@ _gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
     -- mmp_rbpos = mmp_pos0 + mmp_rbpos_
     cfgdata_loaded = true --a first-time player has nothing on disk, yet still gets saved
 end)
-_gt:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, function(_, shouldSave)
+_gt:AddPriorityCallback(ModCallbacks.MC_PRE_GAME_EXIT, CallbackPriority.EARLY, function(_, shouldSave)
     save_config()
 end)
 ---functions---
@@ -2789,7 +2801,7 @@ function _gt:fair_trip(roomIndex, target)
 end
 --
 -------------------------------
-_gt:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function()
+_gt:AddPriorityCallback(ModCallbacks.MC_POST_GAME_STARTED, CallbackPriority.EARLY, function()
   _gt:prep()
   _gt:new_room()
   _gt:new_level()
@@ -2797,23 +2809,14 @@ end)
 _gt:AddCallback(ModCallbacks.MC_USE_ITEM, _gt.itemused)
 _gt:AddCallback(ModCallbacks.MC_USE_CARD, _gt.itemused)
 _gt:AddCallback(ModCallbacks.MC_USE_PILL, _gt.itemused)
---the drawing goes in ahead of the ordinary crowd. The game hands a render to each
---mod in turn and stops the moment one of them hands something back or throws, and
---everything behind it that frame is simply never drawn -- which is how another mod
---returning a value from its own render took this map off the screen entirely, with
---nothing in the log to say so. Mods are handed the callback in the order they were
---loaded, which is alphabetical, and this one is late in the alphabet. Asking for
---the early tier puts it in front of every mod that asks for nothing in particular,
---the same shelter MinimapAPI takes. The cost is that a HUD drawn later can now
---cover the window, which is a great deal better than the window never being drawn.
-if CallbackPriority then
-  _gt:AddPriorityCallback(ModCallbacks.MC_POST_RENDER, CallbackPriority.EARLY, _gt.step)
-else
-  _gt:AddCallback(ModCallbacks.MC_POST_RENDER, _gt.step)
-end
-_gt:AddCallback(ModCallbacks.MC_POST_UPDATE, _gt.step2)
-_gt:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, _gt.new_room)
-_gt:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, _gt.new_level)
+--the drawing in particular: going early costs it the top of the pile, since a HUD
+--drawn later can now cover the window, and that is a great deal better than the
+--window never being drawn at all -- which is what another mod's render, handing
+--back a value on a plain game, did to it
+_gt:AddPriorityCallback(ModCallbacks.MC_POST_RENDER, CallbackPriority.EARLY, _gt.step)
+_gt:AddPriorityCallback(ModCallbacks.MC_POST_UPDATE, CallbackPriority.EARLY, _gt.step2)
+_gt:AddPriorityCallback(ModCallbacks.MC_POST_NEW_ROOM, CallbackPriority.EARLY, _gt.new_room)
+_gt:AddPriorityCallback(ModCallbacks.MC_POST_NEW_LEVEL, CallbackPriority.EARLY, _gt.new_level)
 if REPENTOGON then
   _gt:AddCallback(ModCallbacks.MC_POST_HUD_RENDER, _gt.gon_draw_map_cursor)
 end
