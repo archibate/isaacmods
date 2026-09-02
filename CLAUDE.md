@@ -25,10 +25,11 @@ mod's source. Open this directory as the editor root so the shared `.luarc.json`
 ## Working here
 
 - Runtime is **Lua 5.3**; `luac -p main.lua` catches syntax errors, not logic bugs.
-- `luac -o /tmp/x.out -l -l main.lua | rg -o '_ENV "\w+"' | sort -u` lists every global
-  the file touches. Anything there that is not an Isaac or Lua global is a typo or a
-  function used above where it is defined — a crash `luac -p` cannot see. Run it after
-  every edit, before asking anyone to play.
+- `luacheck <mod folder>` from this directory flags every bare name that is not a known
+  global: a typo, a local that leaked out of scope, or a function used above where it is
+  defined — a crash `luac -p` cannot see. Run it after every edit, before asking anyone to
+  play. It takes the game's globals from `.luarc.json`, so a new one goes there; a global
+  a mod itself sets goes into the `writable` set in `.luacheckrc`.
 - Agents can't see the running game. For runtime bugs: instrument with
   `Isaac.DebugString`, have the user run the reproduction, read `log.txt` yourself, fix
   from the data, then remove the instrument. See the Console Repro Contract below.

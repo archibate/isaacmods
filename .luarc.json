@@ -77,6 +77,7 @@
         "Keyboard",
         "LaserOffset",
         "LaserSubType",
+        "LaserVariant",
         "Level",
         "LevelCurse",
         "LevelStage",
@@ -106,6 +107,7 @@
         "QueueItemData",
         "REPENTANCE",
         "REPENTANCE_PLUS",
+        "REPENTOGON",
         "RNG",
         "Random",
         "RandomVector",
@@ -146,7 +148,12 @@
         "gt",
         "DangerCaution",
         "InputHelper",
-        "CallbackPriority"
+        "CallbackPriority",
+        "IsaacSocket",
+        "RangeFixForBonesAndSword",
+        "tmmc",
+        "Controller",
+        "DevReproPending"
     ],
     "runtime.version": "Lua 5.3",
     "workspace.library": [
