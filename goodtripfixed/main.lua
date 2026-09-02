@@ -1056,19 +1056,21 @@ function _gt:touching_cell(from, to)
     return nil
 end
 --
---and which cell to hand the transition. The game ignores the direction it is
---given but it does read the cell: a room laid over several of them has a door
---for each, and the player is put down at the door belonging to the cell handed
---over. Hand it the cell the map was clicked on and a trip can arrive at the far
---end of the room -- the wrong door, and in a room wider or taller than the
---screen the wrong screen too, since the game fixes the part of the room to show
---from where it laid him. Hand it the cell the walk would have used and the game
---gets both right by itself, with no view to move afterwards.
-function _gt:landing_cell(from, to)
+--and which cell to hand the transition, with the room to leave from to make it
+--stick. The game ignores the direction it is given, but it does read the cell: a
+--room laid over several of them has a door for each, and the player is put down
+--at the door belonging to the cell handed over -- among the doors on one wall,
+--and which wall is read from the room the trip starts in. So next door the cell
+--is enough, and further off the room being left has to be the one the walk would
+--have come from too, or the arrival is at whatever wall faces the real starting
+--room: the wrong door, and in a room bigger than the screen the wrong screen as
+--well, since the game fixes the part to show from where it laid him.
+function _gt:landing_route(from, to)
     local cell = _gt:touching_cell(from, to)
-    if cell then return cell end
+    if cell then return cell, nil end
     local walked = _gt:route_parent(from, to)
-    return walked and _gt:touching_cell(walked, to) or nil
+    if not walked then return nil, nil end
+    return _gt:touching_cell(walked, to), walked
 end
 --
 --and then put the player there by hand, because the game offers no lever that
@@ -1336,10 +1338,21 @@ function _gt:teleport_to_grid_index(gid) ----core
     local there = trd and trd.SafeGridIndex or gid
     tele_door_slot = -1 --off means the game's own landing, so nothing to aim for
     local arrive = gid --the cell handed over, which is the one clicked unless a
-                       --better one is known; see _gt:landing_cell
+                       --better one is known; see _gt:landing_route
     if gtconfig.LandAtDoor then
+      local cell, walked = _gt:landing_route(here, there)
+      arrive = cell or gid
+      --a room bigger than the screen, reached from further off than next door,
+      --needs the wall chosen as well as the door, and the wall comes from the room
+      --the trip starts in. So the trip starts one room earlier, from the one the
+      --walk would have come from -- the same step inside the room that the cell was
+      --read off. Kept to the trips that need it: a room next door already has the
+      --right wall, and a room one screen big has nothing to choose between.
+      if walked and trd and trd.Data.Shape >= RoomShape.ROOMSHAPE_1x2 then
+        Game():ChangeRoom(walked, -1)
+        here = walked
+      end
       tele_door_slot = _gt:landing_slot(here, there)
-      arrive = _gt:landing_cell(here, there) or gid
     end
     if debug then
       Game():ChangeRoom(arrive,-1)
@@ -1375,6 +1388,10 @@ function _gt:teleport_to_grid_index(gid) ----core
       return
     end
     local tele_anime = gtconfig.TeleportAnimation and 3 or 1
+    --the direction really is ignored, measured twice now: the same trip lands on
+    --the same spot whether it is handed NO_DIRECTION or the side of the door it
+    --is meant to arrive by. The wall is chosen from the room the trip starts in,
+    --which is why the hop above exists.
     Game():StartRoomTransition(arrive, Direction.NO_DIRECTION, tele_anime, player, -1)
     tele_cd = tele_anime == 3 and 45 or 10
 end
