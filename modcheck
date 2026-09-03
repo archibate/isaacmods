@@ -1,0 +1,89 @@
+#!/usr/bin/env -S uv run python
+# Static check for a mod, one command: syntax of every Lua file, then luacheck's
+# scope check (a bare name that is no known global is a typo, a local that leaked
+# out of scope, or a function used above where it is defined -- crashes the game
+# would only show later). A stray disable.it is reported too: it turns the mod off.
+#
+#   ./modcheck goodtripfixed devrepro      # mod folders
+#   ./modcheck                             # every folder here with a main.lua
+#
+# One line per finding as path:line:col: text, then `<mod>: ok (N files)` or
+# `<mod>: N findings`; exit 1 when anything was found. A new game global goes
+# into .luarc.json; a global a mod itself sets goes into the `writable` set in
+# .luacheckrc.
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+WORKSPACE = Path(__file__).resolve().parent
+
+
+def mods_from(args: list[str]) -> list[Path]:
+    if not args:
+        return sorted(p.parent for p in WORKSPACE.glob("*/main.lua"))
+    mods = []
+    for a in args:
+        p = Path(a)
+        if not p.is_dir():
+            p = WORKSPACE / a
+        if not p.is_dir():
+            sys.exit(f"no such mod folder: {a}")
+        mods.append(p.resolve())
+    return mods
+
+
+def lua_files(mod: Path) -> list[Path]:
+    return sorted(p for p in mod.rglob("*.lua") if "resources" not in p.relative_to(mod).parts)
+
+
+def syntax(files: list[Path]) -> list[str]:
+    luac = shutil.which("luac5.4") or shutil.which("luac")
+    if not luac:
+        sys.exit("luac not found")
+    findings = []
+    for f in files:
+        # relative to the workspace where possible: luac echoes the path it was
+        # given and shortens a long one with "..."
+        shown = f.relative_to(WORKSPACE) if f.is_relative_to(WORKSPACE) else f
+        r = subprocess.run([luac, "-p", str(shown)], capture_output=True, text=True, cwd=WORKSPACE)
+        if r.returncode:
+            findings.append(re.sub(r"^\S*luac[\d.]*: ", "", r.stderr.strip()))
+    return findings
+
+
+def scope(mod: Path) -> list[str]:
+    if not shutil.which("luacheck"):
+        sys.exit("luacheck not found (paru -S luacheck)")
+    r = subprocess.run(["luacheck", "--formatter", "plain", "--no-color", "--codes", str(mod)],
+                       capture_output=True, text=True, cwd=WORKSPACE)
+    if r.returncode >= 3:  # 3: could not read a file, 4: luacheck itself failed
+        sys.exit(f"luacheck failed on {mod.name}: {r.stderr.strip() or r.stdout.strip()}")
+    return [line for line in r.stdout.splitlines() if line.strip()]
+
+
+def check(mod: Path) -> int:
+    files = lua_files(mod)
+    findings = []
+    if (mod / "disable.it").exists():
+        findings.append(f"{mod / 'disable.it'}: present, so the game skips this mod")
+    findings += syntax(files)
+    if not findings:  # scope findings on a file that does not parse are noise
+        findings += scope(mod)
+    for line in findings:
+        print(line.replace(str(WORKSPACE) + "/", ""))
+    if findings:
+        print(f"{mod.name}: {len(findings)} finding{'s' if len(findings) > 1 else ''}")
+    else:
+        print(f"{mod.name}: ok ({len(files)} files)")
+    return len(findings)
+
+
+def main() -> None:
+    total = sum(check(mod) for mod in mods_from(sys.argv[1:]))
+    sys.exit(1 if total else 0)
+
+
+if __name__ == "__main__":
+    main()

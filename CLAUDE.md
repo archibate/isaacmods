@@ -24,12 +24,12 @@ mod's source. Open this directory as the editor root so the shared `.luarc.json`
 
 ## Working here
 
-- Runtime is **Lua 5.3**; `luac -p main.lua` catches syntax errors, not logic bugs.
-- `luacheck <mod folder>` from this directory flags every bare name that is not a known
-  global: a typo, a local that leaked out of scope, or a function used above where it is
-  defined — a crash `luac -p` cannot see. Run it after every edit, before asking anyone to
-  play. It takes the game's globals from `.luarc.json`, so a new one goes there; a global
-  a mod itself sets goes into the `writable` set in `.luacheckrc`.
+- Runtime is **Lua 5.3**. `./modcheck <mod folder>` is the static check: syntax, then
+  every bare name that is not a known global (a typo, a local that leaked out of scope, a
+  function used above where it is defined — crashes the game would only show later). Run
+  it after every edit, before asking anyone to play; it prints `ok` or one line per
+  finding. A new game global goes into `.luarc.json`; one a mod itself sets, into
+  `.luacheckrc`.
 - Agents can't see the running game. For runtime bugs: instrument with
   `Isaac.DebugString`, have the user run the reproduction, read `log.txt` yourself, fix
   from the data, then remove the instrument. See the Console Repro Contract below.
@@ -138,6 +138,7 @@ instruments before the fix is called done.
 
 ## Also here
 
+- `modcheck` — the static check for a mod: syntax plus luacheck's scope check, one line per finding.
 - `isaac-spinfix/` — patch for Rep+'s render thread pinning a CPU core under Wine.
 - `steamcomments` — fetch a mod's workshop comments from CLI (folder name or workshop id), no login needed.
 - `moduploader` — launch Isaac's ModUploader to publish a mod release to the workshop (requires user GUI clicks).
