@@ -161,9 +161,8 @@ return function(deps)
     end
 
     function M.pre_secret_room()
-      local door = nil
       for i =0, 7 do
-        door = M.room:GetDoor(i)
+        local door = M.room:GetDoor(i)
         if door then
           local id = door.TargetRoomIndex
           if door.Desc.Variant == 8 then
@@ -183,9 +182,8 @@ return function(deps)
     end
 
     function M.pre_secret_curse_room()
-      local door = nil
       for i =0, 7 do
-        door = M.room:GetDoor(i)
+        local door = M.room:GetDoor(i)
         if door then
           local id = door.TargetRoomIndex
           if door.Desc.Variant == 8 then

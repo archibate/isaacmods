@@ -6,9 +6,8 @@ return function(deps)
     local M = {}
 
     function M.check_room_open()
-        local door = nil
         for i =0, 7 do
-          door = floor.room:GetDoor(i)
+          local door = floor.room:GetDoor(i)
           if door then
             if door:IsOpen() then
               return true
@@ -211,7 +210,6 @@ return function(deps)
                   and floor.linked(rd.SafeGridIndex, trd.SafeGridIndex)))
           end)
         end
-        return true
     end
 
     --is this curse-room door free? Isaac's Heart / Tooth and Nail take the hit.

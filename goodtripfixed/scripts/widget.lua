@@ -159,13 +159,11 @@ return function(deps)
         mmp_rbpos_ = Vector(rbroom.X * 8, rbroom.Y * 7) * mmsc
         mmp_pos0 = mmp_ltpos - mmp_ltpos_
         mmp_rbpos = mmp_pos0 + mmp_rbpos_
-        if M.mmp_ctrl then
-          if M.mmp_1step_mgid == -2 then
-          else
-            local gx = floor.crsid % 13
-            local gy = (floor.crsid - gx)/ 13
-            mmp_ctrl_pos = mmp_pos0 + Vector(gx * 8 + 6, gy * 7 + 5) * mmsc
-          end
+        --the cursor follows the current room, unless a one-step move has just placed it
+        if M.mmp_ctrl and M.mmp_1step_mgid ~= -2 then
+          local gx = floor.crsid % 13
+          local gy = (floor.crsid - gx)/ 13
+          mmp_ctrl_pos = mmp_pos0 + Vector(gx * 8 + 6, gy * 7 + 5) * mmsc
         end
         for i = 0, 12 do
           for j = 0, 12 do
@@ -415,7 +413,7 @@ return function(deps)
             end
           end
         end
-        local checkid = nil
+        local checkid
         if M.mmp_ctrl then
           checkid = M.get_pos_grid_index_mmp(mmp_ctrl_pos)
         else
