@@ -36,7 +36,7 @@ return function(deps)
         { "Fairness", "FairTripPath", "Only allow teleport to rooms reachable through cleared rooms" },
         { "Fairness", "FairTripTime", "Fairly increase game time according to player move speed and distance" },
         { "Fairness", "FollowCurseOfLost", "Disable GoodTrip on curse of lost" },
-        { "Fairness", "LandAtDoor", "Arrive standing at the exact door a walk would have come in by" },
+        { "Fairness", "ArriveAtDoor", "Arrive standing at the exact door a walk would have come in by. A far trip into a room bigger than the screen passes through the room before it, which shows for a moment" },
 
         { "Shortcuts", "LastRoomShortcut", "Allow teleport back to last room via TAB + Z" },
         { "Shortcuts", "FastRestartEnable", "Allow restarting the run quickly via TAB + R" },
@@ -334,7 +334,7 @@ return function(deps)
             { "^ShowSpecialIcons:", "显示特殊房间图标:" },
             { "^DangerCautionCompat:", "危险房间提示联动:" },
             { "^TeleportAnimation:", "传送动画:" },
-            { "^LandAtDoor:", "传送后站在门口:" },
+            { "^ArriveAtDoor:", "传送后站在门口:" },
             { "^FastTransition:", "更快的过场:" },
             { "^FasterCursorMove:", "光标整格移动:" },
             { "^IgnoreMovementKeys:", "走路时不打断瞄准:" },

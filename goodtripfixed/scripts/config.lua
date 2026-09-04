@@ -10,7 +10,7 @@ return function(deps)
         FastRestartEnable = true,
         FollowCurseOfLost = true,
         TeleportAnimation = false,
-        LandAtDoor = true,
+        ArriveAtDoor = false,
         QuicklyOneRoomMove = false,
         AllowNeighborRoom = true,
         AllowAnyRoom = false,
@@ -98,6 +98,9 @@ return function(deps)
             for k, v in pairs(saved) do
                 cfg[k] = v
             end
+            --the door landing shipped on by default under this name, so every save
+            --holds it on; it came back off under ArriveAtDoor, and the old key goes
+            cfg.LandAtDoor = nil
             --one-shot migration: FairTripTime was inert unless the retired
             --MinimapAPICompat switch was on, yet old saves store it true
             if not saved.FairTripMigrated then
