@@ -250,8 +250,9 @@ return function(deps)
         return not (swept[a] or swept[b])
     end
 
-    --the target cell a walk from `from` would step into. Read off the grid, not the
-    --door sweep, so a room nobody has been inside yet answers too
+    --the target cell a walk from `from` would step into, and the grid step taken
+    --into it (-13 up, 13 down, -1 left, 1 right). Read off the grid, not the door
+    --sweep, so a room nobody has been inside yet answers too
     function M.touching_cell(from, to)
         local src, dst = M.grid_room[from], M.grid_room[to]
         if not (src and dst) then return nil end
@@ -261,7 +262,7 @@ return function(deps)
             for _, step in ipairs({ -13, 13, -1, 1 }) do
               if not ((step == -1 and col == 0) or (step == 1 and col == 12)) then --column guard
                 local nd = M.grid_room[cell + step]
-                if nd and nd.ListIndex == dst.ListIndex then return cell + step end
+                if nd and nd.ListIndex == dst.ListIndex then return cell + step, step end
               end
             end
           end

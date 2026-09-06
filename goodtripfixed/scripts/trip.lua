@@ -174,17 +174,16 @@ return function(deps)
         tele_door_slot = -1
         local arrive = gid --the cell handed over; see rules.landing_route
         if cfg.ArriveAtDoor then
-          local cell, walked = rules.landing_route(here, there)
+          local cell, walked, slot = rules.landing_route(here, there)
           arrive = cell or gid
+          tele_door_slot = slot
           --a room bigger than the screen, reached from further than next door, needs
           --the wall chosen too, and the wall comes from the room the trip starts in.
           --The room hopped into is on screen until the fade, which is why this is
           --off by default: the game shows it for a moment before the transition
           if walked and trd and trd.Data.Shape >= RoomShape.ROOMSHAPE_1x2 then
             Game():ChangeRoom(walked, -1)
-            here = walked
           end
-          tele_door_slot = rules.landing_slot(here, there)
         end
         if gt.debug then
           Game():ChangeRoom(arrive,-1)

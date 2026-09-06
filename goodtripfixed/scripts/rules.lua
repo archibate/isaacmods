@@ -92,10 +92,11 @@ return function(deps)
         return reach
     end
 
-    --which door of the target room to land at: the one facing the room a walk would
-    --have come from. The game ignores Direction (measured twice) and picks the wall
-    --from the two grid indices; only the cell handed over and the room left from
-    --steer it, see landing_route.
+    --the game's own landing ignores Direction (measured twice): it takes the wall of
+    --the cell handed over that faces the room left from, by the axis with the larger
+    --grid distance (a tie goes to the row), whatever door is there, an unbombed
+    --secret room's included, and with no door on that wall the lowest slot. Right
+    --only when the walk was straight; the landing below aims at the walk's door.
     --route_parent: the step before the target on the shortest walk through walked rooms
     function M.route_parent(from, to)
         local parent = {[from] = from}
@@ -121,50 +122,29 @@ return function(deps)
         return p ~= to and p or nil
     end
 
-    function M.landing_slot(from, to)
-        local link = floor.door_graph()
-        local slots = link[to]
-        if not slots then return -1 end
-        if type(slots[from]) == "number" then --neighbours: the door between them
-          return slots[from]
-        end
-        local walked = M.route_parent(from, to)
-        if walked and type(slots[walked]) == "number" then
-          return slots[walked]
-        end
-        --no route to trace: fall back on the side the room being left lies on
-        local function side(d, neg, pos)
-          if d < 0 then return neg elseif d > 0 then return pos end
-        end
-        local dcol = from % 13 - to % 13
-        local drow = (from - from % 13) / 13 - (to - to % 13) / 13
-        local across, along = side(dcol, 0, 2), side(drow, 1, 3)
-        if math.abs(drow) > math.abs(dcol) then across, along = along, across end
-        --a big room has two doors to a side, 4-7 repeating 0-3; either is that side
-        local function on_side(want)
-          local best
-          for _, s in pairs(slots) do
-            if type(s) == "number" and (want == nil or s % 4 == want)
-                and (best == nil or s < best) then
-              best = s
-            end
-          end
-          return best
-        end
-        return (across and on_side(across)) or (along and on_side(along))
-          or on_side(nil) or -1
-    end
-
-    --the cell to hand the transition, and the room to leave from to make it stick.
-    --The game reads the cell to pick among the doors on one wall, and the wall from
-    --the room the trip starts in; so next door the cell is enough, further off the
-    --trip must also start from the room the walk would have come from
+    --the cell to hand the transition, the room to leave from to make it stick, and
+    --the door slot to land at. The game reads the cell to pick among the doors on
+    --one wall, and the wall from the room the trip starts in; so next door the
+    --cell is enough, further off the trip must also start from the room the walk
+    --would have come from. The slot comes off the grid, never the door sweep, so a
+    --room nobody has stood in yet has one too: the side stepped in by names the
+    --wall, and which of a big room's two doors on that wall it is follows from the
+    --entered cell's row (left and right walls) or column (top and bottom) within
+    --the room, which is how the game numbers them for every shape, L included.
+    --No route to trace: no slot, and the game's own landing stands
     function M.landing_route(from, to)
-        local cell = floor.touching_cell(from, to)
-        if cell then return cell, nil end
-        local walked = M.route_parent(from, to)
-        if not walked then return nil, nil end
-        return floor.touching_cell(walked, to), walked
+        local cell, step = floor.touching_cell(from, to)
+        local walked = nil
+        if not cell then
+          walked = M.route_parent(from, to)
+          if not walked then return nil, nil, -1 end
+          cell, step = floor.touching_cell(walked, to)
+          if not cell then return nil, walked, -1 end
+        end
+        local wall = ({ [1] = 0, [13] = 1, [-1] = 2, [-13] = 3 })[step]
+        local top = floor.grid_room[to].GridIndex
+        local second = wall % 2 == 0 and (cell - top) // 13 or (cell - top) % 13
+        return cell, walked, wall + 4 * second
     end
 
     function M.check_teleble(gid)
