@@ -30,9 +30,10 @@ mod's source. Open this directory as the editor root so the shared `.luarc.json`
   it after every edit, before asking anyone to play; it prints `ok` or one line per
   finding. A new game global goes into `.luarc.json`; one a mod itself sets, into
   `.luacheckrc`.
-- Agents can't see the running game. For runtime bugs: instrument with
-  `Isaac.DebugString`, have the user run the reproduction, read `log.txt` yourself, fix
-  from the data, then remove the instrument. See the Console Repro Contract below.
+- Agents can't see the running game on the user's screen. For runtime bugs: instrument
+  with `Isaac.DebugString`, run the reproduction (yourself through `isaacdesk`, or ask
+  the user), read `log.txt` yourself, fix from the data, then remove the instrument. See
+  the Console Repro Contract below.
 - Map/teleport code carries hand-tuned pixel offsets that differ across game versions and
   in mirror world — measure in-game, don't guess.
 - Verify game mechanics against WebSearch before matching them in code.
@@ -60,8 +61,12 @@ with the user.
 
 Reproductions run through `devrepro/`, not through copy-paste. Write the command list
 into the `STEPS` table of `devrepro/main.lua`, put anything the user must do by hand
-into `HINT`, and ask them to press **F1**. The driver reloads itself first, so the list
-that runs is always the one just written.
+into `HINT`, and press **F1**: `./isaacdesk start` puts the game on the agent's own
+desktop and `./isaacdesk key F1` presses it there, so a run needs nobody at the real
+screen (the game must not be running on the user's screen at the same time — one Wine
+prefix, one save). Only when the run needs a hand the driver cannot give, ask the user
+to press F1 on their own game. The driver reloads itself first, so the list that runs
+is always the one just written.
 
 ```lua
 local STEPS = {
@@ -142,3 +147,4 @@ instruments before the fix is called done.
 - `isaac-spinfix/` — patch for Rep+'s render thread pinning a CPU core under Wine.
 - `steamcomments` — fetch a mod's workshop comments from CLI (folder name or workshop id), no login needed.
 - `moduploader` — launch Isaac's ModUploader to publish a mod release to the workshop (requires user GUI clicks).
+- `isaacdesk` — run the game on the agent's Xvfb desktop (`start`, `key F1`, `stop`), so devrepro rounds run without the user; software-rendered, full speed, several cores; further observation and action goes to `cu` MCP.

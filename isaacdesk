@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Run Isaac on the agent's own desktop (the Xvfb :99 that the `cu` tools drive),
+# so a repro round needs nobody at the real screen. The game is started the way
+# Steam starts it — the sniper runtime around Proton around the REPENTOGON
+# launcher — with a minimal environment built here, never copied from a running
+# process (the shell's exported secrets would come along).
+#
+#   ./isaacdesk start     launch, press the launcher's button, size the window
+#   ./isaacdesk key F1    one held keypress to the game (a tap is too short for it)
+#   ./isaacdesk stop      close the game window
+#
+# One Wine prefix serves both desktops, so the game must not be running on the
+# real one: a leftover REPENTOGON launcher window there blocks this launch until
+# it is closed. Rendering is software (llvmpipe, several cores) but full speed.
+set -euo pipefail
+
+export DISPLAY="${ISAACDESK_DISPLAY:-:99}"
+STEAM="$HOME/.local/share/Steam"
+ISAAC="$STEAM/steamapps/common/The Binding of Isaac Rebirth"
+PROTON="$STEAM/steamapps/common/${ISAACDESK_PROTON:-Proton 9.0 (Beta)}"
+RUNTIME="$STEAM/steamapps/common/SteamLinuxRuntime_sniper"
+TITLE="Binding of Isaac"
+
+game_window() { xdotool search --onlyvisible --name "$TITLE" 2>/dev/null | head -n 1; }
+launcher_window() { xdotool search --onlyvisible --name "REPENTOGON Launcher" 2>/dev/null | head -n 1; }
+
+# the Windows-side processes carry Z:\ paths; the Linux wrappers around them
+# mention the same exe names, so the anchor keeps them out
+GAME_PROC='^Z:.*isaac-ng\.exe'
+LAUNCHER_PROC='^Z:.*REPENTOGONLauncher\.exe'
+
+launch() {
+	if pgrep -f "$GAME_PROC" >/dev/null; then
+		echo "isaac-ng.exe is already running (on some desktop); stop it first" >&2
+		exit 1
+	fi
+	if pgrep -f "$LAUNCHER_PROC" >/dev/null; then
+		echo "a REPENTOGON launcher is still open, which holds the Wine prefix; close it first (./isaacdesk stop closes this desktop's)" >&2
+		exit 1
+	fi
+	env -i \
+		HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin" USER="$USER" LANG="${LANG:-C.UTF-8}" \
+		XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+		DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}" \
+		DISPLAY="$DISPLAY" \
+		SteamEnv=1 SteamAppId=250900 SteamGameId=250900 SteamOverlayGameId=250900 \
+		STEAM_COMPAT_APP_ID=250900 STEAM_COMPAT_PROTON=1 STEAM_COMPAT_FLAGS=search-cwd \
+		STEAM_COMPAT_CLIENT_INSTALL_PATH="$STEAM" \
+		STEAM_COMPAT_DATA_PATH="$STEAM/steamapps/compatdata/250900" \
+		STEAM_COMPAT_INSTALL_PATH="$ISAAC" \
+		STEAM_COMPAT_LIBRARY_PATHS="$STEAM/steamapps" \
+		STEAM_COMPAT_SHADER_PATH="$STEAM/steamapps/shadercache/250900" \
+		STEAM_COMPAT_TOOL_PATHS="$PROTON:$RUNTIME" \
+		STEAM_COMPAT_MOUNTS="$STEAM/steamapps/common/Steamworks Shared:$PROTON:$RUNTIME" \
+		PROTON_CRASH_REPORT_DIR=/tmp/proton_crashreports \
+		setsid -f "$RUNTIME/_v2-entry-point" --verb=waitforexitandrun -- \
+		"$PROTON/proton" waitforexitandrun \
+		"$ISAAC/REPENTOGONLauncher/REPENTOGONLauncher.exe" >/tmp/isaacdesk.log 2>&1
+}
+
+start() {
+	local w="" geo="" g=""
+	w=$(launcher_window) || true
+	[[ -n "$w" ]] || launch
+	echo "waiting for the REPENTOGON launcher..." >&2
+	# The launcher shows a short-lived window of the same name first, then the
+	# real one, which grows once laid out (479 tall; about 314 before). So every
+	# pass looks the window up afresh, asks it for its geometry, and presses the
+	# wide "Launch game" button along its bottom only once it has its full
+	# height; the press is repeated until the game window shows
+	local deadline=$((SECONDS + 240))
+	while ((SECONDS < deadline)); do
+		g=$(game_window) || true
+		[[ -n "$g" ]] && break
+		w=$(launcher_window) || true
+		if [[ -n "$w" ]] && geo=$(xdotool getwindowgeometry --shell "$w" 2>/dev/null); then
+			eval "$geo"
+			if ((HEIGHT > 400)); then
+				echo "pressing the launcher's button..." >&2
+				xdotool mousemove $((X + WIDTH / 2)) $((Y + HEIGHT - 34)) sleep 0.3 click 1
+				for _ in $(seq 1 15); do
+					g=$(game_window) || true
+					[[ -n "$g" ]] && break
+					sleep 2
+				done
+				[[ -n "$g" ]] && break
+				continue
+			fi
+		fi
+		sleep 2
+	done
+	[[ -n "$g" ]] || { echo "no game window after 240 s; see /tmp/isaacdesk.log" >&2; exit 1; }
+	sleep 5
+	# options.ini's window size is taller than this desktop; the game letterboxes any size
+	xdotool windowmove "$g" 0 0 windowsize "$g" 1440 810 windowactivate "$g"
+	echo "game up on $DISPLAY; title screen takes a while under software rendering" >&2
+}
+
+key() {
+	local g
+	g=$(game_window) && [[ -n "$g" ]] || { echo "no game window on $DISPLAY" >&2; exit 1; }
+	xdotool windowactivate --sync "$g"
+	xdotool keydown "$1"
+	sleep 0.25
+	xdotool keyup "$1"
+}
+
+# the launcher outlives the game and keeps the Wine prefix busy, so it goes too
+stop() {
+	local g
+	if g=$(game_window) && [[ -n "$g" ]]; then
+		wmctrl -i -c "$g"
+		for _ in $(seq 1 15); do
+			pgrep -f "$GAME_PROC" >/dev/null || break
+			sleep 2
+		done
+	fi
+	pkill -f "$LAUNCHER_PROC" || true
+}
+
+case "${1:-}" in
+start) start ;;
+key) key "${2:?key name, e.g. F1}" ;;
+stop) stop ;;
+*) sed -n '2,13p' "$0" >&2; exit 2 ;;
+esac
