@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 147
+local REV = 148
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -36,9 +36,9 @@ local function log(fmt, ...)
     Isaac.DebugString(string.format("[DR%d t%d r%d] " .. fmt, REV, tick, rframe, ...))
 end
 
--- the question, 神魔蜀黍's: on Rep+ the active item's charge bar covers the
--- predictor icon. The run holds Metronome and stops; the answer is the screen,
--- with the held item and its charge logged so the shot can be trusted
+-- the question, 神魔蜀黍's: on Rep+ the HUD paints over the predictor icon.
+-- Each run holds Metronome and stops; the answer is the screen, with the held
+-- item and its charge logged so the shot can be trusted
 local function describe_active(tag)
     local p = Isaac.GetPlayer(0)
     local active = p:GetActiveItem(ActiveSlot.SLOT_PRIMARY)
@@ -58,10 +58,9 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the fix under test: the icon moved under the charge bar and hearts. Four
--- corners in one run, each held eight seconds for a shot, the banner naming it:
--- Bethany's book backdrop, a Schoolbag second slot, two rows of hearts, and
--- Jacob with Esau's mirrored corner
+-- the fix under test: the icon moved under the charge bar and hearts. This
+-- corner: the sibling IBS predictor draws its poop bar in the same region, so
+-- both mods on at once, held for a shot with the banner naming it
 local function stage(name)
     return function()
         describe_active("STAGE " .. name)
@@ -71,18 +70,13 @@ end
 
 local STEPS = {
     "luamod metronome_predictor",
-    "restart 19", 10, -- Jacob
-    "giveitem c488", 10,
-    function()
-        local esau = Isaac.GetPlayer(0):GetOtherTwin()
-        esau:AddCollectible(CollectibleType.COLLECTIBLE_METRONOME)
-        esau:AddMaxHearts(18) -- two full rows on his side too
-        esau:AddHearts(24)
-    end, 20,
-    stage("D: Jacob and Esau, Esau at twelve hearts"), 240,
+    "restart 0", 10,
+    "giveitem c725", 10, -- IBS
+    "giveitem c488", 20, -- Metronome
+    stage("E: IBS and Metronome together"), 240,
 }
 
-local HINT = "Jacob and Esau both holding Metronome; the shots are the answer"
+local HINT = "IBS and Metronome together; the shot is the answer"
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything
