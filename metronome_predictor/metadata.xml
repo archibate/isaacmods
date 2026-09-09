@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+    <name>Predicable Metronome and Dead Sea Scrolls</name>
+    <directory>metronome_predictor</directory>
+    <id>3095155110</id>
+    <description>Annoyed getting D4 or Magic Skin by accident when playing Metronome? Annoyed always triggering Teleport when playing Dead Sea Scrolls in Boss Rush? This mod helps you visualize what's next in Metronome and Dead Sea Scrolls!
+- Adds a little icon in the right-bottom of your current holding active item.
+- The icon indicates the next item effect triggered by Metronome or Dead Sea Scrools.
+- Only show icon when your current active item is Metronome or Dead Sea Scrolls.
+- See also my other cool mod [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3072898521]Predicable IBS[/url].
+What are the other annoying items you wish to be predicable in this game? Let me know in the comments below!
+</description>
+    <version>1.1</version>
+    <visibility>Public</visibility>
+    <tag id="Items"/>
+    <tag id="Active Items"/>
+    <tag id="Tweaks"/>
+    <tag id="Graphics"/>
+</metadata>
