@@ -9,6 +9,9 @@
 #   ./isaacdesk key F1    one held keypress to the game (a tap is too short for it)
 #   ./isaacdesk stop      close the game window
 #
+# ISAACDESK_VANILLA=1 ./isaacdesk start runs the plain isaac-ng.exe instead, no
+# REPENTOGON and no launcher: what a player without the extension sees.
+#
 # One Wine prefix serves both desktops, so the game must not be running on the
 # real one: a leftover REPENTOGON launcher window there blocks this launch until
 # it is closed. Rendering is software (llvmpipe, several cores) but full speed.
@@ -29,6 +32,9 @@ launcher_window() { xdotool search --onlyvisible --name "REPENTOGON Launcher" 2>
 GAME_PROC='^Z:.*isaac-ng\.exe'
 LAUNCHER_PROC='^Z:.*REPENTOGONLauncher\.exe'
 
+EXE="$ISAAC/REPENTOGONLauncher/REPENTOGONLauncher.exe"
+[[ -n "${ISAACDESK_VANILLA:-}" ]] && EXE="$ISAAC/isaac-ng.exe"
+
 launch() {
 	if pgrep -f "$GAME_PROC" >/dev/null; then
 		echo "isaac-ng.exe is already running (on some desktop); stop it first" >&2
@@ -38,6 +44,8 @@ launch() {
 		echo "a REPENTOGON launcher is still open, which holds the Wine prefix; close it first (./isaacdesk stop closes this desktop's)" >&2
 		exit 1
 	fi
+	# the game reads mods/ and writes savedatapath.txt under its working directory
+	cd "$ISAAC"
 	env -i \
 		HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin" USER="$USER" LANG="${LANG:-C.UTF-8}" \
 		XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
@@ -55,13 +63,33 @@ launch() {
 		PROTON_CRASH_REPORT_DIR=/tmp/proton_crashreports \
 		setsid -f "$RUNTIME/_v2-entry-point" --verb=waitforexitandrun -- \
 		"$PROTON/proton" waitforexitandrun \
-		"$ISAAC/REPENTOGONLauncher/REPENTOGONLauncher.exe" >/tmp/isaacdesk.log 2>&1
+		"$EXE" >/tmp/isaacdesk.log 2>&1
 }
 
 start() {
 	local w="" geo="" g=""
 	w=$(launcher_window) || true
 	[[ -n "$w" ]] || launch
+	if [[ -n "${ISAACDESK_VANILLA:-}" ]]; then
+		echo "waiting for the vanilla game window..." >&2
+		# a short-lived first window precedes the real one, so the one found has
+		# to still be there five seconds later
+		local deadline=$((SECONDS + 240)) g2=""
+		while ((SECONDS < deadline)); do
+			g=$(game_window) || true
+			if [[ -n "$g" ]]; then
+				sleep 5
+				g2=$(game_window) || true
+				[[ "$g2" == "$g" ]] && break
+			fi
+			g=""
+			sleep 2
+		done
+		[[ -n "$g" ]] || { echo "no game window after 240 s; see /tmp/isaacdesk.log" >&2; exit 1; }
+		xdotool windowmove "$g" 0 0 windowsize "$g" 1440 810 windowactivate "$g"
+		echo "vanilla game up on $DISPLAY" >&2
+		return
+	fi
 	echo "waiting for the REPENTOGON launcher..." >&2
 	# The launcher shows a short-lived window of the same name first, then the
 	# real one, which grows once laid out (479 tall; about 314 before). So every
