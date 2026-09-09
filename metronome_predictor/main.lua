@@ -97,12 +97,14 @@ local function renderPredictUI(player, pos)
     end
 end
 
--- Rep+ paints the HUD over anything a mod draws, so the icon cannot sit on the
--- slot itself any more: the item, its charge bar and, for Bethany's or Judas's
--- book, the book backdrop all cover it there. It goes just under the charge bar
--- and the hearts, right of the counters: the one place near the slot that stays
--- clear of the second slot, two rows of hearts and the counters at every HUD
--- offset. Measured with the offset option at 1; the HUD slides (20, 12) per unit.
+-- Repentance draws a mod's render over the HUD, so there the icon sits on the
+-- active item's bottom-right corner, as shipped in 1.1. Rep+ paints the HUD over
+-- anything a mod draws, so there the icon cannot sit on the slot at all: the
+-- item, its charge bar and, for Bethany's or Judas's book, the book backdrop all
+-- cover it. It goes just under the charge bar and the hearts, right of the
+-- counters: the one place near the slot that stays clear of the second slot, two
+-- rows of hearts and the counters at every HUD offset. Measured with the offset
+-- option at 1; the HUD slides (20, 12) per unit.
 local ICON_AT_FULL_OFFSET = Vector(60, 48)
 -- Esau's HUD hangs off the bottom-right corner, hearts left of the charge bar and
 -- extra heart rows growing downward, so his icon sits just above the bar
@@ -112,12 +114,21 @@ local function hudShift()
     return Vector(20, 12) * (Options.HUDOffset - 1)
 end
 
+-- where the icon goes for the main player and for Esau
+local function iconPositions()
+    if REPENTANCE_PLUS then
+        local corner = Vector(Isaac.GetScreenWidth(), Isaac.GetScreenHeight())
+        return ICON_AT_FULL_OFFSET + hudShift(), corner - ESAU_ICON_FROM_CORNER - hudShift()
+    end
+    return Vector(45 - 6, 35 - 6), Game():GetRoom():GetRenderSurfaceTopLeft() * 2 + Vector(442, 286) - Vector(50, 50)
+end
+
 mod:AddPriorityCallback(ModCallbacks.MC_POST_RENDER, CallbackPriority.EARLY, function (_)
     local player = Isaac.GetPlayer(0)
-    renderPredictUI(player, ICON_AT_FULL_OFFSET + hudShift())
+    local pos, esauPos = iconPositions()
+    renderPredictUI(player, pos)
     if player:GetPlayerType() == PlayerType.PLAYER_JACOB then
-        local corner = Vector(Isaac.GetScreenWidth(), Isaac.GetScreenHeight())
-        renderPredictUI(player:GetOtherTwin(), corner - ESAU_ICON_FROM_CORNER - hudShift())
+        renderPredictUI(player:GetOtherTwin(), esauPos)
     end
 end)
 
