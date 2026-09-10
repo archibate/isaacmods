@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 148
+local REV = 149
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -58,9 +58,9 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the fix under test: the icon moved under the charge bar and hearts. This
--- corner: the sibling IBS predictor draws its poop bar in the same region, so
--- both mods on at once, held for a shot with the banner naming it
+-- the feature under test: a Mod Config Menu switch per predicted item. The
+-- Metronome switch is flipped through the menu's own option table, the way the
+-- menu would, and put back at the end; each stage is held for a shot
 local function stage(name)
     return function()
         describe_active("STAGE " .. name)
@@ -68,15 +68,26 @@ local function stage(name)
     end
 end
 
+local function setSwitch(index, on)
+    local id = ModConfigMenu.GetCategoryIDByName("Predicable Metronome")
+    local opt = ModConfigMenu.MenuData[id].Subcategories[1].Options[index]
+    opt.OnChange(on)
+    log("switch %d (%s) := %s, menu reads %s", index, opt.Display(), tostring(on), tostring(opt.CurrentSetting()))
+end
+
 local STEPS = {
     "luamod metronome_predictor",
     "restart 0", 10,
-    "giveitem c725", 10, -- IBS
     "giveitem c488", 20, -- Metronome
-    stage("E: IBS and Metronome together"), 240,
+    stage("F: both switches on, Metronome held"), 240,
+    function() setSwitch(1, false) end,
+    stage("G: Metronome switch off, icon should be gone"), 240,
+    "giveitem c124", 20, -- Dead Sea Scrolls
+    stage("H: Dead Sea Scrolls held, its switch still on"), 240,
+    function() setSwitch(1, true) end,
 }
 
-local HINT = "IBS and Metronome together; the shot is the answer"
+local HINT = "three stages: icon, no icon, icon again; the shots are the answer"
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything

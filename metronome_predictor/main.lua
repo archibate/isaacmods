@@ -61,10 +61,18 @@ local activePredictor = {
     [CollectibleType.COLLECTIBLE_DEAD_SEA_SCROLLS] = popDeadSeaScrollsNext,
 }
 
+-- one switch per predicted item, both on: whoever wants only one of them flips
+-- the other off in Mod Config Menu
+local config = { Metronome = true, DeadSeaScrolls = true }
+local configKey = {
+    [CollectibleType.COLLECTIBLE_METRONOME] = "Metronome",
+    [CollectibleType.COLLECTIBLE_DEAD_SEA_SCROLLS] = "DeadSeaScrolls",
+}
+
 local function renderPredictUI(player, pos)
     local active = player:GetActiveItem(ActiveSlot.SLOT_PRIMARY)
     local predFunc = activePredictor[active]
-    if predFunc then
+    if predFunc and config[configKey[active]] then
         if not cacheSprites[player.Index] then
             cacheSprites[player.Index] = {
                 sprite = Sprite(),
@@ -131,6 +139,69 @@ mod:AddPriorityCallback(ModCallbacks.MC_POST_RENDER, CallbackPriority.EARLY, fun
         renderPredictUI(player:GetOtherTwin(), esauPos)
     end
 end)
+
+if ModConfigMenu then
+    local CAT = "Predicable Metronome"
+    local json = require("json")
+    local saved = nil
+    -- saved on every change, not only at run exit, so a toggle survives a
+    -- luamod reload and a crash
+    local function saveConfig()
+        local dat = json.encode(config)
+        if dat ~= saved then
+            saved = dat
+            mod:SaveData(dat)
+        end
+    end
+    local function loadConfig()
+        if not mod:HasData() then return end
+        local dat = mod:LoadData()
+        saved = dat
+        local ok, cfg = pcall(json.decode, dat)
+        if ok and type(cfg) == "table" then
+            for k in pairs(config) do
+                if cfg[k] ~= nil then config[k] = cfg[k] end
+            end
+        end
+    end
+    if ModConfigMenu.GetCategoryIDByName(CAT) ~= nil then
+        ModConfigMenu.RemoveCategory(CAT)
+    end
+    for _, info in ipairs({
+        { "Metronome", "Metronome", "Show the next item Metronome will trigger" },
+        { "DeadSeaScrolls", "Dead Sea Scrolls", "Show the next item Dead Sea Scrolls will trigger" },
+    }) do
+        local key, label, text = info[1], info[2], info[3]
+        ModConfigMenu.AddSetting(CAT, nil, {
+            Type = ModConfigMenu.OptionType.BOOLEAN,
+            CurrentSetting = function() return config[key] end,
+            Display = function() return label .. ": " .. (config[key] and "on" or "off") end,
+            OnChange = function(b)
+                config[key] = b
+                saveConfig()
+            end,
+            Info = { text },
+        })
+    end
+    -- Mod配置菜单（中文版）is the one build that draws UTF-8; it paints over the
+    -- finished English lines, so the keys settings save under never move
+    if ModConfigMenu.i18n == "Chinese" then
+        ModConfigMenu.SetCategoryNameTranslate(CAT, "节拍器预测")
+        ModConfigMenu.TranslateOptionsDisplayWithTable(CAT, nil, {
+            { "^Metronome:", "节拍器:" },
+            { "^Dead Sea Scrolls:", "死海古卷:" },
+            { ": on$", ": 开" },
+            { ": off$", ": 关" },
+        })
+        ModConfigMenu.TranslateOptionsInfoTextWithTable(CAT, nil, {
+            ["Show the next item Metronome will trigger"] = "显示节拍器下一次会触发的道具",
+            ["Show the next item Dead Sea Scrolls will trigger"] = "显示死海古卷下一次会触发的道具",
+        })
+    end
+    loadConfig()
+    mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, loadConfig)
+    mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, saveConfig)
+end
 
 -- local lut = {}
 -- for _ = 1, #deadSeaScrollsList do
