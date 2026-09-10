@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 149
+local REV = 150
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -58,9 +58,8 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the feature under test: a Mod Config Menu switch per predicted item. The
--- Metronome switch is flipped through the menu's own option table, the way the
--- menu would, and put back at the end; each stage is held for a shot
+-- the release gate: the HUD offset option at 0, set in options.ini with the
+-- game closed (the Lua setter is broken), both corners held for a shot
 local function stage(name)
     return function()
         describe_active("STAGE " .. name)
@@ -68,26 +67,18 @@ local function stage(name)
     end
 end
 
-local function setSwitch(index, on)
-    local id = ModConfigMenu.GetCategoryIDByName("Predicable Metronome")
-    local opt = ModConfigMenu.MenuData[id].Subcategories[1].Options[index]
-    opt.OnChange(on)
-    log("switch %d (%s) := %s, menu reads %s", index, opt.Display(), tostring(on), tostring(opt.CurrentSetting()))
-end
-
 local STEPS = {
     "luamod metronome_predictor",
     "restart 0", 10,
     "giveitem c488", 20, -- Metronome
-    stage("F: both switches on, Metronome held"), 240,
-    function() setSwitch(1, false) end,
-    stage("G: Metronome switch off, icon should be gone"), 240,
-    "giveitem c124", 20, -- Dead Sea Scrolls
-    stage("H: Dead Sea Scrolls held, its switch still on"), 240,
-    function() setSwitch(1, true) end,
+    stage("I: Isaac at HUD offset 0"), 240,
+    "restart 19", 10, -- Jacob
+    "giveitem c488", 10,
+    function() Isaac.GetPlayer(0):GetOtherTwin():AddCollectible(CollectibleType.COLLECTIBLE_METRONOME) end, 20,
+    stage("J: Jacob and Esau at HUD offset 0"), 240,
 }
 
-local HINT = "three stages: icon, no icon, icon again; the shots are the answer"
+local HINT = "two corners at HUD offset 0; the shots are the answer"
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything
