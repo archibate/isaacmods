@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 150
+local REV = 151
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -58,27 +58,15 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the release gate: the HUD offset option at 0, set in options.ini with the
--- game closed (the Lua setter is broken), both corners held for a shot
-local function stage(name)
-    return function()
-        describe_active("STAGE " .. name)
-        banner = name
-    end
-end
-
+-- the question, 潇洒的烨's: TAB+R "very laggy", new game "hitches". The restart is
+-- fired from the render callback off a triggered-state read; the log counts fires
+-- and times the run start against a plain console restart
 local STEPS = {
-    "luamod metronome_predictor",
-    "restart 0", 10,
-    "giveitem c488", 20, -- Metronome
-    stage("I: Isaac at HUD offset 0"), 240,
-    "restart 19", 10, -- Jacob
-    "giveitem c488", 10,
-    function() Isaac.GetPlayer(0):GetOtherTwin():AddCollectible(CollectibleType.COLLECTIBLE_METRONOME) end, 20,
-    stage("J: Jacob and Esau at HUD offset 0"), 240,
+    "luamod goodtripfixed",
+    "restart 0", 60, -- one console restart: the baseline cost, exit stamp to start stamp
 }
 
-local HINT = "two corners at HUD offset 0; the shots are the answer"
+local HINT = "now TAB+R from the shell, then hold R; the [GTPROF] log lines carry the timing"
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything
@@ -113,6 +101,7 @@ function mod:onUpdate()
     elseif type(entry) == "function" then
         if entry() then step = step - 1 end -- busy: same entry again next update
     else
+        log("exec %s t %d", entry, Isaac.GetTime())
         Isaac.ExecuteCommand(entry)
     end
 end
