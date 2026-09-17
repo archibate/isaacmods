@@ -99,6 +99,29 @@ local KNIFE_LABELS = {
     [11] = "Tech Sword",
 }
 
+-- A blade riding another's variant is told apart only by its subtype: the knife
+-- Yes Mother? trails is a Mom's Knife in sprite, damage, reach and everything else
+-- the game exposes, measured beside the item's own, which is subtype 0 -- and its
+-- damage was landing on the item's row.
+local KNIFE_SUBTYPES = {
+    [0] = { [3] = "Yes Mother?" },
+}
+
+-- blades measured to land every blow as themselves, so a blow naming only the
+-- player was never one of theirs
+local STRIKES_AS_ITSELF = {
+    ["Yes Mother?"] = true,
+}
+
+local function knifeName(variant, subtype)
+    local bySubtype = KNIFE_SUBTYPES[variant]
+    if bySubtype ~= nil and subtype ~= nil then
+        local named = bySubtype[subtype]
+        if named ~= nil then return named end
+    end
+    return KNIFE_LABELS[variant]
+end
+
 local MELEE_WEAPONS = {
     WeaponType.WEAPON_KNIFE,
     WeaponType.WEAPON_SPIRIT_SWORD,
@@ -409,7 +432,7 @@ local function weaponFromHit(player, extraSource)
     -- a blade of a kind the table does not know still falls back to the weapon
     -- wielded, the same as one that arrives naming itself
     if extraSource.Type == EntityType.ENTITY_KNIFE then
-        local named = KNIFE_LABELS[extraSource.Variant]
+        local named = knifeName(extraSource.Variant, subtype)
         if named ~= nil then return named, nil end
         return nil, heldWeapon(player, MELEE_WEAPONS) or "Melee"
     end
@@ -430,7 +453,9 @@ end
 -- but the game gives each its own knife entity, and the variant parts them.
 local function knifeInHand(player)
     return (soleOwned(player, EntityType.ENTITY_KNIFE, function(knife)
-        return KNIFE_LABELS[knife.Variant]
+        local name = knifeName(knife.Variant, knife.SubType)
+        if STRIKES_AS_ITSELF[name] then return nil end
+        return name
     end))
 end
 
@@ -668,7 +693,8 @@ local function weaponOf(source, flags, amount, victim, extraSource)
         return "Laser", "laserPlain"
     end
     if source.Type == EntityType.ENTITY_KNIFE then
-        local named = KNIFE_LABELS[source.Variant]
+        local subtype = entity ~= nil and entity.SubType or nil
+        local named = knifeName(source.Variant, subtype)
         if named ~= nil then return named, "knifeVariant" end
         return heldWeapon(owner, MELEE_WEAPONS) or "Melee", "knifeHeld"
     end

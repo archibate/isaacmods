@@ -3,3 +3,4 @@
 - A blade that lands a crushing blow keeps its own row — Notched Axe's damage was splitting between its name and a "Crush" row; with two blades of yours out at once only REPENTOGON tells them apart
 - Dark Arts' dash no longer lands on an "Unknown" row: the dash and the snare it drops are each named, the way a bomb's fire stands apart from the bomb
 - The Bean's fart no longer lands on an "Unknown" row or on whatever blade you have out: its blow and the poison it leaves are both named after the fart
+- The knife the Yes Mother? transformation trails keeps its own row instead of sharing Mom's Knife's, and with both knives out each is named
