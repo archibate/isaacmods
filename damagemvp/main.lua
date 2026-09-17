@@ -534,13 +534,13 @@ local function weaponOf(source, flags, amount, victim, extraSource)
     -- the player's own beams and swings carry no weapon of their own
     if source.Type == EntityType.ENTITY_PLAYER then
         local player = entity ~= nil and entity:ToPlayer() or nil
-        if player == nil then return nil end
+        if player == nil then return nil, "noPlayer" end
         -- REPENTOGON hands over the thing that actually landed the blow, and that
         -- settles the hit outright whatever flag it carries -- the axe's swing arrives
         -- crushing, and the crush row below was taking it. Everything after this is
         -- for plain Repentance, where the flags are all there is to read.
         local exact, plain = weaponFromHit(player, extraSource)
-        if exact ~= nil then return exact end
+        if exact ~= nil then return exact, "handed" end
         if plain ~= nil then
             -- handed over, and no table has a name for it. Letting the flags answer
             -- instead would name the wrong weapon, so it stays plain; an unnamed beam
@@ -549,7 +549,7 @@ local function weaponOf(source, flags, amount, victim, extraSource)
                 logPlainLaser(player, amount, "unknown variant " .. tostring(extraSource.Variant),
                     flags, victim)
             end
-            return plain
+            return plain, "handedPlain"
         end
 
         -- the beam is in the room at the instant it lands its hit, so what is in
@@ -560,13 +560,13 @@ local function weaponOf(source, flags, amount, victim, extraSource)
             local beam, kinds = beamInFlight(player)
             if kinds > 0 then
                 logPlainLaser(player, amount, beam or "ambiguous", flags, victim)
-                return beam or "Laser"
+                return beam or "Laser", "beamInFlight"
             end
-            return heldWeapon(player, LASER_WEAPONS) or "Laser"
+            return heldWeapon(player, LASER_WEAPONS) or "Laser", "laserHeld"
         end
         -- walking into enemies -- the Nail, Unicorn Horn, Game Kid -- is not the
         -- character's melee, and the cooldown flag is what tells them apart
-        if flags & DamageFlag.DAMAGE_COUNTDOWN ~= 0 then return "Contact" end
+        if flags & DamageFlag.DAMAGE_COUNTDOWN ~= 0 then return "Contact", "contact" end
         -- a crushing blow claims no weapon at all. The axe's swing is one -- measured,
         -- and the hit hands the axe over where REPENTOGON is there to hand it. Where it
         -- is not, the blade is still out at that moment, so one blade of yours up there
@@ -574,9 +574,9 @@ local function weaponOf(source, flags, amount, victim, extraSource)
         -- than a guess between them.
         if flags & DamageFlag.DAMAGE_CRUSH ~= 0 then
             local blade = knifeInHand(player)
-            if blade ~= nil then return blade end
+            if blade ~= nil then return blade, "crushBlade" end
             logSwing(player, "crush", flags, amount)
-            return "Crush"
+            return "Crush", "crush"
         end
         -- Damage dealt to the whole room for spending or losing health -- Blood
         -- Rights, The Negative, a black heart -- arrives as you carrying only the
@@ -584,47 +584,47 @@ local function weaponOf(source, flags, amount, victim, extraSource)
         -- swing carries no flag at all, so this is not one, and the weapon wielded
         -- must not take it. Which of those items it was, the hit does not say, so
         -- the row is named for what they all are rather than guessed between them.
-        if flags == DamageFlag.DAMAGE_IGNORE_ARMOR then return "Screen Damage" end
+        if flags == DamageFlag.DAMAGE_IGNORE_ARMOR then return "Screen Damage", "screen" end
 
         -- a blast credited to you with no shot behind it -- setting off your own
         -- TNT does this. Not a swing, so the weapon wielded must not take it
-        if flags == DamageFlag.DAMAGE_EXPLOSION then return "Explosion" end
+        if flags == DamageFlag.DAMAGE_EXPLOSION then return "Explosion", "explosion" end
         if flags == (DamageFlag.DAMAGE_EXPLOSION | DamageFlag.DAMAGE_TNT) then
-            return "TNT"
+            return "TNT", "tnt"
         end
 
         -- Nothing in Isaac swings bare-handed, so a hit with no weapon wielded and
         -- nothing of yours swinging is not melee at all. Holy Light's beam arrives
         -- exactly so -- no laser flag, and usually no beam left in the room to ask
         -- -- and there is nothing in the hit that names it.
-        local swing = knifeInHand(player)
-            or dashing(player)
-            or heldWeapon(player, MELEE_WEAPONS)
-            or swingBehind(player)
-            or holyLightInRoom()
-        if swing ~= nil then return swing end
+        local swing, how = knifeInHand(player), "knifeInRoom"
+        if swing == nil then swing, how = dashing(player), "dash" end
+        if swing == nil then swing, how = heldWeapon(player, MELEE_WEAPONS), "heldWeapon" end
+        if swing == nil then swing, how = swingBehind(player), "swingFamiliar" end
+        if swing == nil then swing, how = holyLightInRoom(), "holyLight" end
+        if swing ~= nil then return swing, how end
         logSwing(player, "melee", flags, amount)
-        return "Unknown"
+        return "Unknown", "unknown"
     end
 
     local owner = ownerOf(entity)
-    if owner == nil then return nil end
+    if owner == nil then return nil, "noOwner" end
 
     -- a familiar's doing belongs to the familiar whatever shape it arrives in -- a
     -- tear, a beam, a blast, a trail of creep. This comes first because a familiar
     -- that only lays creep would otherwise never appear on the board at all.
     if source.Type == EntityType.ENTITY_FAMILIAR then
-        return familiarLabel(source.Variant)
+        return familiarLabel(source.Variant), "familiar"
     end
     if source.SpawnerType == EntityType.ENTITY_FAMILIAR then
-        return familiarLabel(source.SpawnerVariant)
+        return familiarLabel(source.SpawnerVariant), "familiar"
     end
     -- and where the hit's own reference names you instead -- which is what Incubus
     -- and Twisted Baby do, their whole damage arriving as your tears -- the shot
     -- still remembers what fired it
     if entity ~= nil and entity.SpawnerEntity ~= nil
         and entity.SpawnerEntity.Type == EntityType.ENTITY_FAMILIAR then
-        return familiarLabel(entity.SpawnerEntity.Variant)
+        return familiarLabel(entity.SpawnerEntity.Variant), "familiar"
     end
 
     -- what a shot leaves behind outlives the shot and is its own hazard: the fire
@@ -634,12 +634,12 @@ local function weaponOf(source, flags, amount, victim, extraSource)
         -- row: Hot Bombs leaves one burning where the bomb went off, and it was
         -- reading as scenery. Only a flame nothing of ours owns stays plain Fire
         if source.Variant == EffectVariant.RED_CANDLE_FLAME then
-            if source.SpawnerType == EntityType.ENTITY_BOMB then return "Bomb Fire" end
-            if source.SpawnerType == EntityType.ENTITY_PLAYER then return "Red Candle" end
-            return "Fire"
+            if source.SpawnerType == EntityType.ENTITY_BOMB then return "Bomb Fire", "flame" end
+            if source.SpawnerType == EntityType.ENTITY_PLAYER then return "Red Candle", "flame" end
+            return "Fire", "flame"
         end
         -- Ghost Pepper and The Candle throw the same blue one
-        if source.Variant == EffectVariant.BLUE_FLAME then return "Blue Candle" end
+        if source.Variant == EffectVariant.BLUE_FLAME then return "Blue Candle", "flame" end
         -- every colour of creep is one hazard on a damage board, and whose it is
         -- cannot be narrowed further: the pool Bob's Bladder leaves where a bomb
         -- went off names the player in every slot it has, bomb nowhere in the
@@ -647,39 +647,41 @@ local function weaponOf(source, flags, amount, victim, extraSource)
         local label = EFFECT_LABELS[source.Variant]
         if label ~= nil then
             logCreep(source)
-            return label
+            return label, "creep"
         end
         local name = EFFECT_NAMES[source.Variant]
-        if name ~= nil then return prettify(name) end
+        if name ~= nil then return prettify(name), "effect" end
     end
     if source.Type == EntityType.ENTITY_BOMB then
-        return bombLabel(entity, source.Variant)
+        return bombLabel(entity, source.Variant), "bomb"
     end
     -- a barrel you put there yourself: the one the room came with has no spawner
     -- and is dropped before reaching here, the same as any other scenery
     if source.Type == EntityType.ENTITY_MOVABLE_TNT then
-        return "TNT"
+        return "TNT", "barrel"
     end
     if source.Type == EntityType.ENTITY_LASER then
         local subtype = entity ~= nil and entity.SubType or nil
         local beam = beamName(source.Variant, subtype)
-        if beam ~= nil then return beam end
+        if beam ~= nil then return beam, "laser" end
         logPlainLaser(owner, amount, "unknown variant " .. source.Variant, flags, victim)
-        return "Laser"
+        return "Laser", "laserPlain"
     end
     if source.Type == EntityType.ENTITY_KNIFE then
-        return KNIFE_LABELS[source.Variant] or heldWeapon(owner, MELEE_WEAPONS) or "Melee"
+        local named = KNIFE_LABELS[source.Variant]
+        if named ~= nil then return named, "knifeVariant" end
+        return heldWeapon(owner, MELEE_WEAPONS) or "Melee", "knifeHeld"
     end
     if source.Type == EntityType.ENTITY_TEAR then
         local label = TEAR_LABELS[source.Variant]
-        if label ~= nil then return label end
+        if label ~= nil then return label, "tearVariant" end
         logPlainTear(source)
-        return "Tears"
+        return "Tears", "tear"
     end
     -- nothing above knew this shape at all; the probe is how it stops being a
     -- surprise on the board and becomes a case to name
     logShape(source, flags)
-    return "Other"
+    return "Other", "other"
 end
 
 local tally = {}
@@ -713,9 +715,155 @@ local function credit(label, damage)
     changed = true
 end
 
+-- damage already on the board that turned out to be someone else's
+local function recredit(from, to, damage)
+    if damage <= 0 or tally[from] == nil then return end
+    tally[from] = tally[from] - damage
+    if tally[from] < 1e-6 then tally[from] = nil end
+    tally[to] = (tally[to] or 0) + damage
+    changed = true
+end
+
+-- A fart -- The Bean's, and every other item's that makes one -- poisons what it
+-- reaches, then hurts it as the player carrying no flag and handing nothing over,
+-- and only then puts its cloud in the room; measured, all inside one call. While
+-- it lands nothing in the room names it, and a blade of yours that happens to be
+-- out -- the one Yes Mother? trails -- was taking the blow. So such blows are held
+-- here, credited to the guess meanwhile, until a cloud of yours turns up and
+-- claims them. Any other blow between them ends the run, since nothing interrupts
+-- a fart's own, and so does the next update.
+local FART = "Fart"
+local unclaimed = {}
+
+local function bareBlow(source, flags, extraSource)
+    return source.Type == EntityType.ENTITY_PLAYER and flags == 0 and extraSource == nil
+end
+
+-- Probe, temporary: The Bean's poison and the Yes Mother? knife. Every hit on
+-- anything, each knife of yours in the room, the items used, the farts made, and
+-- each status as it appears -- removed once both rows are named.
+local PROBE_CAPS = { rawhit = 500, knifekind = 40, useitem = 20, status = 40 }
+local probeCount = {}
+local probeFrame, probeSeq = -1, 0
+local seenKnifeKind = {}
+
+local function probe(kind, line)
+    local count = probeCount[kind] or 0
+    if count >= PROBE_CAPS[kind] then return end
+    probeCount[kind] = count + 1
+    Isaac.DebugString("[DMVP] " .. kind .. " " .. line)
+end
+
+local function tvs(entity)
+    if entity == nil then return "nil" end
+    return entity.Type .. "." .. entity.Variant .. "." .. entity.SubType
+end
+
+local function refText(ref)
+    if ref == nil then return "nil" end
+    local sub = ref.Entity ~= nil and tostring(ref.Entity.SubType) or "?"
+    return ref.Type .. "." .. ref.Variant .. "." .. sub
+end
+
+-- a field the stubs promise may be missing; one bad read must not lose the line
+local function try(fn, ...)
+    local ok, value = pcall(fn, ...)
+    if not ok then return "err" end
+    if math.type(value) == "float" then return string.format("%.2f", value) end
+    return tostring(value)
+end
+
+local function statusText(victim)
+    local data = victim:GetData()
+    return string.format("poison=%s burn=%s knewP=%s pinP=%s pinB=%s last=%s@%s",
+        tostring(victim:HasEntityFlags(EntityFlag.FLAG_POISON)),
+        tostring(victim:HasEntityFlags(EntityFlag.FLAG_BURN)),
+        tostring(data.dmvpPoisoned), tostring(data.dmvpPoisonFrom),
+        tostring(data.dmvpBurnFrom), tostring(data.dmvpHitLabel), tostring(data.dmvpHitFrame))
+end
+
+local function logRawHit(victim, amount, flags, source, extraSource, before, label, branch)
+    local frame = Game():GetFrameCount()
+    if frame ~= probeFrame then probeFrame, probeSeq = frame, 0 end
+    probeSeq = probeSeq + 1
+    local entity = source.Entity
+    probe("rawhit", string.format(
+        "f%d #%d vic=%s src=%s spawner=%d.%d spEnt=%s parent=%s extra=%s flags=0x%X amt=%.2f"
+            .. " | before %s | after %s -> %s [%s]",
+        frame, probeSeq, tvs(victim), refText(source), source.SpawnerType, source.SpawnerVariant,
+        tvs(entity and entity.SpawnerEntity), tvs(entity and entity.Parent), refText(extraSource),
+        flags, amount, tostring(before), statusText(victim), tostring(label), tostring(branch)))
+end
+
+local KNIFE_FIELDS = { "MaxDistance", "PathOffset", "PathFollowSpeed", "Rotation",
+    "RotationOffset", "Scale", "Charge", "CollisionDamage", "Size" }
+
+local function logKnifeKinds()
+    for _, entity in ipairs(Isaac.FindByType(EntityType.ENTITY_KNIFE, -1, -1, false, false)) do
+        local owner = ownerOf(entity)
+        local player = owner ~= nil and owner:ToPlayer() or nil
+        local knife = entity:ToKnife()
+        if player ~= nil and knife ~= nil then
+            local sprite = knife:GetSprite()
+            local key = "hash=" .. GetPtrHash(knife) .. " " .. tvs(knife)
+                .. " file=" .. try(sprite.GetFilename, sprite)
+                .. " parent=" .. tvs(knife.Parent) .. " spEnt=" .. tvs(knife.SpawnerEntity)
+                .. " spawner=" .. knife.SpawnerType .. "." .. knife.SpawnerVariant
+                .. " | truth form=" .. tostring(player:HasPlayerForm(PlayerForm.PLAYERFORM_MOM))
+                .. " item=" .. tostring(player:HasCollectible(CollectibleType.COLLECTIBLE_MOMS_KNIFE))
+                .. " wknife=" .. tostring(player:HasWeaponType(WeaponType.WEAPON_KNIFE))
+            if not seenKnifeKind[key] then
+                seenKnifeKind[key] = true
+                local offset = knife.Position - player.Position
+                local parts = {
+                    "anim=" .. try(sprite.GetAnimation, sprite),
+                    "flying=" .. try(knife.IsFlying, knife),
+                    "dist=" .. try(knife.GetKnifeDistance, knife),
+                    "tflags=" .. try(function() return string.format("%X:%X", knife.TearFlags.h, knife.TearFlags.l) end),
+                    string.format("off=%.1f,%.1f", offset.X, offset.Y),
+                }
+                for _, name in ipairs(KNIFE_FIELDS) do
+                    parts[#parts + 1] = name .. "=" .. try(function() return knife[name] end)
+                end
+                probe("knifekind", string.format("f%d %s | %s", Game():GetFrameCount(), key,
+                    table.concat(parts, " ")))
+            end
+        end
+    end
+end
+
+local function onUseItem(_, item, _, player, useFlags, slot)
+    probe("useitem", string.format("f%d item=%s player=%s flags=%s slot=%s",
+        Game():GetFrameCount(), tostring(item), tvs(player), tostring(useFlags), tostring(slot)))
+end
+
+local function logFartBorn(_, effect)
+    probe("useitem", string.format("f%d fart born %s sp=%s par=%s own=%s claims=%d",
+        Game():GetFrameCount(), tvs(effect), tvs(effect.SpawnerEntity), tvs(effect.Parent),
+        ownerOf(effect) ~= nil and "player" or "none", #unclaimed))
+end
+
+local function logStatus(victim, frame, what, fresh, data)
+    local farts, others = {}, {}
+    for _, effect in ipairs(Isaac.FindByType(EntityType.ENTITY_EFFECT, -1, -1, false, false)) do
+        local entry = string.format("%s age%d sp=%s own=%s d%.0f", tvs(effect), effect.FrameCount,
+            tvs(effect.SpawnerEntity), ownerOf(effect) ~= nil and "player" or "none",
+            effect.Position:Distance(victim.Position))
+        if effect.Variant == EffectVariant.FART then
+            farts[#farts + 1] = entry
+        elseif effect.FrameCount <= 30 and #others < 10 then
+            others[#others + 1] = entry
+        end
+    end
+    probe("status", string.format("f%d %s appears on %s %s last=%s@%s | farts: %s | young: %s",
+        frame, what, tvs(victim), fresh and "fresh" or "orphan", tostring(data.dmvpHitLabel),
+        tostring(data.dmvpHitFrame), table.concat(farts, " ; "), table.concat(others, " ; ")))
+end
+
 -- Whoever hurt an enemy last is not always whoever set it alight. A status is
 -- pinned to an owner the moment it appears and is never re-pinned while it lasts,
--- so a later weapon can never inherit someone else's burn.
+-- so a later weapon can never inherit someone else's burn. True when a poison
+-- appeared just now, which a fart may yet claim.
 local function syncStatus(victim, frame)
     local data = victim:GetData()
     local burning = victim:HasEntityFlags(EntityFlag.FLAG_BURN)
@@ -724,10 +872,18 @@ local function syncStatus(victim, frame)
     local fresh = data.dmvpHitFrame ~= nil and frame - data.dmvpHitFrame <= 1
     local applier = fresh and data.dmvpHitLabel or UNATTRIBUTED
 
-    if burning and not data.dmvpBurning then data.dmvpBurnFrom = applier end
-    if poisoned and not data.dmvpPoisoned then data.dmvpPoisonFrom = applier end
+    if burning and not data.dmvpBurning then
+        data.dmvpBurnFrom = applier
+        pcall(logStatus, victim, frame, "burn", fresh, data)
+    end
+    local poisonAppeared = poisoned and not data.dmvpPoisoned
+    if poisonAppeared then
+        data.dmvpPoisonFrom = applier
+        pcall(logStatus, victim, frame, "poison", fresh, data)
+    end
     data.dmvpBurning = burning
     data.dmvpPoisoned = poisoned
+    return poisonAppeared
 end
 
 -- One shape for every tick -- "<who> (<what>)" -- so the rows read alike instead of
@@ -755,26 +911,37 @@ end
 -- extraSource is REPENTOGON's sixth argument: the beam or blade behind a hit that
 -- names only the player. Nil without REPENTOGON, and nil on hits it does not cover
 function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames, extraSource)
+    local _, before = pcall(statusText, victim)
     if victim:ToPlayer() ~= nil then return nil end
-    if not victim:IsEnemy() then return nil end
+    if not victim:IsEnemy() then
+        pcall(logRawHit, victim, amount, flags, source, extraSource, before, nil, "notEnemy")
+        return nil
+    end
 
     local frame = Game():GetFrameCount()
 
     -- a status set by an earlier hit this frame is already visible here, which is
     -- what keeps its owner from being stolen by a shot that landed alongside it
-    syncStatus(victim, frame)
+    local poisonAppeared = syncStatus(victim, frame)
 
     -- overkill would otherwise credit damage the enemy never had left to lose, and
     -- a corpse still ticking has negative health that would count against us
     local dealt = math.max(0, math.min(amount, victim.HitPoints))
     local data = victim:GetData()
 
+    -- only an unbroken run of bare blows can be one fart's
+    local held = unclaimed
+    unclaimed = {}
+
     if flags & DamageFlag.DAMAGE_POISON_BURN ~= 0 then
-        credit(statusLabel(data, data.dmvpBurning, data.dmvpPoisoned), dealt)
+        local label = statusLabel(data, data.dmvpBurning, data.dmvpPoisoned)
+        pcall(logRawHit, victim, amount, flags, source, extraSource, before, label, "status")
+        credit(label, dealt)
         return nil
     end
 
-    local weapon = weaponOf(source, flags, amount, victim, extraSource)
+    local weapon, branch = weaponOf(source, flags, amount, victim, extraSource)
+    pcall(logRawHit, victim, amount, flags, source, extraSource, before, weapon, branch)
     if weapon == nil then
         pcall(logDropped, source, flags)
         -- something not ours touched this enemy last, so a status appearing now
@@ -801,13 +968,32 @@ function mod:onEntityTakeDamage(victim, amount, flags, source, countdownFrames, 
 
     credit(weapon, dealt)
 
+    -- a fart poisons before it hurts, so a poison that appeared just ahead of its
+    -- blow is its own, whatever landed earlier this frame
+    if bareBlow(source, flags, extraSource) then
+        held[#held + 1] = { data = data, label = weapon, dealt = dealt, poison = poisonAppeared }
+        unclaimed = held
+    end
+
     -- observer only: returning non-nil would stop other mods' damage callbacks
     return nil
+end
+
+function mod:onFartInit(fart)
+    local blows = unclaimed
+    unclaimed = {}
+    if ownerOf(fart) == nil then return end
+    for _, blow in ipairs(blows) do
+        recredit(blow.label, FART, blow.dealt)
+        blow.data.dmvpHitLabel = FART
+        if blow.poison then blow.data.dmvpPoisonFrom = FART end
+    end
 end
 
 -- catches a status applied by the last hit of a frame, which no later hit can see
 function mod:onUpdate()
     local frame = Game():GetFrameCount()
+    unclaimed = {}
 
     for _, entity in ipairs(Isaac.GetRoomEntities()) do
         if entity:IsEnemy() then syncStatus(entity, frame) end
@@ -820,6 +1006,7 @@ function mod:onUpdate()
             pcall(logBeamKind, entity)
         end
     end
+    pcall(logKnifeKinds)
 
     -- once a second catches the board settling without burying the log
     if changed and frame % 30 == 0 then
@@ -844,6 +1031,9 @@ end
 function mod:onNewRoom()
     tally = {}
     total = 0
+    unclaimed = {}
+    probeCount = {}
+    seenKnifeKind = {}
 end
 
 -- The stubs promise fields and methods the game does not always have -- Radius,
@@ -865,4 +1055,7 @@ mod:AddPriorityCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, CallbackPriority.LATE, 
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
+mod:AddCallback(ModCallbacks.MC_USE_ITEM, guarded(onUseItem))
+mod:AddCallback(ModCallbacks.MC_POST_EFFECT_INIT, guarded(logFartBorn), EffectVariant.FART)
+mod:AddCallback(ModCallbacks.MC_POST_EFFECT_INIT, mod.onFartInit, EffectVariant.FART)
 
