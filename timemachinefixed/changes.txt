@@ -1,0 +1,1 @@
+- An item a sped-up machine pays out can now wait for you to let go (MCM: ReleaseToPickUp, off by default): holding a direction into a beggar walks you onto its item the moment it appears, which leaves no time to choose with Glitched Crown. With the switch on you bump the item instead, and take it once you let go, step off it and walk in again — thanks @Alooha for the report!

@@ -32,6 +32,7 @@ tmmc.enableChest = true
 tmmc.enableModded = true
 tmmc.moddedmax = 5
 tmmc.moddedGuard = true
+tmmc.holdItems = false
 tmmc.enable = {
     true,   --1.Slot Machine
     true,   --2.Blood Donation Machine
@@ -84,6 +85,7 @@ if ModConfigMenu then
             enableModded = tmmc.enableModded,
             moddedmax = tmmc.moddedmax,
             moddedGuard = tmmc.moddedGuard,
+            holdItems = tmmc.holdItems,
             enable = tmmc.enable,
         })
         if not oldcfgdatas or dat ~= oldcfgdatas then
@@ -107,6 +109,7 @@ if ModConfigMenu then
             if cfg.enableModded ~= nil then tmmc.enableModded = cfg.enableModded end
             tmmc.moddedmax = cfg.moddedmax or tmmc.moddedmax
             if cfg.moddedGuard ~= nil then tmmc.moddedGuard = cfg.moddedGuard end
+            if cfg.holdItems ~= nil then tmmc.holdItems = cfg.holdItems end
             if type(cfg.enable) == 'table' then
                 for i = 1, #tmmc.enable do
                     if cfg.enable[i] ~= nil then tmmc.enable[i] = cfg.enable[i] end
@@ -182,6 +185,7 @@ if ModConfigMenu then
         { "supressFly", "KillSpawnedFlies", "Kill flies spawned by Shell Game / Hell Game / beggars so speeding up won't get you hurt" },
         { "supressBomb", "DefuseSpawnedBombs", "Delay troll bombs dropped by machines / beggars so they explode after you finished" },
         { "preventDeath", "PreventSuddenDeath", "Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to keep accelerating at lethal HP too)" },
+        { "holdItems", "ReleaseToPickUp", "An item a sped-up machine pays out can't be picked up until you let go of the movement keys and step off it, so walking into the machine never grabs it by accident" },
         { "enableChest", "EternalChest", "Speed up the eternal chest (the blue one in Angel Rooms) so its open-close-reopen wait is not dead time" },
         { "enableModded", "ModdedMachines", "Speed up beggars and machines added by other mods -- potentially compatibility issue, turn this off if one of them misbehaves" },
         { "moddedGuard", "ModdedDeathGuard", "Treat a machine another mod added as if it took a full heart, and stop speeding it up when the next use could kill" },
@@ -240,6 +244,7 @@ if ModConfigMenu then
             { "^KillSpawnedFlies:", "清掉刷出来的苍蝇:" },
             { "^DefuseSpawnedBombs:", "延后刷出来的即爆炸弹:" },
             { "^PreventSuddenDeath:", "血量危险时停下:" },
+            { "^ReleaseToPickUp:", "松开方向键才能捡道具:" },
             { "^EternalChest:", "永恒宝箱:" },
             { "^ModdedMachines:", "模组机器:" },
             { "^ModdedMaxSpeed:", "模组机器最高倍速:" },
@@ -254,6 +259,7 @@ if ModConfigMenu then
             ["Kill flies spawned by Shell Game / Hell Game / beggars so speeding up won't get you hurt"] = "把猜球游戏, 地狱猜球和乞丐刷出来的苍蝇清掉, 免得快进的时候挨一下",
             ["Delay troll bombs dropped by machines / beggars so they explode after you finished"] = "机器和乞丐掉出来的恶搞炸弹推迟引爆, 等你弄完再炸",
             ["Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to keep accelerating at lethal HP too)"] = "在抽血的机器前, 如果下一次抽血就会要命, 就先停住不加速 (关掉的话血量再低也照样加速)",
+            ["An item a sped-up machine pays out can't be picked up until you let go of the movement keys and step off it, so walking into the machine never grabs it by accident"] = "加速时机器吐出来的道具, 要先松开方向键, 离开道具后再走过去才能捡, 一直按着不会误捡",
             ["Speed up the eternal chest (the blue one in Angel Rooms) so its open-close-reopen wait is not dead time"] = "贴着天使房的蓝宝箱时加速, 开了关关了开的那段等待就不用干等了",
             ["Treat a machine another mod added as if it took a full heart, and stop speeding it up when the next use could kill"] = "模组乞丐和模组机器一律假设要扣一颗心, 下一次可能致命就不再加速",
             ["Top speed for a machine another mod added, recommend lower to avoid compatibility or performance issues"] = "模组机器最多能快到几倍, 建议不要太高, 避免兼容性或性能问题",
@@ -349,10 +355,63 @@ local function pump_mods()
     end
     pumping = false
 end
+--an item a machine pays out lands beside a player who is still walking into the
+--machine, and nothing stops that walk once the machine is gone. The game does the
+--same; the speed-up only shortens the time to react, which matters when the item
+--is one to choose from (Glitched Crown). With the setting on, a player who was
+--holding a direction when the item appeared bumps into it instead of taking it,
+--until they have let go and are clear of it. Letting go alone is not enough: the
+--player is still pressed against the pedestal then, and takes it the next frame
+--keyed by the pickup's hash, which holds while Glitched Crown turns the item
+--into its next choice; a stored reference to the entity does not
+local held_items = {} --pickup hash -> { [player hash] = "held" | "released" }
+local speed_frame = nil --the last frame anything was sped up
+local stepping = false --inside the extra ticks, where a payout is born
+local move_actions = { ButtonAction.ACTION_LEFT, ButtonAction.ACTION_RIGHT, ButtonAction.ACTION_UP, ButtonAction.ACTION_DOWN }
+local function moving(player)
+    for _, action in ipairs(move_actions) do
+        if Input.IsActionPressed(action, player.ControllerIndex) then
+            return true
+        end
+    end
+    return false
+end
+local function release_items()
+    if next(held_items) == nil then return end
+    local present = {}
+    for _, item in ipairs(Isaac.FindByType(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_COLLECTIBLE, -1, false, false)) do
+        local k = GetPtrHash(item)
+        local lock = held_items[k]
+        if lock then
+            present[k] = true
+            for i = 0, Game():GetNumPlayers() - 1 do
+                local player = Isaac.GetPlayer(i)
+                local h = GetPtrHash(player)
+                if lock[h] == "held" and not moving(player) then
+                    lock[h] = "released"
+                end
+                if lock[h] == "released"
+                    and player.Position:Distance(item.Position) > player.Size + item.Size then
+                    lock[h] = nil
+                end
+            end
+            if next(lock) == nil then
+                held_items[k] = nil
+            end
+        end
+    end
+    for k in pairs(held_items) do
+        if not present[k] then
+            held_items[k] = nil
+        end
+    end
+end
 function tmmc:new_room()
     speedNow = tmmc.speedmin
     chest_ticks = {}
     touched = {}
+    held_items = {}
+    speed_frame = nil
 end
 --everything the player can stand against and wait on: slot machines by their own
 --switches, plus the eternal chest, which is not a machine but is the same shape of
@@ -501,6 +560,7 @@ function tmmc:step()
     if pumping then
         return
     end
+    release_items()
     accelerating = false
     if not Game():GetRoom():IsClear() then
         return
@@ -520,6 +580,7 @@ function tmmc:step()
     local accelerated = false
     local acceleratedSlot = false
     local acceleratedModded = false
+    stepping = true
     for i = 0, Game():GetNumPlayers() - 1 do
         local player = Isaac.GetPlayer(i)
         for _, target in ipairs(targets) do
@@ -550,7 +611,9 @@ function tmmc:step()
             end
         end
     end
+    stepping = false
     if accelerated then
+        speed_frame = Game():GetFrameCount()
         --the ramp is what a modded machine's own ceiling holds down, not the
         --tick count, so the run timer keeps counting exactly the ticks that ran
         local cap = tmmc.speedmax
@@ -586,3 +649,34 @@ _tmmc:AddCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, function(_, _ent, _amount, _f
         return false
     end
 end, EntityType.ENTITY_PLAYER)
+
+--a payout is born either inside the extra ticks or in the game's own tick right
+--after one, before this frame's step has run
+_tmmc:AddCallback(ModCallbacks.MC_POST_PICKUP_INIT, function(_, pickup)
+    if not tmmc.holdItems then return end
+    local since = speed_frame and Game():GetFrameCount() - speed_frame
+    if not stepping and not (since and since >= 0 and since <= 1) then return end
+    --a Glitched Crown item turns into its next choice several times a second,
+    --and a lock already taken must survive that
+    local h = GetPtrHash(pickup)
+    if held_items[h] then return end
+    local players = {}
+    for i = 0, Game():GetNumPlayers() - 1 do
+        local player = Isaac.GetPlayer(i)
+        if moving(player) then
+            players[GetPtrHash(player)] = "held"
+        end
+    end
+    if next(players) ~= nil then
+        held_items[h] = players
+    end
+end, PickupVariant.PICKUP_COLLECTIBLE)
+
+--false still bumps the player off the pedestal, it only skips the pickup
+_tmmc:AddCallback(ModCallbacks.MC_PRE_PICKUP_COLLISION, function(_, pickup, collider)
+    if not tmmc.holdItems then return end
+    local lock = held_items[GetPtrHash(pickup)]
+    if lock and lock[GetPtrHash(collider)] then
+        return false
+    end
+end, PickupVariant.PICKUP_COLLECTIBLE)
