@@ -130,10 +130,11 @@ if ModConfigMenu then
         local infos = {}
         for _, descs in ipairs({ configDescs, numberDescs }) do
             for _, info in ipairs(descs) do
-                local zh = zhDescs[info[1]]
+                local key, help = info[1], info[#info] --help line is last in both tables
+                local zh = zhDescs[key]
                 if zh then
-                    names[#names + 1] = { "^" .. info[1] .. ":", zh[1] .. ":" }
-                    infos[info[#info]] = zh[2]
+                    names[#names + 1] = { "^" .. key .. ":", zh[1] .. ":" }
+                    infos[help] = zh[2]
                 end
             end
         end
