@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 157
+local REV = 168
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -45,114 +45,90 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the question, Alooha's: with Glitched Crown, a beggar sped up by TimeMachine
--- pays out an item that is taken the moment it appears, no time to pick one of
--- the cycling choices. The answer under test is TimeMachine's ReleaseToPickUp:
--- an item that appears while the player holds a direction stays out of reach
--- until they let go once. The log follows the item, the player's distance and
--- movement keys, and the item that ends up taken; the mod's own [TMHOLD] lines
--- say when it locked, blocked and released. The last step puts both switches back
-local MODE = "fast"
-local BEGGAR = 4 -- SlotVariant.BEGGAR
-local saved_switch, saved_hold
-local watch = { t = 0, items = {}, anim = nil, since = nil, count = nil, queued = nil, taken = nil }
+-- the question, the user's: in Damage MVP The Bean's poison lands on an "Unknown"
+-- row, and the knife the Yes Mother? transformation gives lands on Mom's Knife's.
+-- Each round sets up one case beside an immortal dummy and holds the player still;
+-- the mod's own [DMVP] lines say what every hit carried and which knives are out.
+--   A  The Bean alone, used twice
+--   B  the transformation's knife alone
+--   C  that knife and the Mom's Knife item together
+--   D  the transformation's knife and The Bean, the user's own combination
+local ROUND = "D"
+local MOM_FORM = ROUND ~= "A"
+local KNIFE_ITEM = ROUND == "C"
+local USES_BEAN = ROUND == "A" or ROUND == "D"
+local BEAN = 111 -- CollectibleType.COLLECTIBLE_BEAN
+local HUSH = 408 -- EntityType.ENTITY_HUSH_SKINLESS
 
-local function keys()
-    local s = ""
-    for name, action in pairs({ L = ButtonAction.ACTION_LEFT, R = ButtonAction.ACTION_RIGHT,
-        U = ButtonAction.ACTION_UP, D = ButtonAction.ACTION_DOWN }) do
-        if Input.IsActionPressed(action, 0) then s = s .. name end
-    end
-    return s == "" and "-" or s
+local anchor
+
+local function report()
+    local p = Isaac.GetPlayer(0)
+    log("ROUND %s form %s knife item %s knife weapon %s active %d", ROUND,
+        tostring(p:HasPlayerForm(PlayerForm.PLAYERFORM_MOM)),
+        tostring(p:HasCollectible(CollectibleType.COLLECTIBLE_MOMS_KNIFE)),
+        tostring(p:HasWeaponType(WeaponType.WEAPON_KNIFE)), p:GetActiveItem())
 end
 
-local function setup()
-    local room = Game():GetRoom()
+-- the dummy goes on the knives where there are any, so they touch it while the
+-- player stands still; otherwise just inside the fart's reach
+local function place()
     local p = Isaac.GetPlayer(0)
-    local c = room:GetCenterPos()
-    Isaac.Spawn(EntityType.ENTITY_SLOT, BEGGAR, 0, c + Vector(0, -80), Vector.Zero, nil)
-    p.Position = c + Vector(0, 40)
-    saved_switch = tmmc.enable[BEGGAR]
-    tmmc.enable[BEGGAR] = MODE == "fast"
-    saved_hold = tmmc.holdItems
-    tmmc.holdItems = true
-    watch.count = p:GetCollectibleCount()
-    log("CONFIG mode %s beggar switch was %s now %s hold was %s now %s speedmax %s coins %d",
-        MODE, tostring(saved_switch), tostring(tmmc.enable[BEGGAR]), tostring(saved_hold),
-        tostring(tmmc.holdItems), tostring(tmmc.speedmax), p:GetNumCoins())
-    banner = "feed from above, keep holding DOWN after the item appears"
+    anchor = Game():GetRoom():GetCenterPos()
+    p.Position = anchor
+    p.Velocity = Vector.Zero
+    local sum, n = Vector.Zero, 0
+    for _, k in ipairs(Isaac.FindByType(EntityType.ENTITY_KNIFE, -1, -1, false, false)) do
+        log("knife %d.%d.%d at %.1f,%.1f from player", k.Type, k.Variant, k.SubType,
+            k.Position.X - p.Position.X, k.Position.Y - p.Position.Y)
+        sum = sum + k.Position
+        n = n + 1
+    end
+    local at = n > 0 and sum / n or anchor + Vector(0, -60)
+    Isaac.Spawn(HUSH, 0, 0, at, Vector.Zero, nil)
+    log("PLACED dummy at %.1f,%.1f from player", at.X - anchor.X, at.Y - anchor.Y)
+    banner = "hands off: the run holds the player still"
 end
 
-local function watch_items()
-    local p = Isaac.GetPlayer(0)
-    watch.t = watch.t + 1
-    local b = Isaac.FindByType(EntityType.ENTITY_SLOT, BEGGAR, -1, false, false)[1]
-    local anim = b and b:GetSprite():GetAnimation() or "gone"
-    -- how many ticks the last animation held is the pace: the mod's speed is a
-    -- local of its own, and a run where it never engaged looks like vanilla
-    if anim ~= watch.anim then
-        log("beggar %s (%d ticks) -> %s coins %d dist %.1f keys %s", tostring(watch.anim), watch.t - (watch.since or 0),
-            anim, p:GetNumCoins(), b and p.Position:Distance(b.Position) or -1, keys())
-        watch.anim = anim
-        watch.since = watch.t
-    end
-    for _, e in ipairs(Isaac.FindByType(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_COLLECTIBLE, -1, false, false)) do
-        local k = GetPtrHash(e)
-        local seen = watch.items[k]
-        if not seen then
-            seen = { born = watch.t, sub = nil }
-            watch.items[k] = seen
-            banner = "item out: hold DOWN a while, let go and wait, then walk in"
+-- the dummy has 500 health, which the knife and Mom's Heels take in five seconds,
+-- so it is topped up every tick
+local function hold(ticks)
+    local left
+    return function()
+        left = (left or ticks) - 1
+        local p = Isaac.GetPlayer(0)
+        p.Position = anchor
+        p.Velocity = Vector.Zero
+        for _, dummy in ipairs(Isaac.FindByType(HUSH, -1, -1, false, false)) do
+            dummy.HitPoints = dummy.MaxHitPoints
         end
-        local age = watch.t - seen.born
-        local d = p.Position:Distance(e.Position)
-        local k2 = keys()
-        -- every change of item, of keys, and each tick of the player's approach
-        if e.SubType ~= seen.sub or k2 ~= seen.keys or d < 40 or age <= 25 then
-            log("item %d age %d sub %d wait %d dist %.1f reach %.1f keys %s", k, age, e.SubType, e:ToPickup().Wait, d,
-                p.Size + e.Size, k2)
-            seen.sub = e.SubType
-            seen.keys = k2
-        end
-    end
-    local queued = p.QueuedItem.Item and p.QueuedItem.Item.ID or 0
-    if queued ~= watch.queued then
-        log("queued %d", queued)
-        watch.queued = queued
-    end
-    local n = p:GetCollectibleCount()
-    if n ~= watch.count and not watch.taken then
-        log("TAKEN count %d -> %d", watch.count, n)
-        watch.taken = watch.t
-        banner = "taken"
-    end
-    if watch.taken and watch.t - watch.taken > 15 then return false end
-    if watch.t > 30 * 300 then
-        log("watch timed out")
+        if left > 0 then return true end
+        left = nil
         return false
     end
-    return true
 end
 
-local function restore()
-    tmmc.enable[BEGGAR] = saved_switch
-    tmmc.holdItems = saved_hold
-    log("RESTORED beggar switch %s hold %s; watch end", tostring(tmmc.enable[BEGGAR]), tostring(tmmc.holdItems))
-    banner = ""
+local function bean()
+    log("USE bean")
+    Isaac.GetPlayer(0):UseActiveItem(BEAN)
 end
 
-local STEPS = {
-    "luamod timemachinefixed",
-    "restart 0", 10,
-    "debug 3",
-    "giveitem c689", -- Glitched Crown
-    "giveitem c18", -- A Dollar: 99 coins to feed the beggar
-    setup,
-    watch_items,
-    restore,
-}
+local STEPS = { "luamod damagemvp", "restart 0", 10, "debug 3" }
+local function add(...)
+    for _, entry in ipairs({ ... }) do STEPS[#STEPS + 1] = entry end
+end
+if MOM_FORM then add("giveitem c29", "giveitem c30", "giveitem c31") end
+if KNIFE_ITEM then add("giveitem c114") end
+if USES_BEAN then add("debug 8", "giveitem c111") end
+add(10, report, place)
+if USES_BEAN then
+    add(hold(30), bean, hold(220), bean, hold(220))
+else
+    add(hold(300))
+end
+add(report)
 
-local HINT = "done: tell Claude whether letting go of DOWN took the item"
+local HINT = "done: tell Claude the round finished"
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything
