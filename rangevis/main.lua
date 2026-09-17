@@ -59,7 +59,46 @@ local configDescs = {
     { "TaintedLilith", "Show shoot range of Tainted Lilith's Gello" },
     { "OnlyHeadDir", "Only show head direction aiming line when not shooting" },
     { "StopOnPause", "Do not render indicators when game paused" },
-    { "DebugInfo", "Show debug infomation for mod developers (not in tractor beam mode)" },
+    { "DebugInfo", "Show debug information for mod developers (not in tractor beam mode)" },
+}
+local numberDescs = {
+    { "SpriteOpacity", 0, 10, "Aiming line opacity, 0 for invisible, 10 for full opacity" },
+    { "ChargeVisMode", 0, 2, "Charge visualization mode, 0 for none, 1 for dot, 2 for segment" },
+    { "InfAimLength", 10, 800, "Aiming line length when range is infinity (e.g. Brimstone, Technology) (not in tractor beam mode)" },
+}
+--name and help line shown by Mod配置菜单（中文版）; item names follow EID's.
+--ASCII punctuation only: that menu's font has no full-width marks
+local zhDescs = {
+    EnableMod = { "启用模组", "整个模组的总开关" },
+    TractorBeamMode = { "牵引光束模式", "借用游戏自带的牵引光束来显示 (实验性, 改完要重启游戏)" },
+    UseVanillaBeam = { "原版光束贴图", "使用游戏自带的牵引光束贴图 (仅牵引光束模式)" },
+    OnlyWhenFire = { "仅射击时显示", "只在射击时显示, 不射击时身边就没有那四条线了" },
+    HasTearFlags = { "计入泪弹效果", "把追踪, 蠕虫等泪弹效果算进去 (仅牵引光束模式)" },
+    TearSpectral = { "穿过障碍物", "瞄准线可以穿过障碍物, 像灵体泪弹一样 (仅牵引光束模式)" },
+    NormalTear = { "普通泪弹", "显示普通泪弹的射程" },
+    IpecacTear = { "吐根酊", "显示吐根酊泪弹的射程" },
+    HaemolacriaTear = { "泪血症", "显示泪血症泪弹的射程" },
+    ChocolateCharge = { "巧克力牛奶", "显示巧克力牛奶泪弹的射程和蓄力" },
+    TechLaser = { "科技激光", "显示科技系列激光的瞄准方向" },
+    TechX = { "科技X", "显示科技X激光环的瞄准方向" },
+    DrFetus = { "胎儿博士", "显示胎儿博士炸弹的射程" },
+    Azazel = { "阿撒泻勒", "显示阿撒泻勒短硫磺火的射程" },
+    TaintedAzazel = { "堕化阿撒泻勒", "显示堕化阿撒泻勒咯血的射程" },
+    Brimstone = { "硫磺火", "显示硫磺火道具的瞄准线" },
+    MeleeBone = { "遗骸近战", "显示遗骸挥骨棒的范围" },
+    RangedBone = { "遗骸投掷", "显示遗骸扔骨棒的射程" },
+    TaintedForgotten = { "堕化遗骸", "显示堕化遗骸举着身体时能扔多远" },
+    MomsKnife = { "妈妈的菜刀", "显示妈妈的菜刀蓄力时的射程变化" },
+    SpiritSword = { "英灵剑", "显示英灵剑挥砍的范围" },
+    BagOfCrafting = { "合成宝袋", "显示合成宝袋收集掉落物的范围" },
+    BobsRottenHead = { "鲍勃的烂头", "显示鲍勃的烂头炸弹的落点" },
+    TaintedLilith = { "堕化莉莉丝", "显示堕化莉莉丝的格罗的射程" },
+    OnlyHeadDir = { "只显示头朝向", "不射击时只显示头朝向的那条瞄准线" },
+    StopOnPause = { "暂停时隐藏", "游戏暂停时不显示" },
+    DebugInfo = { "调试信息", "显示给模组作者看的调试信息 (牵引光束模式下无效)" },
+    SpriteOpacity = { "瞄准线不透明度", "瞄准线不透明度, 0 为看不见, 10 为完全不透明" },
+    ChargeVisMode = { "蓄力显示方式", "蓄力显示方式, 0 不显示, 1 显示点, 2 显示线段" },
+    InfAimLength = { "无限射程线长", "射程无限时 (如硫磺火, 科技) 瞄准线的长度 (牵引光束模式下无效)" },
 }
 
 -- begin config
@@ -76,15 +115,32 @@ if ModConfigMenu then
         ModConfigMenu.SimpleAddSetting(ModConfigMenu.OptionType.BOOLEAN, "Azazel's RangeVis", nil,
             info[1], nil, nil, nil, defaultConfig[info[1]], info[1], nil, true, info[2])
     end
-    ModConfigMenu.SimpleAddSetting(ModConfigMenu.OptionType.NUMBER, "Azazel's RangeVis", nil,
-        "SpriteOpacity", 0, 10, nil, defaultConfig.SpriteOpacity, "SpriteOpacity", nil, true,
-        "Aiming line opacity, 0 for invisible, 10 for full opacit")
-    ModConfigMenu.SimpleAddSetting(ModConfigMenu.OptionType.NUMBER, "Azazel's RangeVis", nil,
-        "ChargeVisMode", 0, 2, nil, defaultConfig.ChargeVisMode, "ChargeVisMode", nil, true,
-        "Charge visualization mode, 0 for none, 1 for dot, 2 for segment")
-    ModConfigMenu.SimpleAddSetting(ModConfigMenu.OptionType.NUMBER, "Azazel's RangeVis", nil,
-        "InfAimLength", 10, 800, nil, defaultConfig.InfAimLength, "InfAimLength", nil, true,
-        "Aiming line length when range is infinity (e.g. Brimstone, Technology) (not in tractor beam mode)")
+    for _, info in ipairs(numberDescs) do
+        ModConfigMenu.SimpleAddSetting(ModConfigMenu.OptionType.NUMBER, "Azazel's RangeVis", nil,
+            info[1], info[2], info[3], nil, defaultConfig[info[1]], info[1], nil, true, info[4])
+    end
+    --Mod配置菜单（中文版）is the one build that draws UTF-8; it paints over the
+    --finished English lines, so the keys settings save under never move
+    if ModConfigMenu.i18n == "Chinese" then
+        local CAT = "Azazel's RangeVis"
+        --Display is "Name: value", so these are replace pairs anchored to the
+        --front, else Azazel would eat the front of a longer name
+        local names = { { ": true$", ": 开" }, { ": false$", ": 关" } }
+        --Info is the English help line, matched whole
+        local infos = {}
+        for _, descs in ipairs({ configDescs, numberDescs }) do
+            for _, info in ipairs(descs) do
+                local zh = zhDescs[info[1]]
+                if zh then
+                    names[#names + 1] = { "^" .. info[1] .. ":", zh[1] .. ":" }
+                    infos[info[#info]] = zh[2]
+                end
+            end
+        end
+        ModConfigMenu.SetCategoryNameTranslate(CAT, "射程可视化")
+        ModConfigMenu.TranslateOptionsDisplayWithTable(CAT, nil, names)
+        ModConfigMenu.TranslateOptionsInfoTextWithTable(CAT, nil, infos)
+    end
     local json = require('json')
     mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, isContined)
         if mod:HasData() then

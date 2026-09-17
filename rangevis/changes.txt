@@ -1,0 +1,1 @@
+- The settings now read in Chinese under Mod Config Menu Chinese (Mod配置菜单): every switch, number and help line, with your saved settings kept as they were — thanks @早睡健康长寿 for asking!
