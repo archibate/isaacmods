@@ -98,8 +98,8 @@ local HINT = "walk into the boss room and fire once"
 - `debug <N>`: enable testing cheats accordingly to help user reproduce easy — `3` invincibility (prevent player death during test), `4` +40 damage (kills faster), `8` active always charged (to allow test active items repeatitively), `6` draws each entity's damage hitbox as a circle (see what a shot actually covers), `9` very high luck (luck-gated tear effects fire more often), `10` quick kill enemies (useful when need to walk through rooms). Run again to toggle off. Flags clear on restart.
 - Slow the kill down when the run asks *what dealt this damage*. A test like that needs
   dozens of hits to land, so `debug 4` works against it — the target dies first. Cut the
-  damage instead with `giveitem c330` (Soy Milk) and pair it with a dummy that never
-  dies. Raise damage only when one hit is enough to answer, as in a reach or hitbox test.
+  damage instead with `giveitem c330` (Soy Milk) and pair it with a dummy kept alive.
+  Raise damage only when one hit is enough to answer, as in a reach or hitbox test.
 - `lua print(...)`: run lua expression.
 - `spawn <Type>.<Variant>.<Subtype>`: spawn entity by type.
 - Bombs, keys or coins needed? `giveitem c190` (Pyro) fills bombs, `c17` (Skeleton Key)
@@ -109,8 +109,10 @@ local HINT = "walk into the boss room and fire once"
 - Target dummy: pick by what the test measures. Reach or hitbox → `spawn 33.0.0` (normal
   fireplace), inert scenery that never moves or shoots, so nothing shoves the player off
   the mark mid-measurement; its red and purple variants do shoot, so always variant 0.
-  Damage → `spawn 408.0.0` (Hush, skinless), a cut enemy that stands still and survives
-  everything, but far too big to line a distance up against. Anything that walks or
+  Damage → `spawn 408.0.0` (Hush, skinless), a cut enemy that stands still, but far too
+  big to line a distance up against. It has only 500 health, which a knife build takes in
+  five seconds, so a run that deals real damage tops it up every tick from a function
+  step (`HitPoints = MaxHitPoints`). Anything that walks or
   shoots, Mushroom included, is a bad dummy for reach. `spawn 36.0.1` (Gurdy) when the
   test wants a crowd, since it keeps spawning flies — chaining and group-hitting weapons
   need one. `spawn 20.0.2` (Monstro) when it wants a target that moves and jumps.
