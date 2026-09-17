@@ -124,7 +124,7 @@ if ModConfigMenu then
     if ModConfigMenu.i18n == "Chinese" then
         local CAT = "Azazel's RangeVis"
         --Display is "Name: value", so these are replace pairs anchored to the
-        --front, else Azazel would eat the front of a longer name
+        --front, else Azazel would also match the tail of TaintedAzazel
         local names = { { ": true$", ": 开" }, { ": false$", ": 关" } }
         --Info is the English help line, matched whole
         local infos = {}
