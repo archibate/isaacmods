@@ -1,18 +1,46 @@
-local hasoldgoodtrip = (gt and not gt.isgtfixed)
+--whoever held the global name gt before this mod did. Every GoodTrip has claimed
+--that name since the original, so a second one is what usually sits here.
+local loaded_before = gt
 local _gt = RegisterMod("GoodTrip [Fixed]", 1)
 gt = _gt
 _gt.isgtfixed = true
 _gt.debug = false --teleport anywhere, no tolls, no transition; read at call time everywhere
+
+--the clash is over that one name, and the loser of it loses its console commands
+--and anything else it reads back from there. Say which mod it is: "the old
+--GoodTrip" sends players hunting a mod they unsubscribed long ago, while what
+--they have is one of the spin-offs, named anything at all.
+local function clash_warning(other)
+    if other == nil or other == _gt then
+        return nil
+    end
+    local name = type(other) == "table" and type(other.Name) == "string" and other.Name
+    if not name then
+        return 'WARNING: another mod has taken the name gt from GoodTrip [Fixed]!'
+    end
+    if name == _gt.Name then
+        --a luamod reload leaves this mod's own earlier table under the name, and
+        --that one carries the marker; only a stranger wearing the name is news
+        if other.isgtfixed then
+            return nil
+        end
+        return 'WARNING: GoodTrip [Fixed] is installed twice, disable one copy!'
+    end
+    return string.format('WARNING: disable "%s", it clashes with GoodTrip [Fixed]!', name)
+end
+
 --warnings stay until fixed, printed once and drawn only in-run (render runs on
---menus too). Either GoodTrip may load first, so both checks are needed.
+--menus too). The other mod may load before this one (loaded_before) or after it
+--(the name points elsewhere again), so both are read.
 local warned = false
 function _gt.draw_warns(in_run)
     local warnings = {}
-    if hasoldgoodtrip or gt ~= _gt then
-        warnings[#warnings + 1] = 'WARNING: You must disable the old GoodTrip before using GoodTrip [Fixed]!'
+    local clash = clash_warning(loaded_before) or clash_warning(gt)
+    if clash then
+        warnings[#warnings + 1] = clash
     end
     if not REPENTANCE then
-        warnings[#warnings + 1] = 'WARNING: This mod only works for Repentance!'
+        warnings[#warnings + 1] = 'WARNING: This mod only works for Repentance or Repentance+!'
     end
     if #warnings == 0 then
         return
