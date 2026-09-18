@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 168
+local REV = 174
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -45,88 +45,21 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the question, the user's: in Damage MVP The Bean's poison lands on an "Unknown"
--- row, and the knife the Yes Mother? transformation gives lands on Mom's Knife's.
--- Each round sets up one case beside an immortal dummy and holds the player still;
--- the mod's own [DMVP] lines say what every hit carried and which knives are out.
---   A  The Bean alone, used twice
---   B  the transformation's knife alone
---   C  that knife and the Mom's Knife item together
---   D  the transformation's knife and The Bean, the user's own combination
-local ROUND = "D"
-local MOM_FORM = ROUND ~= "A"
-local KNIFE_ITEM = ROUND == "C"
-local USES_BEAN = ROUND == "A" or ROUND == "D"
-local BEAN = 111 -- CollectibleType.COLLECTIBLE_BEAN
-local HUSH = 408 -- EntityType.ENTITY_HUSH_SKINLESS
-
-local anchor
-
-local function report()
-    local p = Isaac.GetPlayer(0)
-    log("ROUND %s form %s knife item %s knife weapon %s active %d", ROUND,
-        tostring(p:HasPlayerForm(PlayerForm.PLAYERFORM_MOM)),
-        tostring(p:HasCollectible(CollectibleType.COLLECTIBLE_MOMS_KNIFE)),
-        tostring(p:HasWeaponType(WeaponType.WEAPON_KNIFE)), p:GetActiveItem())
+-- the question, the user's: a player with no old GoodTrip installed still gets the
+-- "disable the old GoodTrip" warning. GoodTrip [Fixed] only warns when the global
+-- name gt holds a table that is not its own, so the round asks what else can reach
+-- that name: goodtripfixed2 is enabled beside it, and its own reload prints what gt
+-- held when its file ran.
+local function probe()
+    log("PROBE devrepro gt=%s name=%s", tostring(gt), tostring(type(gt) == "table" and gt.Name))
+    banner = "reading who holds the name gt"
 end
 
--- the dummy goes on the knives where there are any, so they touch it while the
--- player stands still; otherwise just inside the fart's reach
-local function place()
-    local p = Isaac.GetPlayer(0)
-    anchor = Game():GetRoom():GetCenterPos()
-    p.Position = anchor
-    p.Velocity = Vector.Zero
-    local sum, n = Vector.Zero, 0
-    for _, k in ipairs(Isaac.FindByType(EntityType.ENTITY_KNIFE, -1, -1, false, false)) do
-        log("knife %d.%d.%d at %.1f,%.1f from player", k.Type, k.Variant, k.SubType,
-            k.Position.X - p.Position.X, k.Position.Y - p.Position.Y)
-        sum = sum + k.Position
-        n = n + 1
-    end
-    local at = n > 0 and sum / n or anchor + Vector(0, -60)
-    Isaac.Spawn(HUSH, 0, 0, at, Vector.Zero, nil)
-    log("PLACED dummy at %.1f,%.1f from player", at.X - anchor.X, at.Y - anchor.Y)
-    banner = "hands off: the run holds the player still"
-end
-
--- the dummy has 500 health, which the knife and Mom's Heels take in five seconds,
--- so it is topped up every tick
-local function hold(ticks)
-    local left
-    return function()
-        left = (left or ticks) - 1
-        local p = Isaac.GetPlayer(0)
-        p.Position = anchor
-        p.Velocity = Vector.Zero
-        for _, dummy in ipairs(Isaac.FindByType(HUSH, -1, -1, false, false)) do
-            dummy.HitPoints = dummy.MaxHitPoints
-        end
-        if left > 0 then return true end
-        left = nil
-        return false
-    end
-end
-
-local function bean()
-    log("USE bean")
-    Isaac.GetPlayer(0):UseActiveItem(BEAN)
-end
-
-local STEPS = { "luamod damagemvp", "restart 0", 10, "debug 3" }
-local function add(...)
-    for _, entry in ipairs({ ... }) do STEPS[#STEPS + 1] = entry end
-end
-if MOM_FORM then add("giveitem c29", "giveitem c30", "giveitem c31") end
-if KNIFE_ITEM then add("giveitem c114") end
-if USES_BEAN then add("debug 8", "giveitem c111") end
-add(10, report, place)
-if USES_BEAN then
-    add(hold(30), bean, hold(220), bean, hold(220))
-else
-    add(hold(300))
-end
-add(report)
+local STEPS = {
+    probe,
+    "luamod goodtrip_1630477831", 30,
+    probe,
+}
 
 local HINT = "done: tell Claude the round finished"
 
