@@ -35,9 +35,10 @@ end
 local warned = false
 function _gt.draw_warns(in_run)
     local warnings = {}
-    local clash = clash_warning(loaded_before) or clash_warning(gt)
-    if clash then
-        warnings[#warnings + 1] = clash
+    local before, now = clash_warning(loaded_before), clash_warning(gt)
+    warnings[#warnings + 1] = before
+    if now and now ~= before then --two of them, one on each side: name both
+        warnings[#warnings + 1] = now
     end
     if not REPENTANCE then
         warnings[#warnings + 1] = 'WARNING: This mod only works for Repentance or Repentance+!'
