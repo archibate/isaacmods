@@ -48,6 +48,7 @@ return function(deps)
         { "Display", "TeleportAnimation", "Play cool animation on teleport" },
         { "Display", "FastTransition", "Even faster transition without animation" },
         { "Display", "DimMapInCombat", "While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it" },
+        { "Display", "ShowClashWarning", "Warn on screen while another GoodTrip is loaded beside this one. They fight over the same name, so keep only one, unless you know why you want both" },
 
         { "Controls", "FasterCursorMove", "Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them" },
         { "Controls", "IgnoreMovementKeys", "Keep moving the map cursor while you walk, instead of pausing it until you let go" },
@@ -332,6 +333,7 @@ return function(deps)
             { "^DimMapInCombat:", "战斗中淡显地图:" },
             { "^DimMapAlpha:", "淡显的浓度:" },
             { "^ShowSpecialIcons:", "显示特殊房间图标:" },
+            { "^ShowClashWarning:", "装了两个 GoodTrip 时警告:" },
             { "^DangerCautionCompat:", "危险房间提示联动:" },
             { "^TeleportAnimation:", "传送动画:" },
             { "^ArriveAtDoor:", "传送后站在门口:" },
@@ -371,6 +373,7 @@ return function(deps)
             ["While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it"] = "房间还没清干净, 传送本来就用不了, 这时把传送小窗淡淡地留在原地而不是整个藏起来",
             ["How faint the teleport map is while the room is uncleared (DimMapInCombat)"] = "战斗中传送小窗淡到什么程度, 百分比, 最低 5% 免得看不见",
             ["Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull"] = "在待过的房间上标出镜子, 白火, 矿车, 矿洞按钮, 暗色骷髅",
+            ["Warn on screen while another GoodTrip is loaded beside this one. They fight over the same name, so keep only one, unless you know why you want both"] = "旁边还开着另一个 GoodTrip 时, 在屏幕上提示. 两者会抢同一个名字, 所以只留一个, 除非你清楚自己为什么要都开着",
             ["weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors"] = "检测到我的另一个 mod 'Dangerous room! Caution' 时, 用颜色标出危险房间",
             ["Play cool animation on teleport"] = "传送时播放动画",
             ["Arrive standing at the exact door a walk would have come in by"] = "传送后站在正常走过去会进来的那道门边",

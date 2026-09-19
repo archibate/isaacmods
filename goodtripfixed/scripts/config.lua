@@ -26,6 +26,7 @@ return function(deps)
         FairTripTime = false,
         FairTripPath = true,
         ShowSpecialIcons = true,
+        ShowClashWarning = true,
         ControllerAlternateZ = nil,
         ControllerAlternateR = nil,
         MinimapScale = 10,

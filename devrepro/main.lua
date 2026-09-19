@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 175
+local REV = 179
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -57,7 +57,7 @@ end
 
 local STEPS = {
     probe,
-    "luamod goodtripfixed", 20, "luamod goodtripfixed2_3386491972", 30,
+    "lua gt:get_config().ShowClashWarning=true gt.save_config()", 30,
     probe,
 }
 

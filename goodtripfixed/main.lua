@@ -31,7 +31,10 @@ end
 
 --warnings stay until fixed, printed once and drawn only in-run (render runs on
 --menus too). The other mod may load before this one (loaded_before) or after it
---(the name points elsewhere again), so both are read.
+--(the name points elsewhere again), so both are read. Someone who knows what
+--their two mods are doing can take the clash lines off the screen in the menu;
+--the console still gets them once, so a bug report can still say what was there.
+local cfg --the live settings, once the settings module below is in
 local warned = false
 function _gt.draw_warns(in_run)
     local warnings = {}
@@ -40,6 +43,7 @@ function _gt.draw_warns(in_run)
     if now and now ~= before then --two of them, one on each side: name both
         warnings[#warnings + 1] = now
     end
+    local clashes = #warnings --the lines the menu may keep off the screen
     if not REPENTANCE then
         warnings[#warnings + 1] = 'WARNING: This mod only works for Repentance or Repentance+!'
     end
@@ -55,8 +59,9 @@ function _gt.draw_warns(in_run)
     if not in_run then
         return
     end
-    for i, warnmsg in ipairs(warnings) do
-        Isaac.RenderScaledText(warnmsg, 40, 50 + (i - 1) * 12, 0.5, 0.5, 1, 1, 0, 1)
+    local first = cfg.ShowClashWarning and 1 or clashes + 1
+    for i = first, #warnings do
+        Isaac.RenderScaledText(warnings[i], 40, 50 + (i - first) * 12, 0.5, 0.5, 1, 1, 0, 1)
     end
 end
 
@@ -72,7 +77,7 @@ if not pins_ok or type(pins) ~= "table" then
     pins = nil
 end
 local config = include("scripts.config")({ gt = _gt, pins = pins })
-local cfg = config.cfg
+cfg = config.cfg
 local floor = include("scripts.floor")({ cfg = cfg })
 local rules = include("scripts.rules")({ gt = _gt, cfg = cfg, floor = floor })
 local gamemap = include("scripts.gamemap")({ cfg = cfg, floor = floor })
