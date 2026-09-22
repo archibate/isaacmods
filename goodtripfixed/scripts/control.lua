@@ -54,8 +54,14 @@ return function(deps)
     function M.tab_action()
         local player = floor.player
         gamemap.refresh_screen()
+        --restart is a thing the game itself has a button for, so ask for that button
+        --rather than for the R key on the player's slot: on a controller the slot
+        --carries no keyboard at all, which left this shortcut dead while the R key
+        --alone still restarted. The keyboard R stays, read on the keyboard's own
+        --slot, for a hand that reaches over while the other holds a pad.
         if cfg.FastRestartEnable
-            and (Input.IsButtonTriggered(Keyboard.KEY_R, player.ControllerIndex)
+            and (Input.IsActionTriggered(ButtonAction.ACTION_RESTART, player.ControllerIndex)
+                or Input.IsButtonTriggered(Keyboard.KEY_R, 0)
                 or (cfg.ControllerAlternateR and Input.IsButtonTriggered(cfg.ControllerAlternateR, player.ControllerIndex))) then
           print('GoodTrip [Fixed] !!!FAST RESTARTING!!!')
           Isaac.ExecuteCommand("restart")

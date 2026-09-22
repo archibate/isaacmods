@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 179
+local REV = 182
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -45,20 +45,19 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the question, the user's: a player with no old GoodTrip installed still gets the
--- "disable the old GoodTrip" warning. GoodTrip [Fixed] only warns when the global
--- name gt holds a table that is not its own, so the round asks what else can reach
--- that name: goodtripfixed2 is enabled beside it, and its own reload prints what gt
--- held when its file ran.
+-- the question, a player's: TAB + R does not restart the run for them, though each
+-- key works alone and the original GoodTrip restarted fine. The round puts the run
+-- on a floor it cannot be on after a restart, so the driver's dump says whether the
+-- chord that follows took: stage 1 means it did.
 local function probe()
-    log("PROBE devrepro gt=%s name=%s", tostring(gt), tostring(type(gt) == "table" and gt.Name))
-    banner = "reading who holds the name gt"
+    log("PROBE stage %d room %d", Game():GetLevel():GetStage(),
+        Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex)
+    banner = "hold TAB and press R now"
 end
 
 local STEPS = {
-    probe,
-    "lua gt:get_config().ShowClashWarning=true gt.save_config()", 30,
-    probe,
+    "luamod goodtripfixed", 10,
+    "restart 0", 10, "stage 3", 20, probe,
 }
 
 local HINT = "done: tell Claude the round finished"
