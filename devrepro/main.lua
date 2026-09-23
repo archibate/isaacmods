@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 182
+local REV = 184
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -45,19 +45,43 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the question, a player's: TAB + R does not restart the run for them, though each
--- key works alone and the original GoodTrip restarted fine. The round puts the run
--- on a floor it cannot be on after a restart, so the driver's dump says whether the
--- chord that follows took: stage 1 means it did.
+-- the question, a player's: once a room holds no enemies they cannot shoot, and a
+-- familiar caught mid-shot keeps firing the way it faced; only a full quit clears
+-- it. The suspect is the guard that stops a click on the map from firing a tear:
+-- while the window is pinned it runs on hover, every frame the pointer rests over
+-- the window. The round pins the window, then each probe says where the pointer is,
+-- whether the mod counts it as over the window, and what the player's shot state is.
 local function probe()
-    log("PROBE stage %d room %d", Game():GetLevel():GetStage(),
-        Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex)
-    banner = "hold TAB and press R now"
+    local p = Isaac.GetPlayer(0)
+    local mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
+    local over = gt and gt.widget and gt.widget.in_ui_zone(mpos)
+    log("PROBE mouse %.0f,%.0f over=%s pin=%s firedelay=%.1f tears=%d", mpos.X, mpos.Y,
+        tostring(over), tostring(gt and gt.widget and gt.widget.mmp_pin), p.FireDelay,
+        #Isaac.FindByType(EntityType.ENTITY_TEAR, -1, -1, false, false))
+    banner = "pointer parked on the pinned window"
+end
+
+-- the fire key is held from outside for the whole window; what counts is whether
+-- any tear ever comes out while it is held
+local function watch(ticks)
+    local left, seen
+    return function()
+        left, seen = (left or ticks) - 1, math.max(seen or 0,
+            #Isaac.FindByType(EntityType.ENTITY_TEAR, -1, -1, false, false))
+        if left % 30 == 0 then
+            probe()
+        end
+        if left > 0 then return true end
+        log("WATCH done, most tears at once %d", seen)
+        left, seen = nil, nil
+        return false
+    end
 end
 
 local STEPS = {
     "luamod goodtripfixed", 10,
-    "restart 0", 10, "stage 3", 20, probe,
+    "restart 0", 20,
+    "lua gt.widget.mmp_pin=1", 10, probe, watch(180),
 }
 
 local HINT = "done: tell Claude the round finished"

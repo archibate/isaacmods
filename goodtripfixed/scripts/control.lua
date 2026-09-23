@@ -13,6 +13,7 @@ return function(deps)
     local last_mpos = Vector(0, 0)
     local mouse_moved = false --physical mouse motion this frame (tracked every frame in step)
     local mouse_in_ui = false
+    local mouse_idle = 0 --render frames the pointer has rested in one place
     local n_room_num = 0
     local bookmarks = {-99, -99, -99, -99, -99, -99, -99, -99, -99}
 
@@ -196,6 +197,7 @@ return function(deps)
         mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
         mouse_moved = (mpos - last_mpos):LengthSquared() > 4 --every frame, so the baseline is fresh at TAB-open
         last_mpos = mpos
+        mouse_idle = mouse_moved and 0 or mouse_idle + 1 --frames since the pointer last stirred
 
         if M.is_overlay_triggerd() then
           floor.get_grid_room()
@@ -269,7 +271,13 @@ return function(deps)
           --pinned window without TAB
           if widget.mmp_pin == 1 and not gamemap.gon_map_cursor() and floor.crd.Clear and rules.check_teleble(false) then
             if mouse_in_ui then
-              if cfg.NoShootWhenClick then
+              --a click on the pinned window would fire a tear along with it, and the
+              --tear is gone by the time the click is read, so shooting is held while
+              --the pointer is over the window. Only while it is being used, though:
+              --a pointer parked there and forgotten -- which is where it sits for
+              --anyone playing on the keyboard -- used to cost them every tear in
+              --every cleared room until they quit the run
+              if cfg.NoShootWhenClick and (mouse_idle < 120 or Input.IsMouseBtnPressed(0)) then
                 M.player_shoot_cooldown()
               end
               if M.IsMouseBtnTriggered(0) then
