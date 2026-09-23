@@ -124,13 +124,30 @@ start() {
 	echo "game up on $DISPLAY; title screen takes a while under software rendering" >&2
 }
 
+# A key only counts once the game holds the focus. Anything else on this desktop
+# that takes it turns the press into a window-manager shortcut instead -- openbox
+# opens a terminal on Super+Return, so a press sent blind lands as a new kitty
+# window and the game never sees it. Clear the modifiers, take the focus, check we
+# got it, and refuse the press rather than leak it.
 key() {
-	local g
+	local g m focused
 	g=$(game_window) && [[ -n "$g" ]] || { echo "no game window on $DISPLAY" >&2; exit 1; }
-	xdotool windowactivate --sync "$g"
-	xdotool keydown "$1"
+	for m in Super_L Super_R Alt_L Alt_R Control_L Control_R Shift_L Shift_R; do
+		xdotool keyup "$m" || true
+	done
+	for _ in 1 2 3; do
+		xdotool windowactivate --sync "$g"
+		focused=$(xdotool getwindowfocus) || true
+		((focused == g)) && break
+		sleep 1
+	done
+	((focused == g)) || {
+		echo "the game does not hold the focus ($focused holds it); $1 not sent" >&2
+		exit 1
+	}
+	xdotool keydown --clearmodifiers "$1"
 	sleep 0.25
-	xdotool keyup "$1"
+	xdotool keyup --clearmodifiers "$1"
 }
 
 # the launcher outlives the game and keeps the Wine prefix busy, so it goes too
