@@ -325,6 +325,13 @@ return function(deps)
             end
           end
         end
+        --the drag belongs to the mouse, but it only ever got its frames while the
+        --map button was held: let go of that button first and the drag never ended,
+        --so the window stayed stuck to the pointer and jumped to it at the next
+        --press. It ends here whenever the button is no longer held.
+        if widget.dragging() and not M.is_overlay_pressed() then
+          widget.drag(mpos)
+        end
         if widget.prep_alarm then
           widget.prep_minimap()
           widget.prep_alarm = false

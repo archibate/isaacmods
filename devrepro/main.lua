@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 184
+local REV = 185
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -45,20 +45,17 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the question, a player's: once a room holds no enemies they cannot shoot, and a
--- familiar caught mid-shot keeps firing the way it faced; only a full quit clears
--- it. The suspect is the guard that stops a click on the map from firing a tear:
--- while the window is pinned it runs on hover, every frame the pointer rests over
--- the window. The round pins the window, then each probe says where the pointer is,
--- whether the mod counts it as over the window, and what the player's shot state is.
+-- the question, read out of the code: a drag of the window only ever got its frames
+-- while the map button was held, so letting that button go before the mouse button
+-- left the drag running and the window stuck to the pointer for the next press. Each
+-- probe says where the pointer is, where the window is, and whether a drag is live.
 local function probe()
-    local p = Isaac.GetPlayer(0)
     local mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
     local over = gt and gt.widget and gt.widget.in_ui_zone(mpos)
-    log("PROBE mouse %.0f,%.0f over=%s pin=%s firedelay=%.1f tears=%d", mpos.X, mpos.Y,
-        tostring(over), tostring(gt and gt.widget and gt.widget.mmp_pin), p.FireDelay,
-        #Isaac.FindByType(EntityType.ENTITY_TEAR, -1, -1, false, false))
-    banner = "pointer parked on the pinned window"
+    local wx, wy = gt.widget.get_top_left()
+    log("PROBE mouse %.0f,%.0f over=%s window %.0f,%.0f dragging=%s", mpos.X, mpos.Y,
+        tostring(over), wx, wy, tostring(gt.widget.dragging()))
+    banner = "drag round: the window must stay put"
 end
 
 -- the fire key is held from outside for the whole window; what counts is whether
@@ -81,7 +78,7 @@ end
 local STEPS = {
     "luamod goodtripfixed", 10,
     "restart 0", 20,
-    "lua gt.widget.mmp_pin=1", 10, probe, watch(180),
+    "lua gt.widget.mmp_pin=0", 10, probe, watch(300),
 }
 
 local HINT = "done: tell Claude the round finished"

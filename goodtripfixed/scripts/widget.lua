@@ -545,6 +545,11 @@ return function(deps)
         return true
     end
 
+    --a drag in progress: the window is following the pointer
+    function M.dragging()
+        return mouse_magnet
+    end
+
     --every held-TAB frame: the drag while the button is down, and once it is up
     --the trash drop, the edge clamps and the save
     function M.drag(mpos)
