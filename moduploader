@@ -28,10 +28,17 @@ if [[ -n "${1:-}" && -d "$1" ]]; then
 	shift
 fi
 
-if [[ -f changes.txt ]]; then
-	# Both selections: the uploader is a fresh GUI process and does not always
-	# come up holding the ordinary clipboard, but middle-click paste reads the
-	# primary selection and does.
+# The changelog is typed into the uploader by hand and is the one thing no file
+# dialog can pick, so it goes on the clipboard -- but only once the uploader is
+# up. A selection made before it starts is one it will not paste, by hand or by
+# middle click, while the same text copied after it appears pastes fine.
+copy_changelog() {
+	if [[ ! -f changes.txt ]]; then
+		echo "warning: no changes.txt in $PWD — nothing to paste." >&2
+		return
+	fi
+	# Both selections: Ctrl+V takes the ordinary clipboard, middle click the
+	# primary one.
 	if command -v wl-copy >/dev/null; then
 		wl-copy <changes.txt
 		wl-copy --primary <changes.txt
@@ -40,14 +47,17 @@ if [[ -f changes.txt ]]; then
 		xclip -selection primary <changes.txt
 	else
 		echo "warning: no wl-copy or xclip — changelog not copied." >&2
+		return
 	fi
 	echo "changelog on the clipboard, $(wc -l <changes.txt) lines:" >&2
 	cat changes.txt >&2
-else
-	echo "warning: no changes.txt in $PWD — nothing to paste." >&2
-fi
+}
 
 # Use absolute paths for the binary and lib64/ so the bundled
 # libsteam_api.so and steam_appid.txt stay resolvable from any directory.
 export LD_LIBRARY_PATH="$MU_DIR/lib64:${LD_LIBRARY_PATH:-}"
-exec "$MU_DIR/ModUploader.bin" "$@"
+"$MU_DIR/ModUploader.bin" "$@" &
+uploader=$!
+sleep 3
+copy_changelog
+wait "$uploader"
