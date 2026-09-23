@@ -34,6 +34,15 @@ return function(deps)
           widget.prep_minimap()
         end
     end
+    --the tear a click throws is the mouse's own; a hand already firing with the
+    --shooting keys is not the mouse and must not be held back
+    function M.firing_by_keys()
+        return Input.IsButtonPressed(Keyboard.KEY_UP, 0)
+            or Input.IsButtonPressed(Keyboard.KEY_DOWN, 0)
+            or Input.IsButtonPressed(Keyboard.KEY_LEFT, 0)
+            or Input.IsButtonPressed(Keyboard.KEY_RIGHT, 0)
+    end
+
     function M.player_shoot_cooldown()
         local player = floor.player
         player:SetShootingCooldown(2)
@@ -273,11 +282,12 @@ return function(deps)
             if mouse_in_ui then
               --a click on the pinned window would fire a tear along with it, and the
               --tear is gone by the time the click is read, so shooting is held while
-              --the pointer is over the window. Only while it is being used, though:
-              --a pointer parked there and forgotten -- which is where it sits for
-              --anyone playing on the keyboard -- used to cost them every tear in
-              --every cleared room until they quit the run
-              if cfg.NoShootWhenClick and (mouse_idle < 120 or Input.IsMouseBtnPressed(0)) then
+              --the pointer works over the window. Only the mouse's own shot, though:
+              --a pointer resting there -- which is where it sits all game for anyone
+              --playing on the keyboard -- and a hand on the shooting keys both keep
+              --their tears, where before either lost them in every cleared room
+              if cfg.NoShootWhenClick and not M.firing_by_keys()
+                  and (mouse_idle < 120 or Input.IsMouseBtnPressed(0)) then
                 M.player_shoot_cooldown()
               end
               if M.IsMouseBtnTriggered(0) then
