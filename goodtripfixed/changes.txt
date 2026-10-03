@@ -1,0 +1,1 @@
+- Removed the trash can from minimap dragging to prevent accidental hiding; use MCM: KeyboardMapEnable to hide or restore the teleport map.

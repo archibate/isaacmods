@@ -28,7 +28,7 @@ return function(deps)
     --a page scrolls past ten settings, so every tab stays well under that.
     --{tab, key, info, [show-if]}; tabs appear in the order first named here
     local options = {
-        { "Map", "KeyboardMapEnable", "Classic GoodTrip minimap, teleport using TAB + arrow keys. Turn this back on if you dragged it into the trash by accident." },
+        { "Map", "KeyboardMapEnable", "Classic GoodTrip minimap, teleport using TAB + arrow keys. Turn this off to hide the teleport map, or on to restore it." },
         { "Map", "CursorOnGameMap", "Put the cursor on the game's own corner map and hide the mod's window (needs REPENTOGON)", REPENTOGON ~= nil },
 
         { "Fairness", "AllowNeighborRoom", "Allow moving into uncleaned neighbor room" },
@@ -360,7 +360,7 @@ return function(deps)
         }
         --Info is matched whole. ASCII punctuation only: the font lacks full-width marks
         local infos = {
-            ["Classic GoodTrip minimap, teleport using TAB + arrow keys. Turn this back on if you dragged it into the trash by accident."] = "经典款 GoodTrip 传送小窗, 按住 TAB 用方向键选房间传送. 若不小心拖进垃圾桶删掉了, 把这项打开就能回来",
+            ["Classic GoodTrip minimap, teleport using TAB + arrow keys. Turn this off to hide the teleport map, or on to restore it."] = "经典款 GoodTrip 传送小窗, 按住 TAB 用方向键选房间传送. 关闭这项可隐藏传送小窗, 重新打开即可恢复",
             ["Put the cursor on the game's own corner map and hide the mod's window (needs REPENTOGON)"] = "光标直接画在游戏右上角的地图上, 本 mod 自己的小窗不再显示 (需要 REPENTOGON)",
             ["Allow moving into uncleaned neighbor room"] = "允许传送进紧挨着已清房间的未清房间",
             ["Allow teleporting to any room on the map, with no path to it cleared first"] = "允许传送到地图上任何一个房间, 沿途不必先清干净",

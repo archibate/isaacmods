@@ -57,7 +57,7 @@ return function(deps)
     end
     M.apply_pins()
 
-    --saved here, not in the MCM block: dragging, zoom and the trash work without MCM
+    --saved here, not in the MCM block: dragging and zoom work without MCM
     local cfgdata_written = nil
     local cfgdata_loaded = false
     function M.save()

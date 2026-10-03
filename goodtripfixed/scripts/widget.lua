@@ -18,8 +18,6 @@ return function(deps)
     local cursor = Sprite()
     cursor:Load("sprite/gt/cursor.anm2", true)
     cursor:SetFrame("Idle", 0)
-    local trash = Sprite()
-    trash:Load("sprite/gt/gt_exit.anm2", true)
     local icon_room = {"RoomOutline", "RoomVisited", "RoomUnvisited", "RoomCurrent"}
     local icon_flag = {"1_IconNormal", "IconShop", "3_IconError", "IconTreasureRoom", "IconBoss",
                       "IconMiniboss", "IconSecretRoom", "IconSuperSecretRoom", "IconArcade", "IconCurseRoom",
@@ -551,11 +549,10 @@ return function(deps)
     end
 
     --every held-TAB frame: the drag while the button is down, and once it is up
-    --the trash drop, the edge clamps and the save
+    --the edge clamps and the save
     function M.drag(mpos)
         if not cfg.KeyboardMapEnable then return end
         local scpos = gamemap.scpos
-        local cp = scpos / 2
         if Input.IsMouseBtnPressed(0) then
           if mouse_magnet then
             mmp_ltpos = mpos + d_pos
@@ -567,21 +564,11 @@ return function(deps)
             if twin then
               twin:SetShootingCooldown(2)
             end
-            if M.check_pos_en_box(mpos, cp + Vector(-16, -16), cp + Vector(16, 116)) then
-              trash:SetFrame("trash", 1)
-              trash:Render(cp, Vector(0, 0), Vector(0, 0))
-            else
-              trash:SetFrame("trash", 0)
-              trash:Render(cp, Vector(0, 0), Vector(0, 0))
-            end
           end
         else
           local drag_ended = mouse_magnet --saved only after the edge clamps below
           if mouse_magnet then
             mouse_magnet = false
-            if M.check_pos_en_box(mpos, cp + Vector(-16, -16), cp + Vector(16, 16)) then
-              cfg.KeyboardMapEnable = false
-            end
           end
           if mmp_ltpos.X < 5 then
             mmp_ltpos.X = 5
