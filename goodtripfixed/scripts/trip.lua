@@ -84,11 +84,13 @@ return function(deps)
         end
         local trd = floor.grid_room[gid]
         if floor.crd.Data.Type == 10 then
-          if not rules.curse_toll_free(floor.crsid, true, false) then
+          if not rules.curse_toll_free(floor.crsid, true, false)
+              and not rules.has_curse_bypass(floor.crsid, trd.SafeGridIndex) then
             M.hurt(1)
           end
         elseif trd.Data.Type == 10 and not floor.player:IsFlying() then
-          if not rules.curse_toll_free(trd.SafeGridIndex, false, true) then
+          if not rules.curse_toll_free(trd.SafeGridIndex, false, true)
+              and not rules.has_curse_bypass(trd.SafeGridIndex, floor.crsid) then
             M.hurt(1)
           end
         end

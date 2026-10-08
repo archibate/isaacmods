@@ -192,6 +192,37 @@ return function(deps)
         end
     end
 
+    --a curse-room toll is avoidable when the destination can be reached through
+    --opened secret passages and cleared rooms without crossing any spiked door.
+    --Use observed edges only: linked() also admits unknown walls after a reload.
+    function M.has_curse_bypass(curse_gid, other_gid)
+        local curse = floor.grid_room[curse_gid]
+        local other = floor.grid_room[other_gid]
+        if not curse or not other then return false end
+        floor.sweep_doors()
+        local graph = floor.door_graph()
+        local start, target = curse.SafeGridIndex, other.SafeGridIndex
+        local seen, queue, head = {[start] = true}, {start}, 1
+        while queue[head] do
+          local cur = queue[head]
+          head = head + 1
+          if cur == target then return true end
+          local from = floor.grid_room[cur]
+          for adj in pairs(graph[cur] or {}) do
+            local rd = floor.grid_room[adj]
+            if rd and not seen[adj] and (adj == target or (rd.VisitedCount > 0 and rd.Clear)) then
+              local spiked = from.Data.Type == RoomType.ROOM_CURSE or rd.Data.Type == RoomType.ROOM_CURSE
+              local secret = from.Data.Type == RoomType.ROOM_SECRET or rd.Data.Type == RoomType.ROOM_SECRET
+              if not spiked or secret then
+                seen[adj] = true
+                queue[#queue + 1] = adj
+              end
+            end
+          end
+        end
+        return false
+    end
+
     --is this curse-room door free? Isaac's Heart / Tooth and Nail take the hit.
     --Flat File acts on the door as the room is laid down, so the trinket in hand
     --only answers for a door about to be laid down again, not the one stood beside

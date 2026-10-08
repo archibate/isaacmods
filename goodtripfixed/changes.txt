@@ -1,1 +1,2 @@
 - Removed the trash can from minimap dragging to prevent accidental hiding; use MCM: KeyboardMapEnable to hide or restore the teleport map.
+- Fixed curse-room teleport damage when an opened secret-room route through cleared rooms reaches the destination safely.
