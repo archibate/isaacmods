@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 185
+local REV = 9283
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -45,43 +45,96 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- the question, read out of the code: a drag of the window only ever got its frames
--- while the map button was held, so letting that button go before the mouse button
--- left the drag running and the window stuck to the pointer for the next press. Each
--- probe says where the pointer is, where the window is, and whether a drag is live.
-local function probe()
-    local mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
-    local over = gt and gt.widget and gt.widget.in_ui_zone(mpos)
-    local wx, wy = gt.widget.get_top_left()
-    log("PROBE mouse %.0f,%.0f over=%s window %.0f,%.0f dragging=%s", mpos.X, mpos.Y,
-        tostring(over), wx, wy, tostring(gt.widget.dragging()))
-    banner = "drag round: the window must stay put"
+-- September 28 report: old rooms remain projected over other rooms in Dark Room.
+-- Exercise the normal entry point in the render callback, like the map UI does.
+local pending
+local original
+local targets = {}
+local function restore()
+    if original then
+        for key, value in pairs(original) do gt:get_config()[key] = value end
+        original = nil
+    end
+end
+mod:AddPriorityCallback(ModCallbacks.MC_PRE_GAME_EXIT, CallbackPriority.EARLY - 1, restore)
+
+local function state(label)
+    local level, room = Game():GetLevel(), Game():GetRoom()
+    local rd = level:GetCurrentRoomDesc()
+    local pos = room:GetRenderSurfaceTopLeft()
+    local player = Isaac.GetPlayer(0)
+    log("%s room=%d name=%s shape=%d clear=%s backdrop=%d surface=%.1f,%.1f player=%.1f,%.1f",
+        label, rd.SafeGridIndex, rd.Data.Name, rd.Data.Shape, tostring(room:IsClear()),
+        room:GetBackdropType(), pos.X, pos.Y, player.Position.X, player.Position.Y)
+end
+mod:AddCallback(ModCallbacks.MC_POST_RENDER, function()
+    if pending then
+        local target = pending
+        pending = nil
+        state("BEFORE target=" .. target)
+        gt.control.check_and_tele_room(target)
+    end
+end)
+
+local function setup()
+    local cfg = gt:get_config()
+    original = {}
+    for _, key in ipairs({"FastTransition", "TeleportAnimation", "ArriveAtDoor", "AllowAnyRoom", "FairTripPath", "FollowCurseOfLost"}) do
+        original[key] = cfg[key]
+    end
+    cfg.FastTransition, cfg.TeleportAnimation, cfg.ArriveAtDoor = false, false, false
+    cfg.AllowAnyRoom, cfg.FairTripPath, cfg.FollowCurseOfLost = true, false, false
+    local level = Game():GetLevel()
+    log("ENV repplus=%s rgon=%s stage=%d type=%d seed=%s", tostring(REPENTANCE_PLUS),
+        tostring(REPENTOGON), level:GetStage(), level:GetStageType(), Game():GetSeeds():GetStartSeedString())
+    targets = {}
+    local rooms = level:GetRooms()
+    for i = 0, rooms.Size - 1 do
+        local rd = rooms:Get(i)
+        if rd.Data.Type == RoomType.ROOM_DEFAULT and rd.SafeGridIndex >= 0 then
+            log("TARGET %d name=%s shape=%d", rd.SafeGridIndex, rd.Data.Name, rd.Data.Shape)
+        end
+    end
+    targets = {57, 81, 70, 87, 80}
 end
 
--- the fire key is held from outside for the whole window; what counts is whether
--- any tear ever comes out while it is held
-local function watch(ticks)
-    local left, seen
+local function tour(name, fast, door, animation)
+    local index, age = 0, 0
     return function()
-        left, seen = (left or ticks) - 1, math.max(seen or 0,
-            #Isaac.FindByType(EntityType.ENTITY_TEAR, -1, -1, false, false))
-        if left % 30 == 0 then
-            probe()
+        if index == 0 then
+            local cfg = gt:get_config()
+            cfg.FastTransition, cfg.ArriveAtDoor, cfg.TeleportAnimation = fast, door, animation
+            log("PHASE %s fast=%s door=%s animation=%s", name, tostring(fast), tostring(door), tostring(animation))
+            index = 1
         end
-        if left > 0 then return true end
-        log("WATCH done, most tears at once %d", seen)
-        left, seen = nil, nil
-        return false
+        if index > #targets * 2 then return false end
+        local target = targets[((index - 1) % #targets) + 1]
+        banner = string.format("%s hop %d/%d target %d", name, index, #targets * 2, target)
+        if age == 0 then
+            pending = target
+        elseif age == 70 then
+            state("AFTER target=" .. target)
+        end
+        age = age + 1
+        if age >= 100 then age, index = 0, index + 1 end
+        return true
     end
 end
 
 local STEPS = {
     "luamod goodtripfixed", 10,
-    "restart 0", 20,
-    "lua gt.widget.mmp_pin=0", 10, probe, watch(300),
+    "restart 0", 10, "seed G4GE KECS", 10,
+    "debug 3", "debug 10", "stage 11", 10,
+    "giveitem c333", 10,
+    setup,
+    tour("default", false, false, false),
+    tour("fast", true, false, false),
+    tour("door", false, true, false),
+    tour("teleport", false, false, true),
+    restore,
 }
 
-local HINT = "done: tell Claude the round finished"
+local HINT = "Dark Room tour done; settings restored. F2 dumps seed."
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything

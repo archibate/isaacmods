@@ -33,6 +33,7 @@ tmmc.enableModded = true
 tmmc.moddedmax = 5
 tmmc.moddedGuard = true
 tmmc.holdItems = false
+tmmc.pauseInvincible = false
 tmmc.enable = {
     true,   --1.Slot Machine
     true,   --2.Blood Donation Machine
@@ -86,6 +87,7 @@ if ModConfigMenu then
             moddedmax = tmmc.moddedmax,
             moddedGuard = tmmc.moddedGuard,
             holdItems = tmmc.holdItems,
+            pauseInvincible = tmmc.pauseInvincible,
             enable = tmmc.enable,
         })
         if not oldcfgdatas or dat ~= oldcfgdatas then
@@ -110,6 +112,7 @@ if ModConfigMenu then
             tmmc.moddedmax = cfg.moddedmax or tmmc.moddedmax
             if cfg.moddedGuard ~= nil then tmmc.moddedGuard = cfg.moddedGuard end
             if cfg.holdItems ~= nil then tmmc.holdItems = cfg.holdItems end
+            if cfg.pauseInvincible ~= nil then tmmc.pauseInvincible = cfg.pauseInvincible end
             if type(cfg.enable) == 'table' then
                 for i = 1, #tmmc.enable do
                     if cfg.enable[i] ~= nil then tmmc.enable[i] = cfg.enable[i] end
@@ -185,6 +188,7 @@ if ModConfigMenu then
         { "supressFly", "KillSpawnedFlies", "Kill flies spawned by Shell Game / Hell Game / beggars so speeding up won't get you hurt" },
         { "supressBomb", "DefuseSpawnedBombs", "Delay troll bombs dropped by machines / beggars so they explode after you finished" },
         { "preventDeath", "PreventSuddenDeath", "Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to keep accelerating at lethal HP too)" },
+        { "pauseInvincible", "PauseWhileInvincible", "Pause acceleration while any player has an invincibility effect (shield, The Chariot, Power Pill, etc.), then resume when it ends" },
         { "holdItems", "ReleaseToPickUp", "An item a sped-up machine pays out can't be picked up until you let go of the movement keys and step off it, so walking into the machine never grabs it by accident" },
         { "enableChest", "EternalChest", "Speed up the eternal chest (the blue one in Angel Rooms) so its open-close-reopen wait is not dead time" },
         { "enableModded", "ModdedMachines", "Speed up beggars and machines added by other mods -- potentially compatibility issue, turn this off if one of them misbehaves" },
@@ -244,6 +248,7 @@ if ModConfigMenu then
             { "^KillSpawnedFlies:", "清掉刷出来的苍蝇:" },
             { "^DefuseSpawnedBombs:", "延后刷出来的即爆炸弹:" },
             { "^PreventSuddenDeath:", "血量危险时停下:" },
+            { "^PauseWhileInvincible:", "无敌效果期间暂停加速:" },
             { "^ReleaseToPickUp:", "松开方向键才能捡道具:" },
             { "^EternalChest:", "永恒宝箱:" },
             { "^ModdedMachines:", "模组机器:" },
@@ -259,6 +264,7 @@ if ModConfigMenu then
             ["Kill flies spawned by Shell Game / Hell Game / beggars so speeding up won't get you hurt"] = "把猜球游戏, 地狱猜球和乞丐刷出来的苍蝇清掉, 免得快进的时候挨一下",
             ["Delay troll bombs dropped by machines / beggars so they explode after you finished"] = "机器和乞丐掉出来的恶搞炸弹推迟引爆, 等你弄完再炸",
             ["Pause acceleration at blood-taking machines when the next donation could kill you (turn it off to keep accelerating at lethal HP too)"] = "在抽血的机器前, 如果下一次抽血就会要命, 就先停住不加速 (关掉的话血量再低也照样加速)",
+            ["Pause acceleration while any player has an invincibility effect (shield, The Chariot, Power Pill, etc.), then resume when it ends"] = "任一玩家有护盾, 战车, 大力丸等无敌效果时暂停加速, 效果结束后自动恢复",
             ["An item a sped-up machine pays out can't be picked up until you let go of the movement keys and step off it, so walking into the machine never grabs it by accident"] = "加速时机器吐出来的道具, 要先松开方向键, 离开道具后再走过去才能捡, 一直按着不会误捡",
             ["Speed up the eternal chest (the blue one in Angel Rooms) so its open-close-reopen wait is not dead time"] = "贴着天使房的蓝宝箱时加速, 开了关关了开的那段等待就不用干等了",
             ["Treat a machine another mod added as if it took a full heart, and stop speeding it up when the next use could kill"] = "模组乞丐和模组机器一律假设要扣一颗心, 下一次可能致命就不再加速",
@@ -564,6 +570,17 @@ function tmmc:step()
     accelerating = false
     if not Game():GetRoom():IsClear() then
         return
+    end
+    --The ramp and clock are shared, so an invincible teammate pauses the whole
+    --pass. HasInvincibility excludes ordinary post-hit damage cooldown frames.
+    --Keep the ramp, but discard fractional ticks so resuming never catches up.
+    if tmmc.pauseInvincible then
+        for i = 0, Game():GetNumPlayers() - 1 do
+            if Isaac.GetPlayer(i):HasInvincibility(0) then
+                speedAccum = 0
+                return
+            end
+        end
     end
     local targets = tmmc:find_targets()
     if #targets == 0 then
