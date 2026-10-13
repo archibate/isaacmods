@@ -34,6 +34,7 @@ return {
     -- DimMapInCombat = true,      -- keep the map on screen, faint, while the room is uncleared
     -- DimMapAlpha = 35,           -- how faint, in percent; 5 is the lowest allowed
     -- ShowSpecialIcons = true,    -- mirror, white fire, minecart, mine button, tinted skull (visited rooms)
+    -- SpecialIconsOnGameMap = true, -- the same icons on the game's own map; needs REPENTOGON
     -- ShowClashWarning = true,    -- warn on screen while another GoodTrip is loaded beside this one
     -- IgnoreMovementKeys = false, -- keep aiming while you walk
     -- SwapAnalogSticks = false,   -- aim the cursor with the movement stick

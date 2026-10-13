@@ -1,2 +1,3 @@
+- Special-room icons (white fire, tinted skull, minecart, mine button) now show on the game's own map, normal and mirror world (needs REPENTOGON; thank @mata for the request!).
 - Removed the trash can from minimap dragging to prevent accidental hiding; use MCM: KeyboardMapEnable to hide or restore the teleport map.
 - Fixed curse-room teleport damage when an opened secret-room route through cleared rooms reaches the destination safely.

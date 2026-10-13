@@ -44,6 +44,7 @@ return function(deps)
 
 
         { "Display", "ShowSpecialIcons", "Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull" },
+        { "Display", "SpecialIconsOnGameMap", "Show the same icons on the game's own map (needs REPENTOGON)", REPENTOGON ~= nil },
         { "Display", "DangerCautionCompat", "weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors" },
         { "Display", "TeleportAnimation", "Play cool animation on teleport" },
         { "Display", "FastTransition", "Even faster transition without animation" },
@@ -333,6 +334,7 @@ return function(deps)
             { "^DimMapInCombat:", "战斗中淡显地图:" },
             { "^DimMapAlpha:", "淡显的浓度:" },
             { "^ShowSpecialIcons:", "显示特殊房间图标:" },
+            { "^SpecialIconsOnGameMap:", "原版地图上显示特殊图标:" },
             { "^ShowClashWarning:", "装了两个 GoodTrip 时警告:" },
             { "^DangerCautionCompat:", "危险房间提示联动:" },
             { "^TeleportAnimation:", "传送动画:" },

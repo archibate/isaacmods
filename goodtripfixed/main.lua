@@ -138,5 +138,7 @@ _gt:AddPriorityCallback(ModCallbacks.MC_POST_NEW_ROOM, CallbackPriority.EARLY, c
 _gt:AddPriorityCallback(ModCallbacks.MC_POST_NEW_LEVEL, CallbackPriority.EARLY, control.new_level)
 if REPENTOGON then
   --the game's map is drawn in MC_HUD_RENDER there, so the cursor on it goes after
+  --EARLY: at default priority another mod's HUD callback ahead of it kept it from ever running
+  _gt:AddPriorityCallback(ModCallbacks.MC_POST_HUD_RENDER, CallbackPriority.EARLY, widget.gon_draw_map_icons)
   _gt:AddCallback(ModCallbacks.MC_POST_HUD_RENDER, widget.gon_draw_map_cursor)
 end

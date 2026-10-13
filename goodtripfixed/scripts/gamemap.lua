@@ -21,6 +21,10 @@ return function(deps)
     function M.gon_map_cursor()
         return REPENTOGON ~= nil and cfg.CursorOnGameMap
     end
+    --special-room icons on the game's map. MinimapAPI draws a map of its own
+    function M.gon_map_icons()
+        return REPENTOGON ~= nil and cfg.SpecialIconsOnGameMap and not MinimapAPI
+    end
 
     --hit-test against MinimapAPI's own rendered rooms: RenderOffset has position,
     --display mode, pitch and the mirror flip baked in, so invert that

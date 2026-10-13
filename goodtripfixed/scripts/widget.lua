@@ -304,6 +304,93 @@ return function(deps)
         cursor.Color = Color(1, 1, 1, 1, 0, 0, 0)
     end
 
+    --the special icon of a visited normal room, as an icon_flag2 index, 0 for none.
+    --Read from the spawn list, so asking before the visit would spoil the floor
+    local function special_iid(rd, stageeffect)
+        if rd.Data.Type ~= 1 or rd.VisitedCount == 0 then
+          return 0
+        end
+        local iid = 0
+        local spawns = rd.Data.Spawns
+        if stageeffect == 1 then -- downpour
+          for j = 0, spawns.Size - 1 do
+              local e = spawns:Get(j):PickEntry(0)
+              if e.Type == 970 and e.Variant == 2 then
+                  iid = 5
+                  break
+              elseif e.Type == 33 and e.Variant == 4 then
+                  iid = 6
+                  break
+              end
+          end
+        elseif stageeffect == 2 then -- mines
+          for j = 0, spawns.Size - 1 do
+              local e = spawns:Get(j):PickEntry(0)
+              if e.Type == 965 and e.Variant == 10 then
+                  iid = 8
+                  break
+              elseif e.Type == 4500 and e.Variant == 3 then
+                  iid = 9
+              end
+          end
+        elseif stageeffect == 3 then -- depths
+          for j = 0, spawns.Size - 1 do
+              local e = spawns:Get(j):PickEntry(0)
+              if e.Type == 1008 then
+                  iid = 7
+                  break
+              end
+          end
+        end
+        return iid
+    end
+
+    --the same special icons drawn on the game's own map: held open, or collapsed
+    --while the floor is small enough to show whole there (then it reports its full
+    --size). The map grows over a few frames when opened, and cell_to_screen knows
+    --only its full size, so nothing is drawn until the size has stopped changing
+    local last_map_size = Vector(0, 0)
+    function M.gon_draw_map_icons()
+        if not gamemap.gon_map_icons() then
+          return
+        end
+        local size = Minimap.GetDisplayedSize()
+        local settled = size.X == last_map_size.X and size.Y == last_map_size.Y
+        last_map_size = size
+        if not settled or (size.X == 47 and size.Y == 47) then --47x47: the collapsed corner map
+          return
+        end
+        if floor.level:GetCurses() & LevelCurse.CURSE_OF_THE_LOST ~= 0 then
+          return --the game's map shows no rooms then
+        end
+        gamemap.refresh_screen()
+        --one icon per room, at the middle of the cells it covers
+        local sum, count, iids = {}, {}, {}
+        for cell, rd in pairs(floor.grid_room) do
+          local key = rd.ListIndex
+          if iids[key] == nil then
+            iids[key] = special_iid(rd, floor.stageeffect)
+          end
+          if iids[key] ~= 0 then
+            local center = gamemap.cell_to_screen(cell)
+            if center then
+              sum[key] = (sum[key] or Vector(0, 0)) + center
+              count[key] = (count[key] or 0) + 1
+            end
+          end
+        end
+        --residual measured in-game against the game's own mirror-room icon; unlike
+        --the cursor's, the same in the mirror world
+        local gmcoff = Vector(2, 2)
+        mic.Scale = Vector(1, 1)
+        mic.Color = Color(1, 1, 1, 1, 0, 0, 0)
+        for key, s in pairs(sum) do
+          mic:SetFrame(icon_flag2[iids[key]], 0)
+          mic:Render(s / count[key] + gmcoff - Vector(8, 8), Vector(0, 0), Vector(0, 0)) --16x16 frame, pivot top-left
+        end
+        mic.Scale = Vector(mmsc, mmsc)
+    end
+
     function M.draw_minimap(mpos, faint)
         if gamemap.gon_map_cursor() then
           --under REPENTOGON the game's map is drawn in MC_HUD_RENDER, so the cursor
@@ -371,39 +458,8 @@ return function(deps)
               end
               mic:Render(draw_room_pos[i] + draw_icon_pos[draw_room_shape[i]] * mmsc, Vector(0, 0), Vector(0, 0))
             --visited only: read from the spawn list, so drawing early spoils the floor
-            elseif cfg.ShowSpecialIcons and rd.Data.Type == 1 and rd.VisitedCount > 0 then
-              local iid = 0
-              local spawns = rd.Data.Spawns
-              if stageeffect == 1 then -- downpour
-                for j = 0, spawns.Size - 1 do
-                    local e = spawns:Get(j):PickEntry(0)
-                    if e.Type == 970 and e.Variant == 2 then
-                        iid = 5
-                        break
-                    elseif e.Type == 33 and e.Variant == 4 then
-                        iid = 6
-                        break
-                    end
-                end
-              elseif stageeffect == 2 then -- mines
-                for j = 0, spawns.Size - 1 do
-                    local e = spawns:Get(j):PickEntry(0)
-                    if e.Type == 965 and e.Variant == 10 then
-                        iid = 8
-                        break
-                    elseif e.Type == 4500 and e.Variant == 3 then
-                        iid = 9
-                    end
-                end
-              elseif stageeffect == 3 then -- depths
-                for j = 0, spawns.Size - 1 do
-                    local e = spawns:Get(j):PickEntry(0)
-                    if e.Type == 1008 then
-                        iid = 7
-                        break
-                    end
-                end
-              end
+            elseif cfg.ShowSpecialIcons then
+              local iid = special_iid(rd, stageeffect)
               if iid ~= 0 then
                 mic:SetFrame(icon_flag2[iid], 0)
                 mic:Render(draw_room_pos[i] + draw_icon_pos[draw_room_shape[i]] * mmsc, Vector(0, 0), Vector(0, 0))
