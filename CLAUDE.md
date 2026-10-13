@@ -149,4 +149,4 @@ instruments before the fix is called done.
 - `isaac-spinfix/` — patch for Rep+'s render thread pinning a CPU core under Wine.
 - `steamcomments` — fetch a mod's workshop comments from CLI (folder name or workshop id), no login needed.
 - `moduploader` — launch Isaac's ModUploader to publish a mod release to the workshop (requires user GUI clicks).
-- `isaacdesk` — run the game on the agent's Xvfb desktop (`start`, `key F1`, `stop`), so devrepro rounds run without the user; software-rendered, full speed, several cores; further observation and action goes to `computer-use`.
+- `isaacdesk` — run the game on the agent's Xvfb desktop (`start`, `key F1`, `stop`), so devrepro rounds run without the user; software-rendered, so after `start` the game is capped at 10% of a core to keep the fans quiet (`cpu <pct|off>` changes it; `key` lifts it for the press); further observation and action goes to `computer-use`.

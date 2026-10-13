@@ -8,13 +8,19 @@
 #   ./isaacdesk start     launch, press the launcher's button, size the window
 #   ./isaacdesk key F1    one held keypress to the game (a tap is too short for it)
 #   ./isaacdesk stop      close the game window
+#   ./isaacdesk cpu 100   cap the game at that % of one core (`off` lifts the cap)
+#
+# Once its window is up the game is capped at ISAACDESK_CPU (default 10) % of one
+# core: software rendering otherwise takes six cores and the fans with them. The
+# game then runs many times slower, which a devrepro list, counting frames, does
+# not notice; `key` lifts the cap for the press itself, and `stop` for good.
 #
 # ISAACDESK_VANILLA=1 ./isaacdesk start runs the plain isaac-ng.exe instead, no
 # REPENTOGON and no launcher: what a player without the extension sees.
 #
 # One Wine prefix serves both desktops, so the game must not be running on the
 # real one: a leftover REPENTOGON launcher window there blocks this launch until
-# it is closed. Rendering is software (llvmpipe, several cores) but full speed.
+# it is closed. Rendering is software (llvmpipe).
 set -euo pipefail
 
 export DISPLAY="${ISAACDESK_DISPLAY:-:99}"
@@ -87,6 +93,7 @@ start() {
 		done
 		[[ -n "$g" ]] || { echo "no game window after 240 s; see /tmp/isaacdesk.log" >&2; exit 1; }
 		xdotool windowmove "$g" 0 0 windowsize "$g" 1440 810 windowactivate "$g"
+		cpu "${ISAACDESK_CPU:-10}"
 		echo "vanilla game up on $DISPLAY" >&2
 		return
 	fi
@@ -121,7 +128,43 @@ start() {
 	sleep 5
 	# options.ini's window size is taller than this desktop; the game letterboxes any size
 	xdotool windowmove "$g" 0 0 windowsize "$g" 1440 810 windowactivate "$g"
+	cpu "${ISAACDESK_CPU:-10}"
 	echo "game up on $DISPLAY; title screen takes a while under software rendering" >&2
+}
+
+# The cap is a systemd scope of the game's own, made by moving isaac-ng.exe into
+# it: the game's original scope also holds whatever terminal launched it, which a
+# cap there would slow too. Only isaac-ng.exe burns CPU, so nothing else moves.
+game_pid() { pgrep -f "$GAME_PROC" | head -n 1; }
+game_cgroup() { echo "/sys/fs/cgroup$(cut -d: -f3 "/proc/$1/cgroup")"; }
+
+cpu() {
+	local pid unit quota=""
+	# the user's own game, on their screen, is not this script's to cap
+	[[ -n "$(game_window)" ]] || { echo "no game window on $DISPLAY" >&2; exit 1; }
+	pid=$(game_pid) && [[ -n "$pid" ]] || { echo "isaac-ng.exe is not running" >&2; exit 1; }
+	unit="isaacdesk-$pid.scope"
+	[[ "$1" == off ]] || quota="${1%\%}%"
+	if [[ "$(game_cgroup "$pid")" != */"$unit" ]]; then
+		busctl --user call org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+			org.freedesktop.systemd1.Manager StartTransientUnit 'ssa(sv)a(sa(sv))' \
+			"$unit" fail 2 PIDs au 1 "$pid" Description s "Isaac on $DISPLAY, CPU-capped" 0 >/dev/null
+		for _ in $(seq 1 20); do
+			[[ "$(game_cgroup "$pid")" == */"$unit" ]] && break
+			sleep 0.1
+		done
+	fi
+	systemctl --user set-property --runtime "$unit" CPUQuota="$quota"
+}
+
+# the cap as `cpu` takes it back, read from the cgroup: "max 100000" or "10000 100000"
+cpu_now() {
+	local f max period
+	f="$(game_cgroup "$(game_pid)")/cpu.max"
+	# no cpu.max: a cgroup without the cpu controller, that is, never capped
+	[[ -r "$f" ]] || { echo off; return; }
+	read -r max period <"$f"
+	[[ "$max" == max ]] && echo off || echo $((max * 100 / period))
 }
 
 # A key only counts once the game holds the focus. Anything else on this desktop
@@ -145,15 +188,23 @@ key() {
 		echo "the game does not hold the focus ($focused holds it); $1 not sent" >&2
 		exit 1
 	}
+	# a capped game draws its frames too far apart to see a 0.25 s hold
+	local was
+	was=$(cpu_now)
+	cpu off
 	xdotool keydown --clearmodifiers "$1"
 	sleep 0.25
 	xdotool keyup --clearmodifiers "$1"
+	sleep 0.25
+	cpu "$was"
 }
 
 # the launcher outlives the game and keeps the Wine prefix busy, so it goes too
 stop() {
 	local g
 	if g=$(game_window) && [[ -n "$g" ]]; then
+		# capped, the game would take minutes to shut down
+		cpu off
 		wmctrl -i -c "$g"
 		for _ in $(seq 1 15); do
 			pgrep -f "$GAME_PROC" >/dev/null || break
@@ -167,5 +218,6 @@ case "${1:-}" in
 start) start ;;
 key) key "${2:?key name, e.g. F1}" ;;
 stop) stop ;;
-*) sed -n '2,13p' "$0" >&2; exit 2 ;;
+cpu) cpu "${2:?percent of one core, or off}" ;;
+*) sed -n '2,23p' "$0" >&2; exit 2 ;;
 esac
