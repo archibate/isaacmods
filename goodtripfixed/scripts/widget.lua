@@ -379,15 +379,20 @@ return function(deps)
             end
           end
         end
-        --residual measured in-game against the game's own mirror-room icon; unlike
-        --the cursor's, the same in the mirror world
-        local gmcoff = Vector(2, 2)
+        --the mirror world draws its icons flipped, and a flipped 16x16 frame hangs left
+        --of its top-left pivot. Offsets measured in-game against the game's own
+        --mirror-room icon, from the room centre snapped to whole pixels
+        local mirror = floor.room:IsMirrorWorld()
+        local gmcoff = mirror and Vector(6, -5) or Vector(-6, -5)
         mic.Scale = Vector(1, 1)
         mic.Color = Color(1, 1, 1, 1, 0, 0, 0)
+        mic.FlipX = mirror
         for key, s in pairs(sum) do
+          local c = s / count[key]
           mic:SetFrame(icon_flag2[iids[key]], 0)
-          mic:Render(s / count[key] + gmcoff - Vector(8, 8), Vector(0, 0), Vector(0, 0)) --16x16 frame, pivot top-left
+          mic:Render(Vector(math.floor(c.X), math.floor(c.Y)) + gmcoff, Vector(0, 0), Vector(0, 0))
         end
+        mic.FlipX = false
         mic.Scale = Vector(mmsc, mmsc)
     end
 
