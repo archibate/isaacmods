@@ -73,7 +73,9 @@ local STEPS = {
     "luamod goodtripfixed",
     "restart 0", 10,
     "debug 3",
+    "debug 10",
     "stage 7", 10,
+    "giveitem c333",
     "giveitem c561",
 }
 
