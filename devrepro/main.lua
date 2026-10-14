@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 10142
+local REV = 10144
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -41,21 +41,14 @@ end
 -- hallucinated ids come from.
 local function dump()
     log("floor: seed %s stage %d", Game():GetSeeds():GetStartSeedString(), Game():GetLevel():GetStage())
-    for i, cb in ipairs(Isaac.GetCallbacks(ModCallbacks.MC_POST_HUD_RENDER)) do
-        log("HUDCB %d mod=%s prio=%s fn=%s", i, tostring(cb.Mod and cb.Mod.Name), tostring(cb.Priority), tostring(cb.Function))
-    end
-    log("HUDCB icons=%s cursor=%s", tostring(gt.widget.gon_draw_map_icons), tostring(gt.widget.gon_draw_map_cursor))
 end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- Oct 11 request (mata): special icons on the game's own map under REPENTOGON.
--- Downpour II: visit every room whose spawn list holds a white fire or a mirror,
--- come back to the start room, then the map is held open from outside with TAB.
-local pending
+-- Oct 9 report (keineahnungking1): "With the cursor on the vanilla game map
+-- feature enabled the cursor is pretty inaccurate." Big revealed floor, game-map
+-- cursor on; the player holds TAB and steers with arrows / the mouse.
 local original
-local targets = {}
-local start_room
 local function restore()
     if original then
         for key, value in pairs(original) do gt:get_config()[key] = value end
@@ -64,102 +57,45 @@ local function restore()
 end
 mod:AddPriorityCallback(ModCallbacks.MC_PRE_GAME_EXIT, CallbackPriority.EARLY - 1, restore)
 
-mod:AddCallback(ModCallbacks.MC_POST_RENDER, function()
-    if pending then
-        local target = pending
-        pending = nil
-        gt.control.check_and_tele_room(target)
-    end
-end)
-
 local function setup()
     local cfg = gt:get_config()
     original = {}
-    for _, key in ipairs({"FastTransition", "TeleportAnimation", "ArriveAtDoor", "AllowAnyRoom", "FairTripPath"}) do
+    for _, key in ipairs({"CursorOnGameMap", "KeyboardMapEnable", "AllowAnyRoom"}) do
         original[key] = cfg[key]
     end
-    cfg.FastTransition, cfg.TeleportAnimation, cfg.ArriveAtDoor = true, false, false
-    cfg.AllowAnyRoom, cfg.FairTripPath = true, false
-    local level = Game():GetLevel()
-    start_room = level:GetCurrentRoomDesc().SafeGridIndex
-    log("ENV rgon=%s stage=%d type=%d effect=%d seed=%s gmc=%s icons=%s", tostring(REPENTOGON),
-        level:GetStage(), level:GetStageType(), gt.floor.stageeffect,
-        Game():GetSeeds():GetStartSeedString(), tostring(cfg.CursorOnGameMap), tostring(cfg.SpecialIconsOnGameMap))
-    targets = {}
-    local rooms = level:GetRooms()
-    for i = 0, rooms.Size - 1 do
-        local rd = rooms:Get(i)
-        if rd.Data.Type == RoomType.ROOM_DEFAULT and rd.SafeGridIndex >= 0 then
-            local spawns = rd.Data.Spawns
-            for j = 0, spawns.Size - 1 do
-                local e = spawns:Get(j):PickEntry(0)
-                if (e.Type == 33 and e.Variant == 4) or (e.Type == 970 and e.Variant == 2) then
-                    log("TARGET %d name=%s shape=%d ent=%d.%d", rd.SafeGridIndex, rd.Data.Name, rd.Data.Shape, e.Type, e.Variant)
-                    table.insert(targets, rd.SafeGridIndex)
-                    break
-                end
-            end
-        end
-    end
-    table.insert(targets, start_room)
+    cfg.CursorOnGameMap, cfg.KeyboardMapEnable, cfg.AllowAnyRoom = true, true, true
+    log("ENV rgon=%s mmapi=%s hudoff=%s gmc=%s calib=%s,%s/%s,%s", tostring(REPENTOGON), tostring(MinimapAPI ~= nil),
+        tostring(Options.HUDOffset), tostring(gt.gamemap.gon_map_cursor()),
+        tostring(cfg.CalibMainX), tostring(cfg.CalibMainY), tostring(cfg.CalibMirrorX), tostring(cfg.CalibMirrorY))
 end
 
-local function tour()
-    local index, age = 1, 0
-    return function()
-        if index > #targets then return false end
-        banner = string.format("hop %d/%d target %d", index, #targets, targets[index])
-        if age == 0 then pending = targets[index] end
-        age = age + 1
-        if age >= 40 then
-            log("AT %d visited=%d", Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex,
-                Game():GetLevel():GetCurrentRoomDesc().VisitedCount)
-            age, index = 0, index + 1
-        end
-        return true
-    end
-end
-
--- sits still long enough for the map to be held open and photographed from outside
-local function hold(name)
-    local age = 0
-    return function()
-        if age == 0 then
-            log("HOLD %s mirror=%s room=%d", name, tostring(Game():GetRoom():IsMirrorWorld()),
-                Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex)
-        end
-        banner = "hold " .. name
-        age = age + 1
-        if age >= 450 then
-            log("HOLD %s end", name)
-            return false
-        end
-        return true
-    end
-end
+-- [GMC] one line whenever the keyboard cell or the mouse cell changes while TAB is held
+local last_key = ""
+mod:AddCallback(ModCallbacks.MC_POST_RENDER, function()
+    if not original or not Input.IsActionPressed(ButtonAction.ACTION_MAP, 0) then return end
+    local w, g = gt.widget, gt.gamemap
+    local kcell = w.mmp_ctrl and w.kb_active and w.cursor_cell() or -1
+    local mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
+    local mcell = g.get_pos_grid_index(mpos)
+    local size = Minimap and Minimap.GetDisplayedSize() or Vector(0, 0)
+    local key = string.format("%d %d %dx%d", kcell, mcell, size.X, size.Y)
+    if key == last_key then return end
+    last_key = key
+    local c = kcell >= 0 and g.cell_to_screen(kcell) or nil
+    log("[GMC] kcell=%d at=%s mcell=%d mouse=%.0f,%.0f map=%dx%d hudoff=%s mirror=%s",
+        kcell, c and string.format("%.0f,%.0f", c.X, c.Y) or "-", mcell, mpos.X, mpos.Y,
+        size.X, size.Y, tostring(Options.HUDOffset), tostring(Game():GetRoom():IsMirrorWorld()))
+end)
 
 local STEPS = {
     "luamod goodtripfixed", 10,
     "restart 0", 10,
-    "debug 3", "debug 10", "stage 2c", 10,
+    "debug 3", "debug 10", "stage 6", 10,
+    "giveitem c333", -- The Mind: whole floor on the map
     setup,
-    tour(),
-    hold("non"),
-    function() gt:get_config().SpecialIconsOnGameMap = false return false end,
-    hold("noff"),
-    function() gt:get_config().SpecialIconsOnGameMap = true return false end,
-    function() Game():ChangeRoom(start_room, 1) return false end, 30,
-    function() Game():ChangeRoom(start_room - 1, 1) return false end, 30,
-    function() Game():ChangeRoom(start_room - 26, 1) return false end, 30,
-    function() Game():ChangeRoom(start_room, 1) return false end, 30,
-    hold("mon"),
-    function() gt:get_config().SpecialIconsOnGameMap = false return false end,
-    hold("moff"),
-    function() gt:get_config().SpecialIconsOnGameMap = true return false end,
-    restore,
 }
 
-local HINT = "Downpour tour done; hold TAB to see the icons."
+local HINT = "Hold TAB, move the cursor with arrows over many rooms, then with the mouse; Esc-exit when done."
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything
