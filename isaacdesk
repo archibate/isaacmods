@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run Isaac on the agent's own desktop (the Xvfb :99 that the `cu` tools drive),
+# Run Isaac on the agent's own desktop (the shared Xvfb :99 agent desktop),
 # so a repro round needs nobody at the real screen. The game is started the way
 # Steam starts it — the sniper runtime around Proton around the REPENTOGON
 # launcher — with a minimal environment built here, never copied from a running
@@ -7,6 +7,7 @@
 #
 #   ./isaacdesk start     launch, press the launcher's button, size the window
 #   ./isaacdesk key F1    one held keypress to the game (a tap is too short for it)
+#   ./isaacdesk shot      capture the game window, print the PNG path
 #   ./isaacdesk stop      close the game window
 #   ./isaacdesk cpu 100   cap the game at that % of one core (`off` lifts the cap)
 #
@@ -199,6 +200,17 @@ key() {
 	cpu "$was"
 }
 
+# the window alone, not the root: its pixels are the ones `xdotool mousemove
+# --window` addresses, and a fresh path each time keeps a failed capture from
+# passing off an older frame
+shot() {
+	local g out
+	g=$(game_window) && [[ -n "$g" ]] || { echo "no game window on $DISPLAY" >&2; exit 1; }
+	out=$(mktemp /tmp/isaacdesk-shot-XXXXXX.png)
+	import -window "$g" "$out"
+	echo "$out"
+}
+
 # the launcher outlives the game and keeps the Wine prefix busy, so it goes too
 stop() {
 	local g
@@ -217,7 +229,8 @@ stop() {
 case "${1:-}" in
 start) start ;;
 key) key "${2:?key name, e.g. F1}" ;;
+shot) shot ;;
 stop) stop ;;
 cpu) cpu "${2:?percent of one core, or off}" ;;
-*) sed -n '2,23p' "$0" >&2; exit 2 ;;
+*) sed -n '2,24p' "$0" >&2; exit 2 ;;
 esac
