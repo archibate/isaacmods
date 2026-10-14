@@ -7,14 +7,13 @@
 #
 #   ./isaacdesk start     launch, press the launcher's button, size the window
 #   ./isaacdesk key F1    one held keypress to the game (a tap is too short for it)
-#   ./isaacdesk shot      capture the game window, print the PNG path
 #   ./isaacdesk stop      close the game window
 #   ./isaacdesk cpu 100   cap the game at that % of one core (`off` lifts the cap)
 #
 # Once its window is up the game is capped at ISAACDESK_CPU (default 10) % of one
 # core: software rendering otherwise takes six cores and the fans with them. The
 # game then runs many times slower, which a devrepro list, counting frames, does
-# not notice; `key` lifts the cap for the press itself, and `stop` for good.
+# not notice; `key` and `stop` lift it to 60% for the press and the shutdown.
 #
 # ISAACDESK_VANILLA=1 ./isaacdesk start runs the plain isaac-ng.exe instead, no
 # REPENTOGON and no launcher: what a player without the extension sees.
@@ -189,10 +188,11 @@ key() {
 		echo "the game does not hold the focus ($focused holds it); $1 not sent" >&2
 		exit 1
 	}
-	# a capped game draws its frames too far apart to see a 0.25 s hold
+	# a capped game draws its frames too far apart to see a 0.25 s hold; 60% is
+	# the most the fans may take without asking, and a higher cap is left alone
 	local was
 	was=$(cpu_now)
-	cpu off
+	[[ "$was" == off ]] || ((was >= 60)) || cpu 60
 	xdotool keydown --clearmodifiers "$1"
 	sleep 0.25
 	xdotool keyup --clearmodifiers "$1"
@@ -200,23 +200,12 @@ key() {
 	cpu "$was"
 }
 
-# the window alone, not the root: its pixels are the ones `xdotool mousemove
-# --window` addresses, and a fresh path each time keeps a failed capture from
-# passing off an older frame
-shot() {
-	local g out
-	g=$(game_window) && [[ -n "$g" ]] || { echo "no game window on $DISPLAY" >&2; exit 1; }
-	out=$(mktemp /tmp/isaacdesk-shot-XXXXXX.png)
-	import -window "$g" "$out"
-	echo "$out"
-}
-
 # the launcher outlives the game and keeps the Wine prefix busy, so it goes too
 stop() {
 	local g
 	if g=$(game_window) && [[ -n "$g" ]]; then
-		# capped, the game would take minutes to shut down
-		cpu off
+		# at 10% the game would take minutes to shut down
+		cpu 60
 		wmctrl -i -c "$g"
 		for _ in $(seq 1 15); do
 			pgrep -f "$GAME_PROC" >/dev/null || break
@@ -229,8 +218,7 @@ stop() {
 case "${1:-}" in
 start) start ;;
 key) key "${2:?key name, e.g. F1}" ;;
-shot) shot ;;
 stop) stop ;;
 cpu) cpu "${2:?percent of one core, or off}" ;;
-*) sed -n '2,24p' "$0" >&2; exit 2 ;;
+*) sed -n '2,23p' "$0" >&2; exit 2 ;;
 esac
