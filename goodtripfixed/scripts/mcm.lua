@@ -375,6 +375,7 @@ return function(deps)
             ["While the room is uncleared and no teleport is possible, keep the teleport map on screen faint and inert instead of hiding it"] = "房间还没清干净, 传送本来就用不了, 这时把传送小窗淡淡地留在原地而不是整个藏起来",
             ["How faint the teleport map is while the room is uncleared (DimMapInCombat)"] = "战斗中传送小窗淡到什么程度, 百分比, 最低 5% 免得看不见",
             ["Show an icon on rooms you have visited that have mirror, white fireplace, minecart, mine button, or tinted skull"] = "在待过的房间上标出镜子, 白火, 矿车, 矿洞按钮, 暗色骷髅",
+            ["Show the same icons on the game's own map (needs REPENTOGON)"] = "把这些图标也画在游戏右上角的原版地图上 (需要 REPENTOGON)",
             ["Warn on screen while another GoodTrip is loaded beside this one. They fight over the same name, so keep only one, unless you know why you want both"] = "旁边还开着另一个 GoodTrip 时, 在屏幕上提示. 两者会抢同一个名字, 所以只留一个, 除非你清楚自己为什么要都开着",
             ["weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors"] = "检测到我的另一个 mod 'Dangerous room! Caution' 时, 用颜色标出危险房间",
             ["Play cool animation on teleport"] = "传送时播放动画",
