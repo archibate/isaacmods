@@ -529,6 +529,8 @@ return function(deps)
     --can_trip: the teleport cooldown has run out, so a one-step move may queue a trip
     function M.mmp_ctrl_move(can_trip)
         local player = floor.player
+        local raw_spd = type(cfg.CursorSpeed) == "number" and cfg.CursorSpeed or 10
+        local cspd = math.min(math.max(raw_spd, 5), 30) / 10
         for i = 1,4 do
           if cfg.QuicklyOneRoomMove then
             if Input.IsActionTriggered(config.movkey[i], player.ControllerIndex) then
@@ -548,7 +550,7 @@ return function(deps)
             if Input.IsActionPressed(config.key[i], player.ControllerIndex) then
               if fast_move_cd[i] <= 0 then
                 mmp_ctrl_pos = clamp_ctrl_pos(mmp_ctrl_pos + M.mirror_mmp_dir(config.dir[i]) * Vector(8, 7) * mmsc)
-                fast_move_cd[i] = FAST_MOVE_REPEAT_FRAMES
+                fast_move_cd[i] = math.max(1, math.floor(FAST_MOVE_REPEAT_FRAMES / cspd + 0.5))
               else
                 fast_move_cd[i] = fast_move_cd[i] - 1
               end
@@ -557,7 +559,7 @@ return function(deps)
             end
           else
             if Input.IsActionPressed(config.key[i], player.ControllerIndex) then
-              local step = M.mirror_mmp_dir(config.dir[i]) * mmsc
+              local step = M.mirror_mmp_dir(config.dir[i]) * mmsc * cspd
               if gamemap.gon_map_cursor() then
                 step = step * Vector(8 / 17, 7 / 15) --game-map cells are 17x15, the widget's 8x7
               end

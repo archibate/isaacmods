@@ -19,6 +19,7 @@ return function(deps)
         FastTransition = false,
         NoShootWhenClick = true,
         FasterCursorMove = false,
+        CursorSpeed = 10,
         CursorOnGameMap = false,
         DimMapInCombat = true,
         DimMapAlpha = 35,

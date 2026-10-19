@@ -189,6 +189,25 @@ return function(deps)
     ModConfigMenu.AddSetting(
       "GoodTrip [Fixed]", "Controls",
       {
+        Type = ModConfigMenu.OptionType.NUMBER,
+        Minimum = 5,
+        Maximum = 30,
+        Default = 10,
+        CurrentSetting = function()
+          return cfg.CursorSpeed or 10
+        end,
+        Display = function()
+          return ("CursorSpeed: x%.1f"):format((cfg.CursorSpeed or 10) / 10)
+        end,
+        OnChange = function(b)
+          cfg.CursorSpeed = b
+        end,
+        Info = { "Map cursor movement speed, x0.5 (slow) to x1.0 (default) up to x3.0" },
+      }
+    )
+    ModConfigMenu.AddSetting(
+      "GoodTrip [Fixed]", "Controls",
+      {
         Type = ModConfigMenu.OptionType.BOOLEAN,
         CurrentSetting = function()
           return cfg["SwapAnalogSticks"]
@@ -341,6 +360,7 @@ return function(deps)
             { "^ArriveAtDoor:", "传送后站在门口:" },
             { "^FastTransition:", "更快的过场:" },
             { "^FasterCursorMove:", "光标整格移动:" },
+            { "^CursorSpeed:", "光标移动速度:" },
             { "^IgnoreMovementKeys:", "走路时不打断瞄准:" },
             { "^QuicklyOneRoomMove:", "TAB+ASWD 走一格:" },
             { "^NoShootWhenClick:", "点击传送时不开火:" },
@@ -379,9 +399,10 @@ return function(deps)
             ["Warn on screen while another GoodTrip is loaded beside this one. They fight over the same name, so keep only one, unless you know why you want both"] = "旁边还开着另一个 GoodTrip 时, 在屏幕上提示. 两者会抢同一个名字, 所以只留一个, 除非你清楚自己为什么要都开着",
             ["weather to work with my other mod 'Dangerous room! Caution' (if detected) by indicate dangerous room by colors"] = "检测到我的另一个 mod 'Dangerous room! Caution' 时, 用颜色标出危险房间",
             ["Play cool animation on teleport"] = "传送时播放动画",
-            ["Arrive standing at the exact door a walk would have come in by"] = "传送后站在正常走过去会进来的那道门边",
+            ["Arrive standing at the exact door a walk would have come in by. A far trip into a room bigger than the screen passes through the room before it, which shows for a moment"] = "传送后站在正常走过去会进来的那道门边. 传进比屏幕还大的房间时会先路过前一个房间, 那一瞬间看得见",
             ["Even faster transition without animation"] = "连过场动画也省掉, 房间切换更快",
             ["Move cursor faster in keyboard minimap by press arrow keys once instead of having to hold them"] = "方向键按一下光标就跳一整格, 按住则连续跳, 不必一直按着慢慢挪",
+            ["Map cursor movement speed, x0.5 (slow) to x1.0 (default) up to x3.0"] = "地图光标移动速度, x0.5 慢, x1.0 默认, 最大 x3.0",
             ["Keep moving the map cursor while you walk, instead of pausing it until you let go"] = "走路时光标继续跟着方向键动, 而不是等你松手",
             ["Quickly teleport using TAB + ASWD"] = "按住 TAB 用 ASWD 一次走一个房间",
             ["Disable shoot when teleporting via TAB + Click"] = "按住 TAB 点地图时不会顺手打出眼泪",
