@@ -150,7 +150,8 @@ return function(deps)
           local grow = (gi - gcol) / 13
           local x0 = ox + (fcol - gcol) * pw * sx
           local y0 = oy + (frow - grow) * ph
-          return Vector(x0 + pw * sx / 2, y0 + ph / 2), (large and 2 or 1)
+          --large cells are the vanilla map's 17x15, so the same cursor size as there
+          return Vector(x0 + pw * sx / 2, y0 + ph / 2), (large and 1 or 0.5)
         end
         local ltx, lty, mirrorsum = vanilla_map_anchors()
         local mir = floor.room:IsMirrorWorld()
