@@ -861,7 +861,9 @@ function mod:renderOverlay(player)
     local aimMode = AimMode.AIM_TEAR
     local shootMode = ShootMode.SHOOT_AUTO
     if player:HasCollectible(CollectibleType.COLLECTIBLE_MARKED)
-        or player:HasCollectible(CollectibleType.COLLECTIBLE_C_SECTION)
+        -- the fetuses home, but a brimstone beam still fires alongside them
+        or (player:HasCollectible(CollectibleType.COLLECTIBLE_C_SECTION)
+            and not player:HasWeaponType(WeaponType.WEAPON_BRIMSTONE))
         or player:HasCollectible(CollectibleType.COLLECTIBLE_EPIC_FETUS)
         or player:HasCollectible(CollectibleType.COLLECTIBLE_EYE_OF_THE_OCCULT)
     -- or player:HasCollectible(CollectibleType.COLLECTIBLE_TRACTOR_BEAM)

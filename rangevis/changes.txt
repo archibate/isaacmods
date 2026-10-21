@@ -1,0 +1,1 @@
+- Azazel (and anyone with Brimstone) keeps the range indicator after picking up C Section: the beam still fires alongside the fetuses, so its reach is shown again — thanks @Toast for the report!
