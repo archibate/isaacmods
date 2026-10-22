@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 10144
+local REV = 10147
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -45,9 +45,9 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- Oct 9 report (keineahnungking1): "With the cursor on the vanilla game map
--- feature enabled the cursor is pretty inaccurate." Big revealed floor, game-map
--- cursor on; the player holds TAB and steers with arrows / the mouse.
+-- Oct 21 report (mata): "the cursor on map works weirdly if minimapi is
+-- installed, the cursor is gigantic". MinimapAPI on, game-map cursor on, a
+-- revealed floor; hold TAB and tap an arrow.
 local original
 local function restore()
     if original then
@@ -64,27 +64,22 @@ local function setup()
         original[key] = cfg[key]
     end
     cfg.CursorOnGameMap, cfg.KeyboardMapEnable, cfg.AllowAnyRoom = true, true, true
-    log("ENV rgon=%s mmapi=%s hudoff=%s gmc=%s calib=%s,%s/%s,%s", tostring(REPENTOGON), tostring(MinimapAPI ~= nil),
-        tostring(Options.HUDOffset), tostring(gt.gamemap.gon_map_cursor()),
-        tostring(cfg.CalibMainX), tostring(cfg.CalibMainY), tostring(cfg.CalibMirrorX), tostring(cfg.CalibMirrorY))
+    log("ENV rgon=%s mmapi=%s", tostring(REPENTOGON), tostring(MinimapAPI ~= nil))
 end
 
--- [GMC] one line whenever the keyboard cell or the mouse cell changes while TAB is held
+-- [GMC] one line whenever the keyboard cell changes while TAB is held
 local last_key = ""
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, function()
     if not original or not Input.IsActionPressed(ButtonAction.ACTION_MAP, 0) then return end
     local w, g = gt.widget, gt.gamemap
     local kcell = w.mmp_ctrl and w.kb_active and w.cursor_cell() or -1
-    local mpos = Isaac.WorldToScreen(Input.GetMousePosition(true))
-    local mcell = g.get_pos_grid_index(mpos)
-    local size = Minimap and Minimap.GetDisplayedSize() or Vector(0, 0)
-    local key = string.format("%d %d %dx%d", kcell, mcell, size.X, size.Y)
+    local key = string.format("%d %s", kcell, tostring(MinimapAPI and MinimapAPI:IsLarge()))
     if key == last_key then return end
     last_key = key
-    local c = kcell >= 0 and g.cell_to_screen(kcell) or nil
-    log("[GMC] kcell=%d at=%s mcell=%d mouse=%.0f,%.0f map=%dx%d hudoff=%s mirror=%s",
-        kcell, c and string.format("%.0f,%.0f", c.X, c.Y) or "-", mcell, mpos.X, mpos.Y,
-        size.X, size.Y, tostring(Options.HUDOffset), tostring(Game():GetRoom():IsMirrorWorld()))
+    local c, s
+    if kcell >= 0 then c, s = g.cell_to_screen(kcell) end
+    log("[GMC] kcell=%d at=%s scale=%s large=%s", kcell, c and string.format("%.0f,%.0f", c.X, c.Y) or "-",
+        tostring(s), tostring(MinimapAPI and MinimapAPI:IsLarge()))
 end)
 
 local STEPS = {
@@ -95,7 +90,7 @@ local STEPS = {
     setup,
 }
 
-local HINT = "Hold TAB, move the cursor with arrows over many rooms, then with the mouse; Esc-exit when done."
+local HINT = "Hold TAB, tap an arrow: look at the cursor size; Esc-exit when done."
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything
