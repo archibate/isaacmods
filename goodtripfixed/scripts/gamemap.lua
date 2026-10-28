@@ -145,9 +145,9 @@ return function(deps)
             ox = ox + pivot.X * 2
           end
           local oy = ref.RenderOffset.Y - pivot.Y
-          local gi = ref.Descriptor.GridIndex
-          local gcol = gi % 13
-          local grow = (gi - gcol) / 13
+          --RenderOffset is drawn from MinimapAPI's Position, not GridIndex: an
+          --LTL room's Position is one cell right of its GridIndex
+          local gcol, grow = ref.Position.X, ref.Position.Y
           local x0 = ox + (fcol - gcol) * pw * sx
           local y0 = oy + (frow - grow) * ph
           --large cells are the vanilla map's 17x15, so the same cursor size as there

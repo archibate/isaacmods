@@ -4,3 +4,4 @@
 - Fixed the keyboard cursor not drawing on the game's own map when Boss Route Planner is installed (thank @keineahnungking1 for the report!).
 - Added a cursor speed setting from x0.5 to x3.0 in MCM Controls and gtconfig.lua (CursorSpeed; thank @mata for the request!).
 - Fixed the keyboard cursor drawing twice too large on the game's map when MinimapAPI is installed (thank @mata for the report!).
+- Fixed the keyboard cursor jumping one cell sideways over L-shaped rooms on the game's map when MinimapAPI is installed (thank @mata for the report!).
