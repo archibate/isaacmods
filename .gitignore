@@ -7,3 +7,6 @@
 
 # Bytecode dropped by `luac` when it is asked to compile rather than just check
 /luac.out
+
+# Per-machine mod toggle the game reads; never part of a mod's source
+disable.it

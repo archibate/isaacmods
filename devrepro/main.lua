@@ -20,7 +20,7 @@ local mod = RegisterMod("devrepro", 1)
 -- which copy of this file the game is actually running. Bump it with any edit worth
 -- reading a log for: a run that logs nothing new is otherwise indistinguishable from
 -- a run whose reload never happened
-local REV = 10147
+local REV = 10148
 Isaac.DebugString(string.format("[DEVREPRO] rev %d screen %dx%d", REV, Isaac.GetScreenWidth(), Isaac.GetScreenHeight()))
 
 -- when no key can reach the game (the vanilla exe on the agent's desktop never
@@ -45,9 +45,9 @@ end
 
 local banner = "" -- what the run is doing right now, drawn on screen for the watcher
 
--- Oct 21 report (mata): "the cursor on map works weirdly if minimapi is
--- installed, the cursor is gigantic". MinimapAPI on, game-map cursor on, a
--- revealed floor; hold TAB and tap an arrow.
+-- Oct 28 report (mata): "cursor tends to jump/jitter on L rooms with minimapi".
+-- MinimapAPI on, game-map cursor on, the player inside an L room missing its
+-- top-left cell (LTL); hold TAB and move the cursor across that room.
 local original
 local function restore()
     if original then
@@ -57,6 +57,42 @@ local function restore()
 end
 mod:AddPriorityCallback(ModCallbacks.MC_PRE_GAME_EXIT, CallbackPriority.EARLY - 1, restore)
 
+local ltl -- the LTL room's descriptor once a floor has one
+
+-- reseed until the floor has an LTL room, then walk into it
+local reseed_wait = 0
+local function find_ltl()
+    if reseed_wait > 0 then
+        reseed_wait = reseed_wait - 1
+        return true
+    end
+    local rooms = Game():GetLevel():GetRooms()
+    for i = 0, rooms.Size - 1 do
+        local rd = rooms:Get(i)
+        if rd.Data.Shape == RoomShape.ROOMSHAPE_LTL then
+            ltl = rd
+            log("LTL gi=%d safe=%d seed %s", rd.GridIndex, rd.SafeGridIndex, Game():GetSeeds():GetStartSeedString())
+            Game():StartRoomTransition(rd.SafeGridIndex, Direction.NO_DIRECTION, RoomTransitionAnim.TELEPORT)
+            return false
+        end
+    end
+    Isaac.ExecuteCommand("reseed")
+    reseed_wait = 10
+    return true
+end
+
+-- every cell of the LTL room: where the cursor is drawn for it, and which room
+-- MinimapAPI's own hit test finds under that point
+local function sweep()
+    local g = gt.gamemap
+    for _, cell in ipairs({ ltl.GridIndex + 1, ltl.GridIndex + 13, ltl.GridIndex + 14 }) do
+        local c = g.cell_to_screen(cell)
+        local hit = c and g.get_pos_grid_index_minimapapi(c) or -99
+        log("[SWEEP] cell=%d drawn=%s hit=%d want=%d %s", cell, c and string.format("%.1f,%.1f", c.X, c.Y) or "-",
+            hit, ltl.SafeGridIndex, hit == ltl.SafeGridIndex and "ok" or "MISS")
+    end
+end
+
 local function setup()
     local cfg = gt:get_config()
     original = {}
@@ -65,9 +101,11 @@ local function setup()
     end
     cfg.CursorOnGameMap, cfg.KeyboardMapEnable, cfg.AllowAnyRoom = true, true, true
     log("ENV rgon=%s mmapi=%s", tostring(REPENTOGON), tostring(MinimapAPI ~= nil))
+    sweep()
 end
 
--- [GMC] one line whenever the keyboard cell changes while TAB is held
+-- [GMC] one line whenever the keyboard cell changes while TAB is held, with the
+-- hit test of the drawn point: a MISS is a cursor drawn off its own room
 local last_key = ""
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, function()
     if not original or not Input.IsActionPressed(ButtonAction.ACTION_MAP, 0) then return end
@@ -76,21 +114,26 @@ mod:AddCallback(ModCallbacks.MC_POST_RENDER, function()
     local key = string.format("%d %s", kcell, tostring(MinimapAPI and MinimapAPI:IsLarge()))
     if key == last_key then return end
     last_key = key
-    local c, s
+    local c, s, hit
     if kcell >= 0 then c, s = g.cell_to_screen(kcell) end
-    log("[GMC] kcell=%d at=%s scale=%s large=%s", kcell, c and string.format("%.0f,%.0f", c.X, c.Y) or "-",
-        tostring(s), tostring(MinimapAPI and MinimapAPI:IsLarge()))
+    if c then hit = g.get_pos_grid_index_minimapapi(c) end
+    local want = gt.floor.grid_room[kcell]
+    want = want and want.SafeGridIndex or -1
+    log("[GMC] kcell=%d at=%s scale=%s large=%s hit=%s want=%d %s", kcell,
+        c and string.format("%.0f,%.0f", c.X, c.Y) or "-", tostring(s), tostring(MinimapAPI and MinimapAPI:IsLarge()),
+        tostring(hit), want, hit == want and "ok" or "MISS")
 end)
 
 local STEPS = {
     "luamod goodtripfixed", 10,
     "restart 0", 10,
     "debug 3", "debug 10", "stage 6", 10,
-    "giveitem c333", -- The Mind: whole floor on the map
+    find_ltl, 30,
+    "giveitem c333", 10, -- The Mind: whole floor on the map
     setup,
 }
 
-local HINT = "Hold TAB, tap an arrow: look at the cursor size; Esc-exit when done."
+local HINT = "Hold TAB, move the cursor across the L room; Esc-exit when done."
 
 -- carries which key was pressed across the reload that brought this copy in; a
 -- plain game start finds it absent and sits still rather than replaying anything
