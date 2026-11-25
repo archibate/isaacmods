@@ -1,2 +1,10 @@
+- Added a REPENTOGON route planner that prioritizes fewer curse-door hits and changes directly to the destination room. Vanilla uses the previous GoodTrip [Fixed] implementation.
+- Restored room transition attempts after lethal curse-door damage.
+- Fixed fast travel from cleared boss rooms when the room descriptor's grid index differs from the actual map cell.
+- Prevented co-op ghosts from starting a fast trip, including requests that reach the host after the player becomes a ghost.
+- Added IsaacCS co-op support. Guests can select destinations on their local map and request a trip. The host validates and executes the trip, and special room icons are shared.
+- Made the IsaacCS guest map respect the Curse of the Lost setting.
+- Fixed challenge room health checks counting black hearts twice.
+- Prevented accidental shots while holding the map key on REPENTOGON, including for IsaacCS guests.
 - Fixed the controller fast-restart button ignoring the FastRestartEnable switch: turning it off only disabled the R key, so a bound ControllerAlternateR still restarted the run — including while paging item descriptions with EID (thanks @TesKwokin for the report!)
 - New: move the map cursor with the left stick instead of the right one (MCM: SwapAnalogSticks), so characters that shoot on aim don't fire while you pick a room — thanks @FatPorpoise for the pull request and @Gokudera ElPsyCongroo for the request!
